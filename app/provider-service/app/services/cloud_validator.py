@@ -43,7 +43,7 @@ class GCPValidator(CloudValidator):
 
             final_creds.refresh(Request())
 
-            return final_creds.get("private_key")
+            return True
 
         except (GoogleAuthError, ValueError, Exception):
             return False
@@ -57,7 +57,7 @@ class AzureValidator(CloudValidator):
         client_secret = credentials.get("client_secret")
         subscription_id = credentials.get("subscription_id")
 
-        if not all(tenant_id, client_id, client_secret, subscription_id):
+        if not all([tenant_id, client_id, client_secret, subscription_id]):
             return False
 
         token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"

@@ -1,5 +1,5 @@
 class ProviderError(Exception):
-    """Base business error for provider-service."""
+    pass
 
 
 class InvalidCredentials(ProviderError):

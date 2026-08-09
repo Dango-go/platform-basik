@@ -3,6 +3,7 @@ from typing import Dict, Optional, Any
   
 
 # api_key in headers for authentication
+# used data_json like dict bcs httpx require it
 
 class ServiceClient:
     def __init__ (self, url: str, apikey: str, data_json: Optional[Dict] = None):

@@ -13,7 +13,7 @@ class provider_usecase:
 
         # Fields from json_data
         self.user_id = self.data.get("user_id")
-        self.alias = self.data.get("alias")
+        self.alias = self.data.get("alias") #don't used get() bcs Pydantic haven't get() method. So used '.' for get field.  
         self.provider_type = self.data.get("provider_type")
         self.credentials = self.data.get("credentials")
 

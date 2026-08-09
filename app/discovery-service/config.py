@@ -2,13 +2,16 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    API_SERVICE_NAME: str = "Provider Service"
+    API_SERVICE_NAME: str = "Cluster Discovery Service"
     API_V1: str = "/api/v1"
-    POSTGRES_USER: str = "provider-admin"
+    POSTGRES_USER: str = "discovery-admin"
     POSTGRES_PASSWORD: str = "0000011111"
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: int = 5432
-    POSTGRES_DB_NAME: str = "users_metadata"
+    POSTGRES_DB_NAME: str = "discovery_db"
+
+    PROVIDER_SERVICE_URL: str = "http://localhost:8001"
+    VAULT_SERVICE_URL: str = "http://localhost:8080"
 
     @property
     def DB_URL(self) -> str:
@@ -19,10 +22,5 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
         extra = "ignore"
 
-# Default attributes 
+
 settings = Settings()
-
-
-
-
-
