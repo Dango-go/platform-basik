@@ -1,0 +1,51 @@
+from pydantic import BaseModel, Field
+from typing import Optional
+
+
+#{
+  #"cluster_name": "my-local-lenovo",
+  #"api_server_url": "https://192.168.1.50:6443",
+  #"auth_token": "eyJhbGciOiJSUzI1NiIs..."
+#}
+
+class ClusterdataRequest(BaseModel):
+    cluster_name: str = Field(..., description="Name of the cluster")
+    api_server_url: str = Field(..., description="API server URL of the cluster")
+    auth_token: Optional[str] = Field(None, description="Authentication token for the cluster (optional)")
+
+#{
+  #"chart_repo_url": "https://charts.bitnami.com/bitnami",
+  #"chart_name": "postgresql",
+  #"chart_version": "13.1.5",
+  #"release_name": "my-postgres-db"
+#}
+class InstallRequest(BaseModel):
+    chart_repo_url: str = Field(..., description="Repository URL of the chart")
+    chart_name: str = Field(..., description="Chart name to be installed")
+    chart_version: str = Field(..., description="Chart version to be installed")
+    release_name: str = Field(..., description="Unique name of the release to be installed")
+
+#{
+  #"release_name": "my-postgres-db",
+  #"file_path": "values.yaml",
+  #"content": "replicaCount: 2\nimage:\n  repository: postgres\n  tag: 16-alpine\n"
+#}
+class FileSaveRequest(BaseModel):
+    release_name: str = Field(..., description="Name of the release for which the file is being saved")
+    file_path: str = Field(..., description="Path to the file being edited, e.g., values.yaml")
+    content: str = Field(..., description="New content of the file from the virtual editor")
+
+# {
+  #"cluster_id": 1,
+  #"release_name": "my-postgres-db"
+#}
+class ApplyRequest(BaseModel):
+    cluster_id: int = Field(..., description="ID of the cluster where the release is being saved")
+    release_name: str = Field(..., description="Name of the release being saved")
+
+
+class ClusterResponse(BaseModel):
+ 
+
+    class Config:
+        from_attributes = True
