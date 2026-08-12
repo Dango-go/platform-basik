@@ -1,8 +1,7 @@
 .venv/
-**/.venv/
-**/*.txt
-**/*.tfstate
-**/.env
-**/*.env
-**/env
-**/*env
+env/
+venv/
+.env
+*.env
+*.tfstate
+*.txt
