@@ -50,14 +50,12 @@ class ChartManager:
 
         target_file = self.base_temp_dir / release_name / file_path
         if not target_file.exists():
-            raise FileNotFoundError(f"Файл {file_path} для релізу {release_name} не знайдено.")
+            raise FileNotFoundError(f"File {file_path} from release {release_name} not found.")
         
         return target_file.read_text(encoding="utf-8")
 
     async def save_chart_file(self, release_name: str, file_path: str, content: str) -> str:
-        """
-        Зберігає/перезаписує файл (наприклад, кастомний values.yaml) новими даними.
-        """
+ 
         target_file = self.base_temp_dir / release_name / file_path
         if not target_file.parent.exists():
             target_file.parent.mkdir(parents=True, exist_ok=True)

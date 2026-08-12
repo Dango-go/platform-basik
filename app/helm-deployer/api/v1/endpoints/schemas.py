@@ -7,7 +7,7 @@ from typing import Optional
   #"api_server_url": "https://192.168.1.50:6443",
   #"auth_token": "eyJhbGciOiJSUzI1NiIs..."
 #}
-
+# CLUSTER DATA
 class ClusterdataRequest(BaseModel):
     cluster_name: str = Field(..., description="Name of the cluster")
     api_server_url: str = Field(..., description="API server URL of the cluster")
@@ -19,6 +19,7 @@ class ClusterdataRequest(BaseModel):
   #"chart_version": "13.1.5",
   #"release_name": "my-postgres-db"
 #}
+# INSTALL
 class InstallRequest(BaseModel):
     chart_repo_url: str = Field(..., description="Repository URL of the chart")
     chart_name: str = Field(..., description="Chart name to be installed")
@@ -30,6 +31,7 @@ class InstallRequest(BaseModel):
   #"file_path": "values.yaml",
   #"content": "replicaCount: 2\nimage:\n  repository: postgres\n  tag: 16-alpine\n"
 #}
+# SAVE FILE
 class FileSaveRequest(BaseModel):
     release_name: str = Field(..., description="Name of the release for which the file is being saved")
     file_path: str = Field(..., description="Path to the file being edited, e.g., values.yaml")
@@ -39,6 +41,7 @@ class FileSaveRequest(BaseModel):
   #"cluster_id": 1,
   #"release_name": "my-postgres-db"
 #}
+# APPLY
 class ApplyRequest(BaseModel):
     cluster_id: int = Field(..., description="ID of the cluster where the release is being saved")
     release_name: str = Field(..., description="Name of the release being saved")
