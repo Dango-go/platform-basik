@@ -9,25 +9,26 @@ from services.helm_deployer.kubeconfig_builder import KubeconfigBuilder
 from services.helm_deployer.runner import HelmRunner
 
 
-class HelmDeployerService:
-    def __init__(self, db_session: Optional[AsyncSession] = None):
-        self.db = db_session
+
+class HelmService:
+    def __init__(self, db_session: AsyncSession):
+        self.db_session = db_session
         self.chart_manager = ChartManager()
         self.kubeconfig_builder = KubeconfigBuilder()
-        self.runner = HelmRunner()
+        self.helm_runner = HelmRunner()
         self.validator = HelmValidator()
 
-    async def prepare_and_unpack_chart(
+    # INSTALL AND UNPACK CHART
+    async def get_and_unpack(
         self,
         chart_repo_url: str,
         chart_name: str,
         chart_version: str,
-        release_name: str
-    ) -> str:
-        """
-        Pulls and unpacks the Helm chart into a local temporary directory.
-        """
+        release_name: str   
+    ):
         self.validator.validate_release_name(release_name)
+
+
         chart_dir = await self.chart_manager.pull_and_unpack_chart(
             repo_url=chart_repo_url,
             chart_name=chart_name,
@@ -35,45 +36,35 @@ class HelmDeployerService:
             release_name=release_name
         )
         self.validator.validate_chart_directory(chart_dir)
+
         return chart_dir
 
-    async def read_chart_file(self, release_name: str, file_path: str = "values.yaml") -> str:
-        """
-        Reads and returns the content of a file from the unpacked chart directory.
-        """
+    async def read_chart_file(self, release_name: str, file_path: str = "values.yaml"):
         self.validator.validate_release_name(release_name)
         return await self.chart_manager.read_chart_file(release_name=release_name, file_path=file_path)
 
-    async def save_chart_file(self, release_name: str, file_path: str, content: str) -> str:
-        """
-        Validates YAML syntax and saves/overwrites the file (e.g., values.yaml).
-        """
+
+    async def save_chart_file(self, release_name: str, file_path: str, content: str):
         self.validator.validate_release_name(release_name)
+
         if file_path.endswith(".yaml") or file_path.endswith(".yml"):
             self.validator.validate_yaml_content(content)
 
+        # SAVE FILE
         return await self.chart_manager.save_chart_file(
             release_name=release_name,
             file_path=file_path,
             content=content
         )
 
-    async def dry_run_validate(
-        self,
-        release_name: str,
-        chart_name: str,
-        values_file: Optional[str] = None
-    ) -> str:
-        """
-        Performs dry-run template rendering via 'helm template' to validate manifests.
-        """
+    async def check_template(self, release_name: str, chart_name: str, values_file: Optional[str] = None):
         self.validator.validate_release_name(release_name)
         chart_dir = self.chart_manager.base_temp_dir / release_name / chart_name
         if not chart_dir.exists():
             chart_dir = self.chart_manager.base_temp_dir / release_name
-            
+
         self.validator.validate_chart_directory(str(chart_dir))
-        return await self.runner.template(
+        return await self.helm_runner.template(
             chart_path=str(chart_dir),
             release_name=release_name,
             values_file=values_file
@@ -89,90 +80,87 @@ class HelmDeployerService:
         token: str,
         user_name: str = "cluster-admin",
         namespace: str = "default",
-        custom_values_file: Optional[str] = None
-    ) -> str:
-        """
-        Validates the release, generates a temporary kubeconfig, and executes 'helm upgrade --install'.
-        """
+        target_values_file: Optional[str] = None
+    ):
         self.validator.validate_release_name(release_name)
         self.validator.validate_namespace(namespace)
 
-        chart_dir = self.chart_manager.base_temp_dir / release_name / chart_name
-        if not chart_dir.exists():
-            chart_dir = self.chart_manager.base_temp_dir / release_name
+        chart_path = self.chart_manager.base_temp_dir / release_name / chart_name
+        if not chart_path.exists():
+            chart_path = self.chart_manager.base_temp_dir / release_name
 
-        self.validator.validate_chart_directory(str(chart_dir))
+        self.validator.validate_chart_directory(str(chart_path))
 
-        # Create temporary kubeconfig file
-        kubeconfig_path = await self.kubeconfig_builder.create_kubeconfig_file(
-            cluster_name=cluster_name,
-            release_name=release_name,
-            ca_cert_data=ca_cert_data,
-            api_server_url=api_server_url,
-            token=token,
-            user_name=user_name,
-            namespace=namespace
+        
+        """Creating kubeconfig path and generating content in kubeconfig file. After uprgrade chart - delete kubeconfig file"""
+        kubeconfig_path = await self.kubeconfig_builder.fast_creating(
+        cluster_name=cluster_name,
+        release_name=release_name,
+        ca_cert_data=ca_cert_data,
+        api_server_url=api_server_url,
+        token=token,
+        user_name=user_name,
+        namespace=namespace
         )
 
         try:
-            # Execute helm upgrade --install
-            result = await self.runner.upgrade_install(
+            result = await self.helm_runner.upgrade_install(
                 release_name=release_name,
-                chart_path=str(chart_dir),
+                chart_path=chart_path,
                 kubeconfig_path=str(kubeconfig_path),
                 namespace=namespace,
-                values_file=custom_values_file
+                values_file=target_values_file
             )
             return result
         finally:
-            # Clean up temporary kubeconfig file
             if kubeconfig_path.exists():
                 try:
                     kubeconfig_path.unlink()
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"Error occurred while unlinking kubeconfig: {e}")
 
-    async def delete_release(
+
+    async def rm_release(
         self,
         cluster_name: str,
         release_name: str,
-        api_server_url: str,
-        ca_cert_data: str,
+        ca_cert_data: str, 
+        api_server_url: str, 
         token: str,
-        user_name: str = "cluster-admin",
-        namespace: str = "default"
-    ) -> str:
-        """
-        Uninstalls a release from the Kubernetes cluster and cleans up local temporary chart files.
-        """
-        self.validator.validate_release_name(release_name)
+        user_name: str,
+        namespace: str = "default",
+    ):
 
-        kubeconfig_path = await self.kubeconfig_builder.create_kubeconfig_file(
-            cluster_name=cluster_name,
-            release_name=release_name,
-            ca_cert_data=ca_cert_data,
-            api_server_url=api_server_url,
-            token=token,
-            user_name=user_name,
-            namespace=namespace
-        )
+        self.validator.validate_release_name(release_name)
+        self.validator.validate_namespace(namespace)
+
+        kubeconfig_path = await self.kubeconfig_builder.fast_creating(
+        cluster_name=cluster_name,
+        release_name=release_name,
+        ca_cert_data=ca_cert_data,
+        api_server_url=api_server_url,
+        token=token,
+        user_name=user_name,
+        namespace=namespace
+        ) #-> str
 
         try:
-            result = await self.runner.uninstall(
+            unistalled = await self.helm_runner.uninstall(
                 release_name=release_name,
                 kubeconfig_path=str(kubeconfig_path),
                 namespace=namespace
             )
 
-            # Clean up unpacked chart folder
-            release_dir = self.chart_manager.base_temp_dir / release_name
-            if release_dir.exists():
-                shutil.rmtree(release_dir, ignore_errors=True)
+            reliase_dir = self.chart_manager.base_temp_dir / release_name
 
-            return result
+            if reliase_dir.exists():
+                shutil.rmtree(reliase_dir, ignore_errors=True)
+
+            return unistalled
+
         finally:
             if kubeconfig_path.exists():
                 try:
                     kubeconfig_path.unlink()
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"Error occurred while unlinking kubeconfig: {e}")

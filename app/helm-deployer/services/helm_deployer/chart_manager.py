@@ -42,10 +42,10 @@ class ChartManager:
         if chart_extracted_path.exists():
             return str(chart_extracted_path)    
         
-        return str(release_dir)
+        return str(release_dir)  # return str(path_to_file)
     
 
-    # read and return content of file  
+    # READ AND RETURN content of file  
     async def read_chart_file(self, release_name: str, file_path: str) -> str:
 
         target_file = self.base_temp_dir / release_name / file_path
@@ -54,6 +54,7 @@ class ChartManager:
         
         return target_file.read_text(encoding="utf-8")
 
+    # SAVE   
     async def save_chart_file(self, release_name: str, file_path: str, content: str) -> str:
  
         target_file = self.base_temp_dir / release_name / file_path

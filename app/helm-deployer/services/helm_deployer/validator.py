@@ -1,7 +1,7 @@
 import re
 import yaml
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 
 
 class HelmValidator:

@@ -63,8 +63,10 @@ class KubeconfBuilder:
         user_name: str,
         namespace: str = "default"
         ): 
+            # CREATING FILE PATH FOR KUBECONFIG
             file_path = self.base_dir / f"kubeconfig_{release_name}.yaml"
 
+            # CREATING KUBECONFIG CONTENT
             yaml_content = self.generating_kubeconfig(
                 cluster_name = cluster_name,
                 api_server_url =  api_server_url,
@@ -76,7 +78,7 @@ class KubeconfBuilder:
             async with aiofiles.open(file_path, mode="w", encoding="utf-8") as f:
                 await f.write(yaml_content)
 
-            return file_path  # return path/to/kubeconfig
+            return file_path  # return "path/to/kubeconfig"
 
 
     @asynccontextmanager
