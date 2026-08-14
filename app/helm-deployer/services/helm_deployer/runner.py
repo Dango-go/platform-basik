@@ -12,7 +12,7 @@ class HelmRunner:
         try:
             process = await asyncio.create_subprocess_exec(
                 *cmd, # always get list commands from object
-                stdout=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,   # buffers to save stdout and stderr this proccess
                 stderr=asyncio.subprocess.PIPE
             )
 
@@ -84,7 +84,9 @@ class HelmRunner:
 
         cmd.extend(["--timeout", f"{timeout}s"])
 
+        # Return list in method _run_command
         return await self._run_command(cmd, timeout=timeout + 30)
+        
 
     async def uninstall(
         self,

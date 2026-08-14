@@ -11,7 +11,7 @@ from services.helm_deployer.runner import HelmRunner
 
 
 class HelmService:
-    def __init__(self, db_session: AsyncSession):
+    def __init__(self, db_session: Optional[AsyncSession] = None):
         self.db_session = db_session
         self.chart_manager = ChartManager()
         self.kubeconfig_builder = KubeconfigBuilder()
@@ -39,11 +39,14 @@ class HelmService:
 
         return chart_dir
 
+    """read file"""
     async def read_chart_file(self, release_name: str, file_path: str = "values.yaml"):
         self.validator.validate_release_name(release_name)
         return await self.chart_manager.read_chart_file(release_name=release_name, file_path=file_path)
 
 
+
+    #SAVE FILE
     async def save_chart_file(self, release_name: str, file_path: str, content: str):
         self.validator.validate_release_name(release_name)
 
@@ -70,6 +73,7 @@ class HelmService:
             values_file=values_file
         )
 
+    """apply and install chart to cluster"""
     async def apply_release(
         self,
         cluster_name: str,

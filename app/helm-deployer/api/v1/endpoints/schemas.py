@@ -8,7 +8,7 @@ from typing import Optional
   #"auth_token": "eyJhbGciOiJSUzI1NiIs..."
 #}
 # CLUSTER DATA
-class ClusterdataRequest(BaseModel):
+class ClusterLoginRequest(BaseModel):
     cluster_name: str = Field(..., description="Name of the cluster")
     api_server_url: str = Field(..., description="API server URL of the cluster")
     auth_token: Optional[str] = Field(None, description="Authentication token for the cluster (optional)")
@@ -37,18 +37,28 @@ class FileSaveRequest(BaseModel):
     file_path: str = Field(..., description="Path to the file being edited, e.g., values.yaml")
     content: str = Field(..., description="New content of the file from the virtual editor")
 
+
 # {
   #"cluster_id": 1,
   #"release_name": "my-postgres-db"
 #}
 # APPLY
 class ApplyRequest(BaseModel):
-    cluster_id: int = Field(..., description="ID of the cluster where the release is being saved")
-    release_name: str = Field(..., description="Name of the release being saved")
+    cluster_name: str
+    release_name: str
+    chart_name: str
+    api_server_url: str
+    ca_cert_data: str
+    token: str
+    user_name: str = "cluster-admin"
+    namespace: str = "default"
+    target_values_file: Optional[str] = None
 
 
-class ClusterResponse(BaseModel):
- 
+class ChartPullResponse(BaseModel):
+    release_name: str
+    chart_dir: str
 
     class Config:
         from_attributes = True
+
