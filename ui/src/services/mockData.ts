@@ -86,7 +86,7 @@ export const CATALOG_ITEMS: DatabaseCatalogItem[] = [
     name: 'ScyllaDB Enterprise',
     engine_type: 'scylladb',
     category: 'nosql',
-    icon_url: 'https://raw.githubusercontent.com/scylladb/scylla-code-samples/master/scylla-logo.png',
+    icon_url: '/scylladb.png', // EXACT User Uploaded ScyllaDB Cyan Monster Mascot Logo
     description: 'Ultra-low latency C++ drop-in replacement for Apache Cassandra.',
     badge: 'Ultra-Fast NoSQL',
     versions: ['5.4', '5.2']
@@ -98,7 +98,7 @@ export const CATALOG_ITEMS: DatabaseCatalogItem[] = [
     name: 'Qdrant Vector DB',
     engine_type: 'qdrant',
     category: 'vector',
-    icon_url: 'https://raw.githubusercontent.com/qdrant/qdrant/master/assets/qdrant-logo.png',
+    icon_url: '/qdrant.png', // EXACT User Uploaded 3D Isometric q-Cube Logo
     description: 'High-performance vector similarity search engine written in Rust.',
     badge: 'AI Vector',
     versions: ['1.8', '1.7']
@@ -108,7 +108,7 @@ export const CATALOG_ITEMS: DatabaseCatalogItem[] = [
     name: 'Milvus Distributed',
     engine_type: 'milvus',
     category: 'vector',
-    icon_url: 'https://raw.githubusercontent.com/milvus-io/milvus/master/assets/milvus_logo.png',
+    icon_url: '/milvus.png', // EXACT User Uploaded White Eye/Vector Emblem on Dark Background
     description: 'Open-source vector database built for GenAI and embedding search.',
     badge: 'AI Vector',
     versions: ['2.3', '2.2']
@@ -118,7 +118,7 @@ export const CATALOG_ITEMS: DatabaseCatalogItem[] = [
     name: 'ChromaDB',
     engine_type: 'chroma',
     category: 'vector',
-    icon_url: 'https://www.vectorlogo.zone/logos/google_cloud/google_cloud-icon.svg',
+    icon_url: '/chroma.png', // EXACT User Uploaded Chroma Colored Circles Emblem Logo
     description: 'AI-native open-source embedding database for LLM applications.',
     badge: 'LLM Embeddings',
     versions: ['0.4.22']
@@ -128,7 +128,7 @@ export const CATALOG_ITEMS: DatabaseCatalogItem[] = [
     name: 'Weaviate Cloud',
     engine_type: 'weaviate',
     category: 'vector',
-    icon_url: 'https://raw.githubusercontent.com/weaviate/weaviate/main/weaviate-logo.png',
+    icon_url: '/weaviate.png', // EXACT User Uploaded Weaviate W Logo on Deep Navy Background
     description: 'Vector search engine with built-in ML models and semantic search.',
     badge: 'Semantic Vector',
     versions: ['1.24', '1.23']
@@ -150,20 +150,10 @@ export const CATALOG_ITEMS: DatabaseCatalogItem[] = [
     name: 'KeyDB High-Perf',
     engine_type: 'keydb',
     category: 'inmemory',
-    icon_url: 'https://www.vectorlogo.zone/logos/redis/redis-icon.svg',
+    icon_url: '/keydb.png', // EXACT User Uploaded KeyDB Geometric Yellow Triangle Cube Logo
     description: 'Multi-threaded open-source drop-in replacement for Redis.',
     badge: 'Multi-Threaded',
     versions: ['6.3', '6.2']
-  },
-  {
-    id: 'memcached',
-    name: 'Memcached Cluster',
-    engine_type: 'memcached',
-    category: 'inmemory',
-    icon_url: 'https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/memcached/memcached.png',
-    description: 'High-performance distributed memory object caching system.',
-    badge: 'Key-Value Cache',
-    versions: ['1.6.24']
   },
   {
     id: 'dragonfly',
@@ -202,7 +192,7 @@ export const CATALOG_ITEMS: DatabaseCatalogItem[] = [
     name: 'TimescaleDB',
     engine_type: 'timescaledb',
     category: 'timeseries',
-    icon_url: '/timescaledb.png', // EXACT User Uploaded Image (Yellow Circle Black Tiger Silhouette)
+    icon_url: '/timescaledb.png', // EXACT User Uploaded Yellow Circle Black Tiger Silhouette
     description: 'Relational database for time-series data built on PostgreSQL.',
     badge: 'Time-Series SQL',
     versions: ['2.14', '2.13']

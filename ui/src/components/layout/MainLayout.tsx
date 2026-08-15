@@ -27,7 +27,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     <div className="flex min-h-screen bg-bg-main text-slate-100">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onLogout} />
       <div className="flex-1 flex flex-col min-w-0">
-        <Header activeTabTitle={titles[activeTab] || 'Data Basik Console'} />
+        <Header activeTab={activeTab} activeTabTitle={titles[activeTab] || 'Data Basik Console'} />
         <main className="flex-1 p-8 overflow-y-auto">
           {children}
         </main>

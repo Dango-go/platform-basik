@@ -36,7 +36,7 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({ onNa
     { id: 'relational', label: 'Relational Databases', count: 4 },
     { id: 'nosql', label: 'NoSQL / Non-Relational Databases', count: 4 },
     { id: 'vector', label: 'Vector Databases', count: 4 },
-    { id: 'inmemory', label: 'In-Memory Databases', count: 4 },
+    { id: 'inmemory', label: 'In-Memory Databases', count: 3 }, // 3 In-Memory engines (Redis, KeyDB, Dragonfly)
     { id: 'timeseries', label: 'Time-Series Databases', count: 4 },
   ];
 
