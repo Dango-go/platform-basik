@@ -263,7 +263,6 @@ export const CloudPage: React.FC = () => {
                   </span>
                 </div>
                 <h4 className="font-bold text-white text-sm truncate">{cred.name}</h4>
-                <p className="text-xs font-mono text-slate-400 truncate">Account / ID: {cred.account_id}</p>
                 <p className="text-[11px] text-slate-500">Added: {cred.created_at}</p>
               </div>
             ))}
