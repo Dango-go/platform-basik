@@ -62,3 +62,10 @@ class ChartPullResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+class CreateCustomFileRequest(BaseModel):
+    release_name: str = Field(..., description="Name of the release")
+    file_name: str = Field("custom-values.yaml", description="Name of the new custom YAML file, e.g. custom-values.yaml")
+    content: str = Field(..., description="Raw YAML content for the custom file")
+
+

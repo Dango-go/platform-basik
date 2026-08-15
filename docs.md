@@ -4,16 +4,15 @@
 * **`api-gateway`** — Single entry point web gateway (Reverse Proxy / Routing / Rate Limiting) that authenticates and routes requests from UI/CLI to the appropriate microservices.
 
 ## 2. Identity & Security
-* **`auth-service`** — User management, sessions, roles, and issuance of access JWT tokens.
+* **`auth-service`** — User management, sessions, roles, and issuance of access JWT tokens. +
 * **`rbac-service`** — Fine-grained access control and permissions (RBAC/ABAC) for databases, clusters, and environments (Dev/Staging/Prod).
-* **`vault-service`** — Secure storage (HashiCorp Vault) for storing cloud API keys and system secrets.
+* **`vault-service`** — Secure storage (HashiCorp Vault) for storing cloud API keys and system secrets. +
 * **`db-credentials-service`** — Automated generation, provision, and rotation of passwords, TLS certificates, and database connection strings.
 * **`audit-service`** — Logging and immutable storage of all user actions and system events (Audit Log).
 
 ## 3. Cloud & Infrastructure
-* **`provider-service`** — Cloud provider integration (AWS, GCP, DigitalOcean), connection verification, and secret forwarding to `vault-service`.
-* **`discovery-service`** — Automated scanning and discovery of active Kubernetes clusters in users' clouds.
-* **`kubeconfig-manager`** — Dynamic generation and rotation of secure `kubeconfig` files and access tokens for target K8s clusters.
+* **`provider-service`** — Cloud provider integration (AWS, GCP, DigitalOcean), connection verification, and secret forwarding to `vault-service`. +
+* **`discovery-service`** — Automated scanning and discovery of active Kubernetes clusters in users' clouds. +
 * **`dns-routing-service`** — Dynamic DNS record creation (Route53/Cloudflare/CoreDNS) and network access configuration (Ingress / NetworkPolicy / Service).
 * **`resource-quota-service`** — Monitoring and limiting resource consumption (CPU, RAM, Storage, database count) per team and cluster.
 
@@ -24,8 +23,7 @@
 * **`backup-restore-service`** — Management of backup schedules, snapshots, and data recovery for deployed databases (Point-in-Time Recovery).
 
 ## 5. Deployment Engine
-* **`chart-service`** — Downloading, caching, validation, and configuration generation (`values.yaml`) for Helm charts.
-* **`helm-deployer`** — Execution of atomic Helm commands (install, upgrade, rollback, uninstall) in target Kubernetes clusters.
+* **`helm-deployer`** — Execution of atomic Helm commands (install, upgrade, rollback, uninstall) in target Kubernetes clusters. +
 * **`operator-service`** — Management of Kubernetes Custom Resources (CRD) and integration with database operators (CloudNativePG, KubeDB, Percona Operator, etc.).
 
 ## 6. Observability, FinOps & Alerts

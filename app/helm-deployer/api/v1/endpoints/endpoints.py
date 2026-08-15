@@ -7,11 +7,13 @@ from api.v1.endpoints.schemas import (
     FileSaveRequest,
     ApplyRequest,
     ChartPullResponse,
+    CreateCustomFileRequest,
 )
 from core.database import db_session
 from services.helm_deployer.service import HelmService
 
 router = APIRouter(prefix="/api/v1/helm", tags=["helm"])
+
 
 
 # POST /api/v1/helm/pull
@@ -71,6 +73,28 @@ async def save_chart_file(
         "release_name": request.release_name,
         "file_path": save_file
     }
+
+
+# POST /api/v1/helm/file/create (create custom-values.yaml alongside values.yaml)
+@router.post("/file/create")
+async def create_custom_file(
+    request: CreateCustomFileRequest,
+    db: AsyncSession = Depends(db_session)
+):
+    service = HelmService(db_session=db)
+    created_path = await service.create_custom_file(
+        release_name=request.release_name,
+        file_name=request.file_name,
+        content=request.content
+    )
+    return {
+        "status": "success",
+        "message": f"Custom file '{request.file_name}' successfully created",
+        "release_name": request.release_name,
+        "file_name": request.file_name,
+        "created_path": created_path
+    }
+
 
 
 # POST /api/v1/helm/apply

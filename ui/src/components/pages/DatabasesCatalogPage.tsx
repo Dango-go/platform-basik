@@ -1,0 +1,353 @@
+import React, { useState } from 'react';
+import { CATALOG_ITEMS, INITIAL_DEPLOYED_DBS } from '../../services/mockData';
+import { DeployedDatabase, CategoryType } from '../../types';
+import { DatabaseManagementCatalogPage } from './DatabaseManagementCatalogPage';
+import { 
+  Database, 
+  Settings, 
+  Activity, 
+  DollarSign, 
+  Plus, 
+  FileCode2,
+  ArrowLeft,
+  Wrench,
+  Layers
+} from 'lucide-react';
+
+interface DatabasesCatalogPageProps {
+  onNavigateCreate: (engineType?: string) => void;
+}
+
+export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({ onNavigateCreate }) => {
+  const [selectedDb, setSelectedDb] = useState<DeployedDatabase | null>(null);
+  const [activeDbTab, setActiveDbTab] = useState<'config' | 'monitoring' | 'budget'>('config');
+
+  // Selected item for Management Catalog Page
+  const [selectedManagementCatalogItem, setSelectedManagementCatalogItem] = useState<any>(null);
+
+  // Track image load errors for fallbacks
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+
+  const handleImageError = (id: string) => {
+    setFailedImages((prev) => ({ ...prev, [id]: true }));
+  };
+
+  const categories: { id: CategoryType; label: string; count: number }[] = [
+    { id: 'relational', label: 'Relational Databases', count: 4 },
+    { id: 'nosql', label: 'NoSQL / Non-Relational Databases', count: 4 },
+    { id: 'vector', label: 'Vector Databases', count: 4 },
+    { id: 'inmemory', label: 'In-Memory Databases', count: 4 },
+    { id: 'timeseries', label: 'Time-Series Databases', count: 4 },
+  ];
+
+  // Fully ready databases (No "Under Development" badge)
+  const readyEngines = ['postgresql', 'mongodb', 'redis'];
+
+  // If a management catalog item is opened, show its page
+  if (selectedManagementCatalogItem) {
+    return (
+      <DatabaseManagementCatalogPage
+        item={selectedManagementCatalogItem}
+        onBack={() => setSelectedManagementCatalogItem(null)}
+        onNavigateCreate={onNavigateCreate}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-10 text-slate-100">
+      {/* 1. Database Technologies Catalog Section */}
+      <section className="space-y-6">
+        <div>
+          <h3 className="text-lg font-bold text-white">Database Engine Catalog</h3>
+          <p className="text-xs text-slate-400">Select a category or database engine below to quickly provision a new instance</p>
+        </div>
+
+        {categories.map((cat) => {
+          const items = CATALOG_ITEMS.filter((item) => item.category === cat.id);
+          return (
+            <div key={cat.id} className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-brand-sky"></span>
+                  {cat.label}
+                </h4>
+                <span className="text-xs text-slate-500 font-medium">{items.length} Engines Available</span>
+              </div>
+
+              {/* 4 CARDS PER ROW SQUARE GRID */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                {items.map((item) => {
+                  const isUnderDev = !readyEngines.includes(item.engine_type);
+                  const isFailedImage = failedImages[item.id];
+                  return (
+                    <div
+                      key={item.id}
+                      className="bg-bg-card border border-accent-darkBorder rounded-2xl p-4 hover:border-brand-sky hover:shadow-xl hover:shadow-brand-sky/10 transition-all cursor-pointer group flex flex-col justify-between relative overflow-hidden min-h-[220px]"
+                    >
+                      {/* TOP-LEFT UNDER DEVELOPMENT BADGE (EXCEPT PG, MONGO, REDIS) */}
+                      {isUnderDev && (
+                        <div className="mb-2 inline-self-start">
+                          <span className="inline-flex items-center gap-1 bg-amber-500/20 text-white border border-amber-500/40 text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider shadow-sm">
+                            <Wrench className="w-2.5 h-2.5 text-amber-400" />
+                            Under Development
+                          </span>
+                        </div>
+                      )}
+
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="w-12 h-12 rounded-xl bg-bg-main p-2 flex items-center justify-center group-hover:scale-105 transition-transform border border-accent-darkBorder">
+                            {isFailedImage ? (
+                              <Database className="w-7 h-7 text-brand-sky" />
+                            ) : (
+                              <img 
+                                src={item.icon_url} 
+                                alt={item.name} 
+                                onError={() => handleImageError(item.id)}
+                                className="w-8 h-8 object-contain" 
+                              />
+                            )}
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-bg-main text-slate-300 border border-accent-darkBorder">
+                            {item.badge}
+                          </span>
+                        </div>
+                        <h5 className="font-bold text-white text-base group-hover:text-brand-sky transition-colors">
+                          {item.name}
+                        </h5>
+                        <p className="text-xs text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                          {item.description}
+                        </p>
+                      </div>
+
+                      {/* STATIC FOOTER FOR VERSION */}
+                      <div className="mt-4 pt-3 border-t border-accent-darkBorder/60 flex items-center justify-between text-xs font-semibold text-slate-400">
+                        <span>Version: {item.versions[0]}</span>
+                      </div>
+
+                      {/* DYNAMIC HOVER BUTTONS AT BOTTOM-RIGHT (+ AND MANAGEMENT CATALOG) */}
+                      <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center gap-2 bg-bg-card/90 backdrop-blur-sm p-1 rounded-xl border border-brand-sky/40 shadow-xl">
+                        {/* MANAGEMENT CATALOG BUTTON */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedManagementCatalogItem(item);
+                          }}
+                          title="Open Management Catalog"
+                          className="bg-bg-main hover:bg-brand-blue text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-accent-darkBorder flex items-center gap-1 shadow-md transition-colors"
+                        >
+                          <Layers className="w-3.5 h-3.5 text-brand-sky" />
+                          <span>Management Catalog</span>
+                        </button>
+
+                        {/* PLUS BUTTON FOR DEPLOYMENT */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNavigateCreate(item.engine_type);
+                          }}
+                          title="Provision Database Instance"
+                          className="bg-brand-blue hover:bg-brand-blue/80 text-white p-1.5 rounded-lg shadow-md transition-colors"
+                        >
+                          <Plus className="w-4 h-4 text-white" />
+                        </button>
+                      </div>
+
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </section>
+
+      {/* 2. Deployed Active Databases List Section */}
+      <section className="space-y-4 pt-6 border-t border-accent-darkBorder">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-white">Active Deployed Database Instances</h3>
+            <p className="text-xs text-slate-400">Inspect status, configuration, metrics, and monthly budget for your active instances</p>
+          </div>
+          <button
+            onClick={() => onNavigateCreate()}
+            className="bg-brand-blue hover:bg-brand-blue/90 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md shadow-brand-blue/20 flex items-center gap-1.5 transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Deploy New Database</span>
+          </button>
+        </div>
+
+        {/* Selected DB Details View or List Table */}
+        {selectedDb ? (
+          /* DETAILED VIEW WITH 3 TABS: Configuration, Monitoring, Budget */
+          <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-6 space-y-6 shadow-xl">
+            <div className="flex items-center justify-between border-b border-accent-darkBorder pb-4">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setSelectedDb(null)}
+                  className="p-2 hover:bg-accent-darkHover rounded-xl text-slate-400 hover:text-white transition-colors flex items-center gap-1 text-xs font-semibold"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Back to Instances
+                </button>
+                <div className="h-6 w-px bg-slate-800"></div>
+                <div>
+                  <h4 className="text-lg font-bold text-white flex items-center gap-2">
+                    {selectedDb.name}
+                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">
+                      ● {selectedDb.status.toUpperCase()}
+                    </span>
+                  </h4>
+                  <p className="text-xs text-slate-400">Cluster: {selectedDb.cluster_name} | Namespace: {selectedDb.namespace}</p>
+                </div>
+              </div>
+
+              {/* 3 Tabs: Configuration, Monitoring, Budget */}
+              <div className="flex items-center bg-bg-[#FDFBF7] p-1 rounded-xl border border-accent-darkBorder">
+                <button
+                  onClick={() => setActiveDbTab('config')}
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    activeDbTab === 'config' ? 'bg-brand-blue text-white shadow-md' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Settings className="w-3.5 h-3.5" /> Configuration
+                </button>
+                <button
+                  onClick={() => setActiveDbTab('monitoring')}
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    activeDbTab === 'monitoring' ? 'bg-brand-blue text-white shadow-md' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Activity className="w-3.5 h-3.5" /> Monitoring
+                </button>
+                <button
+                  onClick={() => setActiveDbTab('budget')}
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    activeDbTab === 'budget' ? 'bg-brand-blue text-white shadow-md' : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <DollarSign className="w-3.5 h-3.5" /> Budget
+                </button>
+              </div>
+            </div>
+
+            {/* TAB CONTENT */}
+            {activeDbTab === 'config' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="p-4 bg-bg-main rounded-xl border border-accent-darkBorder">
+                    <span className="text-xs text-slate-400 font-medium">Engine & Version</span>
+                    <p className="text-sm font-bold text-white mt-1 uppercase">{selectedDb.engine_type} v{selectedDb.version}</p>
+                  </div>
+                  <div className="p-4 bg-bg-main rounded-xl border border-accent-darkBorder">
+                    <span className="text-xs text-slate-400 font-medium">Allocated CPU & RAM</span>
+                    <p className="text-sm font-bold text-white mt-1">{selectedDb.cpu_usage_m}m Cores / {selectedDb.memory_usage_mb} MB RAM</p>
+                  </div>
+                  <div className="p-4 bg-bg-main rounded-xl border border-accent-darkBorder">
+                    <span className="text-xs text-slate-400 font-medium">Persistent Storage (PVC)</span>
+                    <p className="text-sm font-bold text-white mt-1">{selectedDb.storage_gb} GB SSD</p>
+                  </div>
+                </div>
+
+                <div>
+                  <h5 className="text-xs font-bold text-slate-300 uppercase mb-2 flex items-center gap-1.5">
+                    <FileCode2 className="w-4 h-4 text-brand-sky" /> Active values.yaml Configuration:
+                  </h5>
+                  <pre className="bg-brand-dark text-slate-200 p-4 rounded-xl text-xs font-mono border border-slate-800 overflow-x-auto leading-relaxed">
+                    {selectedDb.values_yaml}
+                  </pre>
+                </div>
+              </div>
+            )}
+
+            {activeDbTab === 'monitoring' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-bg-main border border-accent-darkBorder rounded-xl">
+                    <span className="text-xs text-slate-400">CPU Usage</span>
+                    <h5 className="text-2xl font-bold text-white mt-1">32.4%</h5>
+                    <div className="w-full bg-slate-800 h-2 rounded-full mt-3 overflow-hidden">
+                      <div className="bg-brand-sky h-full w-[32.4%]"></div>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-bg-main border border-accent-darkBorder rounded-xl">
+                    <span className="text-xs text-slate-400">Memory Usage</span>
+                    <h5 className="text-2xl font-bold text-white mt-1">{selectedDb.memory_usage_mb} MB</h5>
+                    <div className="w-full bg-slate-800 h-2 rounded-full mt-3 overflow-hidden">
+                      <div className="bg-brand-cyan h-full w-[64%]"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeDbTab === 'budget' && (
+              <div className="space-y-4">
+                <div className="p-6 bg-gradient-to-r from-bg-main to-brand-dark border border-accent-darkBorder text-white rounded-2xl flex items-center justify-between">
+                  <div>
+                    <span className="text-xs text-slate-400 font-medium">Monthly Cost Breakdown</span>
+                    <h3 className="text-3xl font-extrabold text-white mt-1">${selectedDb.monthly_cost.toFixed(2)} / mo</h3>
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-500/30">
+                      K8s Compute + PVC Disk Included
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* INSTANCES TABLE LIST */
+          <div className="bg-bg-card border border-accent-darkBorder rounded-2xl overflow-hidden shadow-xl">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-bg-main text-slate-400 text-xs uppercase border-b border-accent-darkBorder">
+                  <th className="p-4 font-semibold">Instance Name</th>
+                  <th className="p-4 font-semibold">Engine & Version</th>
+                  <th className="p-4 font-semibold">Cluster</th>
+                  <th className="p-4 font-semibold">Status</th>
+                  <th className="p-4 font-semibold">Resources</th>
+                  <th className="p-4 font-semibold text-right">Monthly Cost</th>
+                  <th className="p-4 font-semibold text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-accent-darkBorder/60 text-sm">
+                {INITIAL_DEPLOYED_DBS.map((db) => (
+                  <tr key={db.id} className="hover:bg-accent-darkHover transition-colors">
+                    <td className="p-4 font-bold text-white flex items-center gap-2">
+                      <Database className="w-4 h-4 text-brand-sky" />
+                      {db.name}
+                    </td>
+                    <td className="p-4 text-slate-300 capitalize">
+                      {db.engine_type} <span className="text-xs text-slate-500">v{db.version}</span>
+                    </td>
+                    <td className="p-4 text-slate-400 text-xs font-mono">{db.cluster_name}</td>
+                    <td className="p-4">
+                      <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">
+                        ● {db.status}
+                      </span>
+                    </td>
+                    <td className="p-4 text-xs text-slate-300">
+                      {db.cpu_usage_m}m CPU / {db.storage_gb}GB SSD
+                    </td>
+                    <td className="p-4 font-extrabold text-white text-right">${db.monthly_cost.toFixed(2)}</td>
+                    <td className="p-4 text-center">
+                      <button
+                        onClick={() => setSelectedDb(db)}
+                        className="text-xs font-semibold bg-brand-blue text-white px-3 py-1.5 rounded-lg hover:bg-brand-blue/80 transition-colors shadow-md shadow-brand-blue/20"
+                      >
+                        Inspect 3 Panels
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+};

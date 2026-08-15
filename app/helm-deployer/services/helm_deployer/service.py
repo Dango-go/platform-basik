@@ -60,6 +60,20 @@ class HelmService:
             content=content
         )
 
+    # CREATE CUSTOM FILE (e.g. custom-values.yaml)
+    async def create_custom_file(self, release_name: str, file_name: str, content: str) -> str:
+        self.validator.validate_release_name(release_name)
+        if not file_name.endswith(".yaml") and not file_name.endswith(".yml"):
+            file_name = f"{file_name}.yaml"
+
+        self.validator.validate_yaml_content(content)
+
+        return await self.chart_manager.save_chart_file(
+            release_name=release_name,
+            file_path=file_name,
+            content=content
+        )
+
     async def check_template(self, release_name: str, chart_name: str, values_file: Optional[str] = None):
         self.validator.validate_release_name(release_name)
         chart_dir = self.chart_manager.base_temp_dir / release_name / chart_name
