@@ -1,0 +1,39 @@
+operator-service/
+├── Dockerfile                    # Dockerfile для збірки сервісу
+├── requirements.txt              # Залежності (FastAPI, kubernetes_asyncio, PyYAML, pydantic-settings)
+├── config.py                     # Глобальні налаштування додатку (Pydantic BaseSettings)
+├── main.py                       # Точка входу FastAPI додатку
+│
+├── api/                          # REST API шар (Контролери)
+│   ├── __init__.py
+│   ├── dependencies.py           # FastAPI Depends (ін'єкція залежностей та сервісів)
+│   └── v1/
+│       ├── __init__.py
+│       └── endpoints/
+│           ├── __init__.py
+│           ├── operator.py       # REST-ендпоінти (POST /apply-cr, DELETE /cr, GET /status)
+│           └── schemas.py        # Pydantic DTO (запити та відповіді API)
+│
+├── core/                         # Системні компоненти
+│   ├── __init__.py
+│   ├── database.py               # AsyncSession для SQLAlchemy (якщо зберігаємо лог CRD у БД)
+│   └── exceptions.py             # Кастомні виключення (CRDNotFoundError, K8sAPIError)
+│
+├── models/                       # SQLAlchemy ORM моделі
+│   ├── __init__.py
+│   └── db_models.py              # Модель збереження стану задеплоєних CRD ресурсів
+│
+└── services/                     # Бізнес-логіка модуля
+    ├── __init__.py
+    │
+    ├── k8s/                      # Низькорівнева робота з K8s API
+    │   ├── __init__.py
+    │   ├── client_factory.py     # Асинхронний клієнт для CustomObjectsApi (kubernetes_asyncio)
+    │   └── kubeconfig_builder.py # Генератор тимчасового kubeconfig-файлу
+    │
+    └── operator_manager/         # 👈 ОСНОВНИЙ МОДУЛЬ УПРАВЛІННЯ ОПЕРАТОРАМИ
+        ├── __init__.py           # Публічний експорт модуля
+        ├── service.py            # Головний оркестратор (OperatorService Facade)
+        ├── crd_builder.py        # Генератор маніфестів CRD (PostgreSQLCluster, Percona, Redis)
+        ├── validator.py          # Перевірка схем CRD та валідація специфікацій
+        └── runner.py             # Виконавець CRUD операцій над K8s CustomObjectsApi (create/patch/delete)
