@@ -34,7 +34,7 @@ class ClusterScannerService:
                 pass
         return {}
 
-    # def for get client json and 
+
     async def discover_and_save(self, request: DiscoveryRequest) -> List[ClusterEntity]:
         cache_key = f"{request.user_id}:{request.alias}"  # 'uid:cred-alias'
         cached = cache_service.get(cache_key)
@@ -74,7 +74,7 @@ class ClusterScannerService:
             await self.db.refresh(e)
 
         cache_service.set(cache_key, saved_entities)
-        return saved_entities
+        return saved_entities # return for saving in ui
 
     async def get_clusters_by_user(self, user_id: int) -> List[ClusterEntity]:
         result = await self.db.execute(

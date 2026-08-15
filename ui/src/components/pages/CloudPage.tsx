@@ -12,15 +12,22 @@ import {
   ListFilter,
   Trash2,
   Upload,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react';
 
 export const CloudPage: React.FC = () => {
   const [credentialsList, setCredentialsList] = useState<CloudCredential[]>(CLOUD_CREDENTIALS);
   const [clustersList, setClustersList] = useState<K8sCluster[]>(K8S_CLUSTERS);
 
-  // Selected Provider filter: 'all' | 'none' | CloudProviderType
+  // Selected Credentials Provider filter: 'all' | 'none' | CloudProviderType
   const [selectedProviderFilter, setSelectedProviderFilter] = useState<CloudProviderType | 'all' | 'none'>('all');
+
+  // Selected Cluster Provider filter: 'all' | 'aws' | 'gcp' | 'azure' | 'digitalocean' | 'onprem'
+  const [selectedClusterProviderFilter, setSelectedClusterProviderFilter] = useState<string>('all');
+
+  // Sync / Update state
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Modal State for adding new credentials
   const [showAddModal, setShowAddModal] = useState(false);
@@ -43,6 +50,14 @@ export const CloudPage: React.FC = () => {
   // Deletion Modal State
   const [credToDelete, setCredToDelete] = useState<CloudCredential | null>(null);
 
+  // Sync Clusters handler
+  const handleSyncClusters = () => {
+    setIsSyncing(true);
+    setTimeout(() => {
+      setIsSyncing(false);
+    }, 1200);
+  };
+
   // GCP File Upload Handler
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -61,18 +76,12 @@ export const CloudPage: React.FC = () => {
     e.preventDefault();
     if (!newCredName) return;
 
-    let accountId = 'default_id';
-    if (newCredProvider === 'aws') accountId = awsAccessKeyId || 'AKIAIOSFODNN7EXAMPLE';
-    if (newCredProvider === 'azure') accountId = azureTenantId || '72f988bf-86f1-41af-91ab-2d7cd011db47';
-    if (newCredProvider === 'digitalocean') accountId = doPersonalAccessToken ? `${doPersonalAccessToken.substring(0, 12)}...` : 'do_pat_sample';
-    if (newCredProvider === 'gcp') accountId = uploadedFileName || 'gcp-service-account.json';
-
     const newCred: CloudCredential = {
       id: `cred-${Date.now()}`,
       name: newCredName,
       provider: newCredProvider,
-      account_id: accountId,
-      created_at: new Date().toISOString().substring(0, 10),
+      account_id: `acc_${Math.floor(100000 + Math.random() * 900000)}`,
+      created_at: new Date().toISOString().split('T')[0],
       status: 'active',
       aws_access_key_id: awsAccessKeyId,
       aws_secret_access_key: awsSecretAccessKey,
@@ -80,11 +89,23 @@ export const CloudPage: React.FC = () => {
       azure_client_id: azureClientId,
       azure_client_secret: azureClientSecret,
       azure_subscription_id: azureSubscriptionId,
-      do_personal_access_token: doPersonalAccessToken
+      do_personal_access_token: doPersonalAccessToken,
+      gcp_service_account_json: gcpKeyJson
     };
 
     setCredentialsList([newCred, ...credentialsList]);
-    setSelectedProviderFilter('all');
+    setShowAddModal(false);
+    resetFormFields();
+  };
+
+  const confirmDeleteCredential = () => {
+    if (credToDelete) {
+      setCredentialsList(credentialsList.filter((c) => c.id !== credToDelete.id));
+      setCredToDelete(null);
+    }
+  };
+
+  const resetFormFields = () => {
     setNewCredName('');
     setAwsAccessKeyId('');
     setAwsSecretAccessKey('');
@@ -95,17 +116,8 @@ export const CloudPage: React.FC = () => {
     setDoPersonalAccessToken('');
     setGcpKeyJson('');
     setUploadedFileName(null);
-    setShowAddModal(false);
   };
 
-  const confirmDeleteCredential = () => {
-    if (credToDelete) {
-      setCredentialsList(credentialsList.filter((c) => c.id !== credToDelete.id));
-      setCredToDelete(null);
-    }
-  };
-
-  // Toggle View All logic: if 'all' -> toggles to 'none' (dark, hidden). If 'none' or specific -> toggles to 'all' (active, visible)
   const toggleViewAll = () => {
     if (selectedProviderFilter === 'all') {
       setSelectedProviderFilter('none');
@@ -114,39 +126,53 @@ export const CloudPage: React.FC = () => {
     }
   };
 
-  // High quality vector SVG logos
-  const providersConfig: { id: CloudProviderType; name: string; icon: string; count: number }[] = [
-    { 
-      id: 'aws', 
-      name: 'Amazon Web Services', 
+  // 4 Square Cards config for Cloud Credentials
+  const providersConfig = [
+    {
+      id: 'aws' as CloudProviderType,
+      name: 'Amazon Web Services',
       icon: 'https://www.vectorlogo.zone/logos/amazon_aws/amazon_aws-icon.svg',
-      count: credentialsList.filter((c) => c.provider === 'aws').length 
+      count: credentialsList.filter((c) => c.provider === 'aws').length
     },
-    { 
-      id: 'azure', 
-      name: 'Microsoft Azure', 
+    {
+      id: 'azure' as CloudProviderType,
+      name: 'Microsoft Azure',
       icon: 'https://www.vectorlogo.zone/logos/microsoft_azure/microsoft_azure-icon.svg',
-      count: credentialsList.filter((c) => c.provider === 'azure').length 
+      count: credentialsList.filter((c) => c.provider === 'azure').length
     },
-    { 
-      id: 'digitalocean', 
-      name: 'DigitalOcean', 
+    {
+      id: 'digitalocean' as CloudProviderType,
+      name: 'DigitalOcean',
       icon: 'https://www.vectorlogo.zone/logos/digitalocean/digitalocean-icon.svg',
-      count: credentialsList.filter((c) => c.provider === 'digitalocean').length 
+      count: credentialsList.filter((c) => c.provider === 'digitalocean').length
     },
-    { 
-      id: 'gcp', 
-      name: 'Google Cloud Platform', 
+    {
+      id: 'gcp' as CloudProviderType,
+      name: 'Google Cloud Platform',
       icon: 'https://www.vectorlogo.zone/logos/google_cloud/google_cloud-icon.svg',
-      count: credentialsList.filter((c) => c.provider === 'gcp').length 
-    },
+      count: credentialsList.filter((c) => c.provider === 'gcp').length
+    }
   ];
 
+  // Filtered credentials list based on selectedProviderFilter
   const filteredCredentials = selectedProviderFilter === 'all'
     ? credentialsList
     : selectedProviderFilter === 'none'
     ? []
     : credentialsList.filter((c) => c.provider === selectedProviderFilter);
+
+  // Filtered K8s clusters list based on selectedClusterProviderFilter
+  const filteredClusters = selectedClusterProviderFilter === 'all'
+    ? clustersList
+    : clustersList.filter((cls) => {
+        const prov = cls.provider.toLowerCase();
+        if (selectedClusterProviderFilter === 'aws') return prov.includes('aws') || prov.includes('eks');
+        if (selectedClusterProviderFilter === 'gcp') return prov.includes('gcp') || prov.includes('gke');
+        if (selectedClusterProviderFilter === 'azure') return prov.includes('azure') || prov.includes('aks');
+        if (selectedClusterProviderFilter === 'digitalocean') return prov.includes('digitalocean') || prov.includes('doks');
+        if (selectedClusterProviderFilter === 'onprem') return prov.includes('on-premise') || prov.includes('lenovo');
+        return true;
+      });
 
   return (
     <div className="space-y-8 text-slate-100">
@@ -156,7 +182,7 @@ export const CloudPage: React.FC = () => {
         <div>
           <h3 className="text-lg font-bold text-white flex items-center gap-2">
             <Cloud className="w-5 h-5 text-brand-sky" />
-            Cloud Infrastructure Providers
+            Cloud Credentials
           </h3>
           <p className="text-xs text-slate-400">Click on any cloud provider card below to filter its specific credentials</p>
         </div>
@@ -270,42 +296,109 @@ export const CloudPage: React.FC = () => {
         )}
       </section>
 
-      {/* 3. WORKING KUBERNETES CLUSTERS PANEL */}
+      {/* 3. WORKING KUBERNETES CLUSTERS PANEL WITH INTERACTIVE PROVIDER FILTERS & UPDATE BUTTON */}
       <section className="bg-bg-card border border-accent-darkBorder rounded-2xl p-6 shadow-xl space-y-4">
-        <div>
-          <h3 className="text-lg font-bold text-white flex items-center gap-2">
-            <Server className="w-5 h-5 text-brand-cyan" />
-            Active Worker Kubernetes Clusters
-          </h3>
-          <p className="text-xs text-slate-400">Target Kubernetes clusters connected to your account for automated database deployment</p>
+        <div className="flex items-center justify-between border-b border-accent-darkBorder pb-4">
+          <div>
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <Server className="w-5 h-5 text-brand-cyan" />
+              Kubernetes Clusters
+            </h3>
+            <p className="text-xs text-slate-400">Target Kubernetes clusters connected to your account for automated database deployment</p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* TOGGLE ALL CLUSTERS BUTTON */}
+            <button
+              onClick={() => setSelectedClusterProviderFilter('all')}
+              className={`text-xs font-semibold px-3.5 py-2 rounded-xl border transition-all flex items-center gap-1.5 ${
+                selectedClusterProviderFilter === 'all'
+                  ? 'bg-brand-blue text-white border-brand-sky shadow-md ring-2 ring-brand-sky/20'
+                  : 'bg-bg-main text-slate-400 border-accent-darkBorder hover:bg-accent-darkHover'
+              }`}
+            >
+              <ListFilter className="w-3.5 h-3.5" />
+              <span>All Clusters</span>
+            </button>
+
+            {/* UPDATE / REFRESH BUTTON */}
+            <button
+              onClick={handleSyncClusters}
+              disabled={isSyncing}
+              title="Scan & Sync Kubernetes Clusters from Cloud Providers"
+              className="bg-bg-main hover:bg-brand-blue/20 text-brand-sky hover:text-white font-bold text-xs px-3.5 py-2 rounded-xl border border-accent-darkBorder hover:border-brand-sky shadow-md flex items-center gap-1.5 transition-all"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-brand-sky ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>{isSyncing ? 'Syncing...' : 'Update'}</span>
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {clustersList.map((cls) => (
-            <div key={cls.id} className="p-5 bg-bg-main border border-accent-darkBorder rounded-2xl space-y-3 shadow-md hover:border-brand-sky transition-all">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-brand-blue/20 text-brand-sky border border-brand-sky/30">
-                  {cls.provider}
-                </span>
-                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-                  ● Running
-                </span>
-              </div>
-
-              <div>
-                <h4 className="font-extrabold text-white text-base">{cls.name}</h4>
-                <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                  <Globe className="w-3.5 h-3.5 text-slate-500" /> {cls.region}
-                </p>
-              </div>
-
-              <div className="pt-3 border-t border-accent-darkBorder/60 flex items-center justify-between text-xs text-slate-400 font-medium">
-                <span>Nodes: <strong className="text-white">{cls.nodes_count} Worker Nodes</strong></span>
-                <span className="font-mono text-[11px] text-slate-500 truncate max-w-[120px]">{cls.api_url}</span>
-              </div>
-            </div>
-          ))}
+        {/* PROVIDER FILTER BADGES BAR FOR CLUSTERS */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {[
+            { id: 'all', label: 'All Clusters', icon: '' },
+            { id: 'aws', label: 'Amazon Web Services (AWS)', icon: 'https://www.vectorlogo.zone/logos/amazon_aws/amazon_aws-icon.svg' },
+            { id: 'gcp', label: 'Google Cloud Platform (GCP)', icon: 'https://www.vectorlogo.zone/logos/google_cloud/google_cloud-icon.svg' },
+            { id: 'azure', label: 'Microsoft Azure', icon: 'https://www.vectorlogo.zone/logos/microsoft_azure/microsoft_azure-icon.svg' },
+            { id: 'digitalocean', label: 'DigitalOcean', icon: 'https://www.vectorlogo.zone/logos/digitalocean/digitalocean-icon.svg' },
+            { id: 'onprem', label: 'On-Premise', icon: '🖥️' }
+          ].map((filter) => {
+            const isSelected = selectedClusterProviderFilter === filter.id;
+            return (
+              <button
+                key={filter.id}
+                onClick={() => setSelectedClusterProviderFilter(filter.id)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
+                  isSelected
+                    ? 'bg-brand-blue/20 border-brand-sky text-white ring-2 ring-brand-sky/30 shadow-md'
+                    : 'bg-bg-main text-slate-400 border-accent-darkBorder hover:border-brand-sky/40 hover:text-white hover:bg-accent-darkHover'
+                }`}
+              >
+                {filter.icon.startsWith('http') ? (
+                  <img src={filter.icon} alt={filter.label} className="w-4 h-4 object-contain" />
+                ) : filter.icon ? (
+                  <span>{filter.icon}</span>
+                ) : null}
+                <span>{filter.label}</span>
+              </button>
+            );
+          })}
         </div>
+
+        {/* CLUSTERS GRID */}
+        {filteredClusters.length === 0 ? (
+          <div className="p-8 text-center text-slate-400 text-xs">
+            No active Kubernetes clusters found for this provider. Select another provider or click "All Clusters".
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            {filteredClusters.map((cls) => (
+              <div key={cls.id} className="p-5 bg-bg-main border border-accent-darkBorder rounded-2xl space-y-3 shadow-md hover:border-brand-sky transition-all">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-brand-blue/20 text-brand-sky border border-brand-sky/30">
+                    {cls.provider}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+                    ● Running
+                  </span>
+                </div>
+
+                <div>
+                  <h4 className="font-extrabold text-white text-base">{cls.name}</h4>
+                  <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                    <Globe className="w-3.5 h-3.5 text-slate-500" /> {cls.region}
+                  </p>
+                </div>
+
+                <div className="pt-3 border-t border-accent-darkBorder/60 flex items-center justify-between text-xs text-slate-400 font-medium">
+                  <span>Nodes: <strong className="text-white">{cls.nodes_count} Worker Nodes</strong></span>
+                  <span className="font-mono text-[11px] text-slate-500 truncate max-w-[120px]">{cls.api_url}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* MODAL FOR ADDING CREDENTIALS */}
@@ -363,18 +456,18 @@ export const CloudPage: React.FC = () => {
                       value={awsAccessKeyId}
                       onChange={(e) => setAwsAccessKeyId(e.target.value)}
                       placeholder="AKIAIOSFODNN7EXAMPLE"
-                      className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 font-mono"
+                      className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-mono"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Secret Access Key</label>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">AWS Secret Access Key</label>
                     <input
                       type="password"
                       required
                       value={awsSecretAccessKey}
                       onChange={(e) => setAwsSecretAccessKey(e.target.value)}
                       placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-                      className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 font-mono"
+                      className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-mono"
                     />
                   </div>
                 </div>
@@ -383,7 +476,7 @@ export const CloudPage: React.FC = () => {
               {/* AZURE SPECIFIC FIELDS: 4 FIELDS */}
               {newCredProvider === 'azure' && (
                 <div className="space-y-3 p-4 bg-bg-main rounded-xl border border-accent-darkBorder">
-                  <span className="text-xs font-bold text-brand-sky uppercase block">Azure Active Directory (AAD) Credentials</span>
+                  <span className="text-xs font-bold text-brand-sky uppercase block">Azure Active Directory Principal</span>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Tenant ID</label>
@@ -392,8 +485,8 @@ export const CloudPage: React.FC = () => {
                         required
                         value={azureTenantId}
                         onChange={(e) => setAzureTenantId(e.target.value)}
-                        placeholder="72f988bf-86f1-41af-91ab-..."
-                        className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 font-mono"
+                        placeholder="72f988bf-86f1-41af-91ab..."
+                        className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-mono"
                       />
                     </div>
                     <div>
@@ -403,8 +496,8 @@ export const CloudPage: React.FC = () => {
                         required
                         value={azureClientId}
                         onChange={(e) => setAzureClientId(e.target.value)}
-                        placeholder="e2b34a12-8921-4a1b-9f12-..."
-                        className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 font-mono"
+                        placeholder="e2b34a12-8921-4a1b..."
+                        className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-mono"
                       />
                     </div>
                   </div>
@@ -416,8 +509,8 @@ export const CloudPage: React.FC = () => {
                         required
                         value={azureClientSecret}
                         onChange={(e) => setAzureClientSecret(e.target.value)}
-                        placeholder="••••••••••••••••"
-                        className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 font-mono"
+                        placeholder="secret_token_sample"
+                        className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-mono"
                       />
                     </div>
                     <div>
@@ -427,8 +520,8 @@ export const CloudPage: React.FC = () => {
                         required
                         value={azureSubscriptionId}
                         onChange={(e) => setAzureSubscriptionId(e.target.value)}
-                        placeholder="sub_9012384910239102"
-                        className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 font-mono"
+                        placeholder="sub_901238491023..."
+                        className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-mono"
                       />
                     </div>
                   </div>
@@ -438,7 +531,7 @@ export const CloudPage: React.FC = () => {
               {/* DIGITALOCEAN SPECIFIC FIELDS: 1 FIELD */}
               {newCredProvider === 'digitalocean' && (
                 <div className="space-y-3 p-4 bg-bg-main rounded-xl border border-accent-darkBorder">
-                  <span className="text-xs font-bold text-brand-sky uppercase block">DigitalOcean API Token</span>
+                  <span className="text-xs font-bold text-brand-sky uppercase block">DigitalOcean Access Token</span>
                   <div>
                     <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Personal Access Token</label>
                     <input
@@ -446,60 +539,47 @@ export const CloudPage: React.FC = () => {
                       required
                       value={doPersonalAccessToken}
                       onChange={(e) => setDoPersonalAccessToken(e.target.value)}
-                      placeholder="dop_v1_819238910291029381023910239"
-                      className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 font-mono"
+                      placeholder="dop_v1_819238910291029381023910239..."
+                      className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-mono"
                     />
                   </div>
                 </div>
               )}
 
-              {/* GCP SPECIFIC FIELDS: FILE UPLOAD OR PASTE CONTENT */}
+              {/* GCP SPECIFIC FIELDS: FILE UPLOAD */}
               {newCredProvider === 'gcp' && (
                 <div className="space-y-3 p-4 bg-bg-main rounded-xl border border-accent-darkBorder">
-                  <span className="text-xs font-bold text-brand-sky uppercase block">GCP Service Account Key JSON (.json File)</span>
-                  
-                  {/* File Upload Trigger Area */}
-                  <label className="border-2 border-dashed border-accent-darkBorder hover:border-brand-sky rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer bg-bg-card transition-colors">
-                    <Upload className="w-6 h-6 text-brand-sky mb-2" />
-                    <span className="text-xs font-semibold text-white">
-                      {uploadedFileName ? `Loaded: ${uploadedFileName}` : 'Click to Upload Service Account JSON File'}
-                    </span>
-                    <span className="text-[11px] text-slate-500 mt-0.5">Or drag and drop .json file here</span>
-                    <input
-                      type="file"
-                      accept=".json"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                  </label>
-
+                  <span className="text-xs font-bold text-brand-sky uppercase block">GCP Service Account JSON Key</span>
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1 flex items-center justify-between">
-                      <span>Or Paste JSON Content Directly:</span>
-                      {gcpKeyJson && <span className="text-emerald-400 font-normal">✔ JSON Content Loaded</span>}
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase mb-2">Upload JSON Key File</label>
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-accent-darkBorder hover:border-brand-sky rounded-xl p-4 cursor-pointer transition-colors bg-bg-card">
+                      <Upload className="w-6 h-6 text-brand-sky mb-1" />
+                      <span className="text-xs font-semibold text-white">
+                        {uploadedFileName ? uploadedFileName : 'Click to select GCP .json file'}
+                      </span>
+                      <span className="text-[10px] text-slate-500 mt-0.5">Service Account Private Key</span>
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
                     </label>
-                    <textarea
-                      rows={4}
-                      value={gcpKeyJson}
-                      onChange={(e) => setGcpKeyJson(e.target.value)}
-                      placeholder='{ "type": "service_account", "project_id": "gcp-db-idp", "private_key_id": "..." }'
-                      className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg p-3 font-mono leading-relaxed"
-                    ></textarea>
                   </div>
                 </div>
               )}
 
-              <div className="pt-2 flex items-center justify-end gap-3 border-t border-accent-darkBorder">
+              <div className="pt-3 border-t border-accent-darkBorder flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:bg-accent-darkHover rounded-xl"
+                  className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 text-xs font-bold text-white bg-brand-blue hover:bg-brand-blue/90 rounded-xl shadow-lg shadow-brand-blue/30"
+                  className="bg-brand-blue hover:bg-brand-blue/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-brand-blue/30 transition-all"
                 >
                   Save Credential
                 </button>
@@ -509,37 +589,38 @@ export const CloudPage: React.FC = () => {
         </div>
       )}
 
-      {/* CONFIRMATION MODAL FOR DELETING CREDENTIAL */}
+      {/* CONFIRMATION DELETION MODAL */}
       {credToDelete && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-bg-card rounded-3xl border border-rose-500/30 w-full max-w-md p-6 shadow-2xl space-y-5 text-slate-100">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-bg-card rounded-3xl border border-rose-500/40 w-full max-w-md p-6 shadow-2xl space-y-5 relative text-slate-100">
             <div className="flex items-center gap-3 text-rose-400">
-              <div className="w-10 h-10 rounded-xl bg-rose-950/60 flex items-center justify-center border border-rose-500/30">
-                <AlertTriangle className="w-6 h-6 text-rose-500" />
+              <div className="w-10 h-10 rounded-full bg-rose-500/20 flex items-center justify-center border border-rose-500/30">
+                <AlertTriangle className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-white text-base">Delete Credential</h4>
-                <p className="text-xs text-slate-400">Confirm permanent deletion of cloud key</p>
+                <h4 className="font-bold text-white text-base">Delete Cloud Credential</h4>
+                <p className="text-xs text-slate-400">This action cannot be undone</p>
               </div>
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed bg-bg-main p-4 rounded-xl border border-accent-darkBorder">
-              Are you sure you want to permanently delete credential <strong className="text-white">{credToDelete.name}</strong> ({credToDelete.provider.toUpperCase()})?
-              This action cannot be undone.
-            </p>
+            <div className="p-4 bg-bg-main rounded-xl border border-accent-darkBorder space-y-1 text-xs">
+              <p className="text-slate-300 font-medium">Are you sure you want to remove:</p>
+              <p className="font-bold text-white text-sm">{credToDelete.name}</p>
+              <p className="text-[11px] text-slate-400 uppercase">Provider: {credToDelete.provider}</p>
+            </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setCredToDelete(null)}
-                className="px-4 py-2.5 text-xs font-semibold text-slate-400 hover:bg-accent-darkHover rounded-xl"
+                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={confirmDeleteCredential}
-                className="px-6 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-lg shadow-rose-600/30"
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-rose-600/30 transition-all"
               >
                 Delete Credential
               </button>
@@ -547,6 +628,7 @@ export const CloudPage: React.FC = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };

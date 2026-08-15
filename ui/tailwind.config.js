@@ -15,7 +15,7 @@ export default {
         brand: {
           blue: '#0284C7',      // Deep Ocean Blue
           sky: '#38BDF8',       // Light Sky Blue Accent
-          cyan: '#06B6D4',      // Electric Cyan
+          cyan: '#00b1d1ff',      // Electric Cyan
           dark: '#030712',      // Pitch Black
         },
         accent: {

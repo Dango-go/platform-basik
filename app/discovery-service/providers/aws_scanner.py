@@ -20,7 +20,7 @@ class AWSClusterScanner(BaseClusterScanner):
         try:
             async with session.client("eks") as eks_client:
                 response = await eks_client.list_clusters()  # in response we get json from aws with key "clusters" and value is list of cluster names
-                cluster_names = response.get("clusters", []) 
+                cluster_names = response.get("clusters", []) # get only list of clusters from key "clusters"
 
                 for name in cluster_names:
                     cluster_info = await eks_client.describe_cluster(name=name) # name - embedded arg

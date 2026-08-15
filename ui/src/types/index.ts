@@ -43,12 +43,13 @@ export interface CloudCredential {
   azure_client_secret?: string;
   azure_subscription_id?: string;
   do_personal_access_token?: string;
+  gcp_service_account_json?: string;
 }
 
 export interface K8sCluster {
   id: string;
   name: string;
-  provider: 'AWS EKS' | 'Azure AKS' | 'GCP GKE' | 'DigitalOcean' | 'On-Premise Lenovo';
+  provider: 'AWS EKS' | 'Azure AKS' | 'GCP GKE' | 'DigitalOcean' | 'On-Premise';
   region: string;
   nodes_count: number;
   status: 'active' | 'degraded';

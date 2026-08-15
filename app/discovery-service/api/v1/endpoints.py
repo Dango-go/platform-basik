@@ -15,7 +15,7 @@ async def discover_clusters(
 ):
     scanner = ClusterScannerService(db=db)  # object of ClusterScannerService
     clusters = await scanner.discover_and_save(request)
-    return clusters
+    return clusters #-> dict with data for each cluster
 
 
 @router.get("/clusters/{user_id}", response_model=List[ClusterResponse])

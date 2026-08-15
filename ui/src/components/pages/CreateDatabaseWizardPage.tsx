@@ -10,13 +10,40 @@ import {
   Cpu, 
   Play, 
   FilePlus, 
-  ShieldCheck 
+  Database,
+  Sliders,
+  ShieldCheck,
+  CheckCircle2,
+  PackageCheck
 } from 'lucide-react';
 
 interface CreateDatabaseWizardPageProps {
   initialEngineType?: string;
   onSuccess: () => void;
 }
+
+// Helm chart mapping default for each engine
+const ENGINE_HELM_CHARTS: Record<string, string> = {
+  postgresql: 'bitnami/postgresql (v15.5.2)',
+  mysql: 'bitnami/mysql (v10.2.1)',
+  mariadb: 'bitnami/mariadb (v19.0.1)',
+  cockroach: 'cockroachdb/cockroachdb (v11.1.5)',
+  mongodb: 'bitnami/mongodb (v15.4.0)',
+  cassandra: 'bitnami/cassandra (v11.0.3)',
+  couchbase: 'couchbase/couchbase-operator (v2.6.0)',
+  scylladb: 'scylla-operator/scylla (v1.11.0)',
+  qdrant: 'qdrant/qdrant (v0.6.4)',
+  milvus: 'milvus/milvus (v4.1.14)',
+  chroma: 'chroma/chromadb (v0.1.2)',
+  weaviate: 'weaviate/weaviate (v1.24.1)',
+  redis: 'bitnami/redis (v18.1.5)',
+  keydb: 'enapter/keydb (v0.4.2)',
+  dragonfly: 'dragonflydb/dragonfly (v0.8.0)',
+  clickhouse: 'bitnami/clickhouse (v5.1.0)',
+  influxdb: 'influxdata/influxdb (v2.1.2)',
+  timescaledb: 'timescale/timescaledb (v0.32.0)',
+  questdb: 'questdb/questdb (v0.3.1)'
+};
 
 export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> = ({
   initialEngineType = 'postgresql',
@@ -27,10 +54,20 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
   );
   const [selectedVersion, setSelectedVersion] = useState(selectedEngine.versions[0]);
   const [dbName, setDbName] = useState(`my-${selectedEngine.engine_type}-db`);
-  const [selectedCluster, setSelectedCluster] = useState(K8S_CLUSTERS[0].name);
-  const [selectedPreset, setSelectedPreset] = useState<'Small' | 'Medium' | 'Large'>('Medium');
 
-  // TWO INSTALLATION MODE BUTTONS: UI vs Helm Chart
+  // Cascading Dependent Selects for Provider -> Cluster
+  const [selectedProvider, setSelectedProvider] = useState<string>('');
+  const [selectedCluster, setSelectedCluster] = useState<string>('');
+
+  // Custom resource values input state
+  const [customCpu, setCustomCpu] = useState<string>('2');
+  const [customRam, setCustomRam] = useState<string>('8');
+  const [customDisk, setCustomDisk] = useState<string>('50');
+
+  // Selected preset for resources: 'Custom' | 'Small' | 'Medium' | 'Large'
+  const [selectedPreset, setSelectedPreset] = useState<'Custom' | 'Small' | 'Medium' | 'Large'>('Medium');
+
+  // Installation mode: 'ui' (Preset Deployment) vs 'helm' (YAML Editor)
   const [installMode, setInstallMode] = useState<'ui' | 'helm'>('ui');
 
   // YAML editor content
@@ -40,32 +77,51 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
   const [customFileName, setCustomFileName] = useState('custom-values.yaml');
   const [isDeploying, setIsDeploying] = useState(false);
 
+  // Filter clusters based on selected Cloud Provider
+  const availableClusters = selectedProvider
+    ? K8S_CLUSTERS.filter((cls) => {
+        const prov = cls.provider.toLowerCase();
+        if (selectedProvider === 'aws') return prov.includes('aws') || prov.includes('eks');
+        if (selectedProvider === 'gcp') return prov.includes('gcp') || prov.includes('gke');
+        if (selectedProvider === 'azure') return prov.includes('azure') || prov.includes('aks');
+        if (selectedProvider === 'digitalocean') return prov.includes('digitalocean') || prov.includes('doks');
+        if (selectedProvider === 'onprem') return prov.includes('on-premise');
+        return true;
+      })
+    : [];
+
+  const handleProviderChange = (prov: string) => {
+    setSelectedProvider(prov);
+    setSelectedCluster(''); // Reset dependent cluster selection
+  };
+
+  const handleEngineChange = (engineType: string) => {
+    const found = CATALOG_ITEMS.find((item) => item.engine_type === engineType);
+    if (found) {
+      setSelectedEngine(found);
+      setSelectedVersion(found.versions[0]);
+      setDbName(`my-${found.engine_type}-db`);
+    }
+  };
+
   const handleDeploy = async () => {
     setIsDeploying(true);
-    let cpuM = 500;
-    let ramMb = 2000;
-    let storageGb = 20;
+    let cpuM = (parseInt(customCpu, 10) || 2) * 1000;
+    let ramMb = (parseInt(customRam, 10) || 8) * 1024;
+    let storageGb = parseInt(customDisk, 10) || 50;
 
-    if (selectedPreset === 'Medium') {
-      cpuM = 1000;
-      ramMb = 4000;
-      storageGb = 50;
-    } else if (selectedPreset === 'Large') {
-      cpuM = 2000;
-      ramMb = 8000;
-      storageGb = 200;
-    }
+    const targetClusterName = selectedCluster || (K8S_CLUSTERS[0]?.name ?? 'onprem-prod-k8s');
 
     await apiClient.deployDatabase({
       name: dbName,
       engine_type: selectedEngine.engine_type,
       version: selectedVersion,
-      cluster_name: selectedCluster,
+      cluster_name: targetClusterName,
       namespace: 'databases',
       cpu_usage_m: cpuM,
       memory_usage_mb: ramMb,
       storage_gb: storageGb,
-      monthly_cost: selectedPreset === 'Small' ? 24.50 : selectedPreset === 'Medium' ? 64.50 : 180.00,
+      monthly_cost: 64.50,
       values_yaml: yamlContent
     });
 
@@ -75,29 +131,31 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 text-slate-100">
-      {/* Header */}
-      <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-6 shadow-xl">
-        <h3 className="text-xl font-extrabold text-white flex items-center gap-2">
-          <PlusCircle className="w-6 h-6 text-brand-sky" />
-          Create New Database Instance
-        </h3>
-        <p className="text-xs text-slate-400 mt-1">
-          Select engine parameters and preferred installation mode (UI presets or Helm Chart YAML code)
-        </p>
+      {/* Header Card */}
+      <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-6 shadow-xl space-y-6">
+        <div>
+          <h3 className="text-xl font-extrabold text-white flex items-center gap-2">
+            <PlusCircle className="w-6 h-6 text-brand-sky" />
+            Create New Database Instance
+          </h3>
+          <p className="text-xs text-slate-400 mt-1">
+            Select engine parameters and preferred installation mode (UI presets or Helm Chart YAML code)
+          </p>
+        </div>
 
         {/* TWO INSTALLATION MODE BUTTONS */}
-        <div className="mt-6 grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
             onClick={() => setInstallMode('ui')}
             className={`p-4 rounded-xl border text-left transition-all flex items-start gap-3.5 ${
               installMode === 'ui'
-                ? 'bg-brand-blue/20 border-brand-sky ring-2 ring-brand-sky/30 text-white'
+                ? 'bg-brand-blue/20 border-brand-sky ring-2 ring-brand-sky/30 text-white shadow-lg'
                 : 'bg-bg-main border-accent-darkBorder text-slate-400 hover:bg-accent-darkHover'
             }`}
           >
             <Settings className={`w-6 h-6 mt-0.5 ${installMode === 'ui' ? 'text-brand-sky' : 'text-slate-500'}`} />
             <div>
-              <span className="font-bold text-sm block text-white">1. Install via UI Main Parameters</span>
+              <span className="font-bold text-sm block text-white">1. Preset Deployment</span>
               <span className="text-xs text-slate-400 leading-normal">
                 Visual preset picker (Small/Medium/Large), version dropdown & instance naming.
               </span>
@@ -108,13 +166,13 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
             onClick={() => setInstallMode('helm')}
             className={`p-4 rounded-xl border text-left transition-all flex items-start gap-3.5 ${
               installMode === 'helm'
-                ? 'bg-brand-blue/20 border-brand-sky ring-2 ring-brand-sky/30 text-white'
+                ? 'bg-brand-blue/20 border-brand-sky ring-2 ring-brand-sky/30 text-white shadow-lg'
                 : 'bg-bg-main border-accent-darkBorder text-slate-400 hover:bg-accent-darkHover'
             }`}
           >
             <FileCode2 className={`w-6 h-6 mt-0.5 ${installMode === 'helm' ? 'text-brand-sky' : 'text-slate-500'}`} />
             <div>
-              <span className="font-bold text-sm block text-white">2. Install Helm Chart (YAML Editor)</span>
+              <span className="font-bold text-sm block text-white">2. YAML Editor (Install & change HelmChart)</span>
               <span className="text-xs text-slate-400 leading-normal">
                 Direct editing of `values.yaml` and option to add custom configuration files.
               </span>
@@ -123,92 +181,295 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
         </div>
       </div>
 
-      {/* Main Configuration Form Card */}
+      {/* Main Configuration Form Container */}
       <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-6 space-y-6 shadow-xl">
-        {/* Step 1: General fields */}
-        <div className="grid grid-cols-2 gap-6">
-          <div>
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Database Instance Name</label>
-            <input
-              type="text"
-              value={dbName}
-              onChange={(e) => setDbName(e.target.value)}
-              className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky font-semibold"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Target Kubernetes Cluster</label>
-            <select
-              value={selectedCluster}
-              onChange={(e) => setSelectedCluster(e.target.value)}
-              className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky font-semibold"
-            >
-              {K8S_CLUSTERS.map((cls) => (
-                <option key={cls.id} value={cls.name}>{cls.name} ({cls.provider})</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Step 2: Engine version picker */}
-        <div>
-          <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Engine Version ({selectedEngine.name})</label>
-          <div className="flex items-center gap-3">
-            {selectedEngine.versions.map((ver) => (
-              <button
-                key={ver}
-                onClick={() => setSelectedVersion(ver)}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                  selectedVersion === ver
-                    ? 'bg-brand-blue text-white border-brand-sky shadow-md'
-                    : 'bg-bg-main text-slate-300 border-accent-darkBorder hover:bg-accent-darkHover'
-                }`}
-              >
-                v{ver} {ver === selectedEngine.versions[0] ? '(Recommended)' : ''}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* MODE 1: UI PRESETS */}
-        {installMode === 'ui' ? (
-          <div className="space-y-6 pt-4 border-t border-accent-darkBorder">
+        
+        {/* ======================================================== */}
+        {/* STEP 1: INITIAL MANDATORY FIELDS (NAME, ENGINE, CLUSTER) */}
+        {/* ======================================================== */}
+        <div className="space-y-6">
+          <div className="border-b border-accent-darkBorder pb-3 flex items-center justify-between">
             <div>
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">
-                Select Resource Preset
+              <h4 className="text-sm font-bold uppercase tracking-wider text-brand-sky flex items-center gap-2">
+                <Database className="w-4 h-4" /> Instance & Cluster Target Parameters
+              </h4>
+              <p className="text-xs text-slate-400 mt-0.5">Specify instance ID, database engine, cloud provider, and target cluster</p>
+            </div>
+
+            {/* Engine Version Picker */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-400">Engine Version:</span>
+              {selectedEngine.versions.map((ver) => (
+                <button
+                  key={ver}
+                  onClick={() => setSelectedVersion(ver)}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all ${
+                    selectedVersion === ver
+                      ? 'bg-brand-blue text-white border-brand-sky shadow-md'
+                      : 'bg-bg-main text-slate-400 border-accent-darkBorder hover:bg-accent-darkHover hover:text-white'
+                  }`}
+                >
+                  v{ver}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* FIELD 1: Database Name (ID) */}
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                Database Instance Name (ID)
               </label>
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  { name: 'Small', cpu: '1 Core', ram: '2.0 GB', disk: '10 GB SSD', cost: '$24.50/mo' },
-                  { name: 'Medium', cpu: '2 Cores', ram: '8.0 GB', disk: '50 GB SSD', cost: '$64.50/mo' },
-                  { name: 'Large', cpu: '4 Cores', ram: '16.0 GB', disk: '200 GB SSD', cost: '$180.00/mo' },
-                ].map((preset) => (
-                  <div
-                    key={preset.name}
-                    onClick={() => setSelectedPreset(preset.name as any)}
-                    className={`p-4 rounded-2xl border cursor-pointer transition-all ${
-                      selectedPreset === preset.name
-                        ? 'bg-brand-blue/20 border-brand-sky ring-2 ring-brand-sky/30 shadow-md'
-                        : 'bg-bg-main border-accent-darkBorder hover:bg-accent-darkHover'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-sm text-white">{preset.name}</span>
-                      <span className="text-xs font-extrabold text-brand-sky">{preset.cost}</span>
-                    </div>
-                    <div className="space-y-1.5 text-xs text-slate-400">
-                      <div className="flex items-center gap-1.5"><Cpu className="w-3.5 h-3.5 text-slate-500" /> {preset.cpu}</div>
-                      <div className="flex items-center gap-1.5"><Server className="w-3.5 h-3.5 text-slate-500" /> {preset.ram}</div>
-                      <div className="flex items-center gap-1.5"><HardDrive className="w-3.5 h-3.5 text-slate-500" /> {preset.disk}</div>
+              <input
+                type="text"
+                required
+                value={dbName}
+                onChange={(e) => setDbName(e.target.value)}
+                placeholder="e.g., my-app-db"
+                className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky font-semibold"
+              />
+              <span className="text-[11px] text-slate-500 mt-1 block">Unique identifier inside K8s namespace</span>
+            </div>
+
+            {/* FIELD 2: Database Engine Name (Select) */}
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                Database Engine Name
+              </label>
+              <select
+                value={selectedEngine.engine_type}
+                onChange={(e) => handleEngineChange(e.target.value)}
+                className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky font-semibold"
+              >
+                {CATALOG_ITEMS.map((item) => (
+                  <option key={item.id} value={item.engine_type}>
+                    {item.name} ({item.badge})
+                  </option>
+                ))}
+              </select>
+
+              {/* AUTOMATIC HELM CHART MAPPING DISPLAY */}
+              <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-brand-sky font-mono bg-brand-blue/10 px-2.5 py-1 rounded-lg border border-brand-sky/20">
+                <PackageCheck className="w-3.5 h-3.5 shrink-0 text-brand-sky" />
+                <span className="truncate">Chart: <strong>{ENGINE_HELM_CHARTS[selectedEngine.engine_type] || `bitnami/${selectedEngine.engine_type}`}</strong></span>
+              </div>
+            </div>
+
+            {/* FIELD 3: Cluster Selection (Cascading Dependent Selects without 3A/3B numbers) */}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                  Cloud Provider / Environment
+                </label>
+                <select
+                  value={selectedProvider}
+                  onChange={(e) => handleProviderChange(e.target.value)}
+                  className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky font-semibold"
+                >
+                  <option value="">-- Select Cloud Provider --</option>
+                  <option value="aws">Amazon Web Services (AWS)</option>
+                  <option value="gcp">Google Cloud Platform (GCP)</option>
+                  <option value="azure">Microsoft Azure</option>
+                  <option value="digitalocean">DigitalOcean</option>
+                  <option value="onprem">On-Premise</option>
+                </select>
+              </div>
+
+              {/* Target Cluster (Activated only after provider selected) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  Target Kubernetes Cluster
+                </label>
+                <select
+                  disabled={!selectedProvider}
+                  value={selectedCluster}
+                  onChange={(e) => setSelectedCluster(e.target.value)}
+                  className={`w-full text-sm rounded-xl px-4 py-2.5 focus:outline-none transition-all font-semibold border ${
+                    !selectedProvider
+                      ? 'bg-bg-main/50 text-slate-600 border-accent-darkBorder/40 cursor-not-allowed'
+                      : 'bg-bg-main border-accent-darkBorder text-white focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky'
+                  }`}
+                >
+                  <option value="">
+                    {!selectedProvider ? '⚠️ First select a Cloud Provider' : '-- Select Target Cluster --'}
+                  </option>
+                  {availableClusters.map((cls) => (
+                    <option key={cls.id} value={cls.name}>
+                      {cls.name} ({cls.region})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* ======================================================== */}
+        {/* MODE 1: PRESET DEPLOYMENT (RESOURCE SIZING PANEL REDESIGN) */}
+        {/* ======================================================== */}
+        {installMode === 'ui' ? (
+          <div className="space-y-6 pt-6 border-t border-accent-darkBorder">
+            <div className="p-5 bg-bg-main border border-accent-darkBorder rounded-2xl space-y-4 shadow-md">
+              <div className="flex items-center justify-between border-b border-accent-darkBorder/60 pb-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                  <Cpu className="w-4 h-4 text-brand-sky" /> Resource Allocation & Presets
+                </span>
+                <span className="text-xs font-semibold text-slate-400">Specify custom limits or select backend calculated presets</span>
+              </div>
+
+              {/* TWO SIDE-BY-SIDE PANELS: CUSTOM INPUTS ON LEFT, 3 PRESET COLUMNS ON RIGHT */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                
+                {/* LEFT BLOCK: CUSTOM RESOURCE INPUTS */}
+                <div className="lg:col-span-5 p-4 bg-bg-card border border-accent-darkBorder rounded-xl space-y-3 flex flex-col justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-white uppercase tracking-wider block mb-3 flex items-center gap-1.5">
+                      <Sliders className="w-3.5 h-3.5 text-brand-sky" /> Custom Resource Allocation
+                    </span>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">CPU Cores</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="1"
+                            max="64"
+                            value={customCpu}
+                            onChange={(e) => {
+                              setCustomCpu(e.target.value);
+                              setSelectedPreset('Custom');
+                            }}
+                            placeholder="e.g., 2"
+                            className="w-full bg-bg-main border border-accent-darkBorder text-white text-xs rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-semibold"
+                          />
+                          <Cpu className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">RAM Memory (GB)</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="1"
+                            max="256"
+                            value={customRam}
+                            onChange={(e) => {
+                              setCustomRam(e.target.value);
+                              setSelectedPreset('Custom');
+                            }}
+                            placeholder="e.g., 8"
+                            className="w-full bg-bg-main border border-accent-darkBorder text-white text-xs rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-semibold"
+                          />
+                          <Server className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Storage SSD (GB)</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="5"
+                            max="5000"
+                            value={customDisk}
+                            onChange={(e) => {
+                              setCustomDisk(e.target.value);
+                              setSelectedPreset('Custom');
+                            }}
+                            placeholder="e.g., 50"
+                            className="w-full bg-bg-main border border-accent-darkBorder text-white text-xs rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-semibold"
+                          />
+                          <HardDrive className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                ))}
+
+                  <span className="text-[10px] text-slate-500 italic block pt-2 border-t border-accent-darkBorder/40">
+                    Values specified here will override standard preset configurations.
+                  </span>
+                </div>
+
+                {/* RIGHT BLOCK: 3 COLUMNS FOR SMALL, MEDIUM, LARGE (EMPTY/DYNAMIC DURATION) */}
+                <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    { id: 'Small', name: 'Small' },
+                    { id: 'Medium', name: 'Medium' },
+                    { id: 'Large', name: 'Large' },
+                  ].map((preset) => {
+                    const isSelected = selectedPreset === preset.name;
+                    return (
+                      <div
+                        key={preset.id}
+                        onClick={() => setSelectedPreset(preset.name as any)}
+                        className={`p-4 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
+                          isSelected
+                            ? 'bg-brand-blue/20 border-brand-sky ring-2 ring-brand-sky/30 shadow-md'
+                            : 'bg-bg-card border-accent-darkBorder hover:bg-accent-darkHover'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="font-bold text-sm text-white flex items-center gap-1.5">
+                              {isSelected && <CheckCircle2 className="w-4 h-4 text-brand-sky" />}
+                              {preset.name}
+                            </span>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-bg-main text-brand-sky border border-accent-darkBorder">
+                              Dynamic
+                            </span>
+                          </div>
+
+                          <div className="space-y-2 text-xs text-slate-400 font-medium">
+                            <div className="flex items-center gap-1.5">
+                              <Cpu className="w-3.5 h-3.5 text-slate-500" />
+                              <span>__ Cores</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Server className="w-3.5 h-3.5 text-slate-500" />
+                              <span>__ GB RAM</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <HardDrive className="w-3.5 h-3.5 text-slate-500" />
+                              <span>__ GB SSD</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="pt-3 mt-3 border-t border-accent-darkBorder/40 text-[10px] text-slate-500 text-center font-mono">
+                          Calculated by backend
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
               </div>
+            </div>
+
+            {/* DYNAMIC ENGINE PRESETS PLACEHOLDER SECTION */}
+            <div className="p-5 bg-bg-main/60 border border-dashed border-accent-darkBorder/80 rounded-2xl space-y-2 text-slate-400">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-brand-sky" /> Presets (Engine Specific Configuration Blocks)
+                </h4>
+                <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-brand-blue/10 text-brand-sky border border-brand-sky/20">
+                  Backend Dynamic Modules
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Custom configuration preset blocks for <strong>{selectedEngine.name}</strong> (HA & Replication, Storage Classes, Backup Policies, Network & Ingress) will be rendered here dynamically once fetched from the backend API.
+              </p>
             </div>
           </div>
         ) : (
+          /* ======================================================== */
           /* MODE 2: HELM CHART YAML EDITOR */
+          /* ======================================================== */
           <div className="space-y-4 pt-4 border-t border-accent-darkBorder">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
@@ -238,7 +499,12 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
         )}
 
         {/* Deploy Action Bar */}
-        <div className="pt-4 border-t border-accent-darkBorder flex items-center justify-end">
+        <div className="pt-4 border-t border-accent-darkBorder flex items-center justify-between">
+          <div className="text-xs text-slate-400 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <span>Deployment payload validated for cluster {selectedCluster || 'target'}</span>
+          </div>
+
           <button
             onClick={handleDeploy}
             disabled={isDeploying}

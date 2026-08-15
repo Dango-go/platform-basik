@@ -182,7 +182,7 @@ export const CATALOG_ITEMS: DatabaseCatalogItem[] = [
     name: 'InfluxDB 3.0',
     engine_type: 'influxdb',
     category: 'timeseries',
-    icon_url: 'https://www.vectorlogo.zone/logos/influxdata/influxdata-icon.svg',
+    icon_url: '/influxdb.png', // EXACT User Uploaded White Geometric Polyhedron Logo
     description: 'Purpose-built time-series engine for IoT metrics and telemetry.',
     badge: 'Time-Series',
     versions: ['3.0', '2.7']
@@ -302,8 +302,8 @@ export const CLOUD_CREDENTIALS: CloudCredential[] = [
 export const K8S_CLUSTERS: K8sCluster[] = [
   {
     id: 'cls-1',
-    name: 'lenovo-prod-k8s',
-    provider: 'On-Premise Lenovo',
+    name: 'onprem-prod-k8s',
+    provider: 'On-Premise',
     region: 'EU-Central (Local)',
     nodes_count: 5,
     status: 'active',
@@ -335,6 +335,15 @@ export const K8S_CLUSTERS: K8sCluster[] = [
     nodes_count: 3,
     status: 'active',
     api_url: 'https://doks.digitalocean.com'
+  },
+  {
+    id: 'cls-5',
+    name: 'gcp-gke-prod-cluster',
+    provider: 'GCP GKE',
+    region: 'us-central1 (Iowa)',
+    nodes_count: 6,
+    status: 'active',
+    api_url: 'https://container.googleapis.com'
   }
 ];
 
