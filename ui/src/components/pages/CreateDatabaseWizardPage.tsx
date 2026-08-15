@@ -238,10 +238,7 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
         )}
 
         {/* Deploy Action Bar */}
-        <div className="pt-4 border-t border-accent-darkBorder flex items-center justify-between">
-          <span className="text-xs text-slate-400 flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" /> Automated K8s StatefulSet & PVC Provisioning
-          </span>
+        <div className="pt-4 border-t border-accent-darkBorder flex items-center justify-end">
           <button
             onClick={handleDeploy}
             disabled={isDeploying}

@@ -87,7 +87,7 @@ export const MonitoringPage: React.FC = () => {
               <span>Performance Metrics & Monitoring</span>
               <Search className="w-5 h-5 text-white stroke-[2.5]" />
             </h3>
-            <p className="text-xs text-slate-400">Google-like multi-mode smart search for cluster target database instances</p>
+            <p className="text-xs text-slate-400">Search for cluster target database instances</p>
           </div>
         </div>
 

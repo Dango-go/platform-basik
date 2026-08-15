@@ -1,6 +1,7 @@
 # IDP Platform Architecture - Microservices & Infrastructure
 
 ## 1. Edge & Gateway
+* **`ui-service`** — Web UI interface in the browser for interacting with the platform and managing database lifecycle.
 * **`api-gateway`** — Single entry point web gateway (Reverse Proxy / Routing / Rate Limiting) that authenticates and routes requests from UI/CLI to the appropriate microservices.
 
 ## 2. Identity & Security
