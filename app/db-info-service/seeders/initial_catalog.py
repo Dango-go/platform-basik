@@ -6,7 +6,7 @@ from models.version import DatabaseVersionEntity
 from models.preset import ResourcePresetEntity
 from models.schema import ConfigSchemaEntity
 
-# File initializes when main.py is run
+# File initializes when main.py is run. All info in DB at this step.
 
 
 async def seed_catalog(db: AsyncSession):

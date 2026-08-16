@@ -20,12 +20,13 @@ class CatalogRepository:
             select(DatabaseEngineEntity)
             .where(DatabaseEngineEntity.is_active == True)
             .options(
-                selectinload(DatabaseEngineEntity.versions),
+                selectinload(DatabaseEngineEntity.versions), # all version for database
                 selectinload(DatabaseEngineEntity.presets)
             )
         )
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
+
 
     async def get_engine_details(self, engine_type: str) -> DatabaseEngineEntity:
         """Fetch engine details with versions, presets, and config schema."""
@@ -35,10 +36,10 @@ class CatalogRepository:
                 DatabaseEngineEntity.engine_type == engine_type,
                 DatabaseEngineEntity.is_active == True
             )
-            .options(
-                selectinload(DatabaseEngineEntity.versions),
-                selectinload(DatabaseEngineEntity.presets),
-                selectinload(DatabaseEngineEntity.schemas)
+            .options( # method which adds additional query  which loaded after main query where (load the data in one query instead of multiple)
+                selectinload(DatabaseEngineEntity.versions),  # selectinload - additional query  which loaded after main query where 
+                selectinload(DatabaseEngineEntity.presets),  # SELECT * FROM database_presets WHERE engine_id IN (1);  
+                selectinload(DatabaseEngineEntity.schemas)   # SELECT * FROM database_schemas WHERE engine_id IN (1);
             )
         )
         result = await self.db.execute(stmt)

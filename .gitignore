@@ -1,29 +1,29 @@
-# Python Virtual Environments
 .venv/
 env/
 venv/
 ENV/
 
-# Python compiled files & cache
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
 
-# Node.js / UI Frontend Build Artifacts & Dependencies
+
 node_modules/
 ui/node_modules/
 ui/dist/
 ui/.vite/
 
-# Environment variables & secrets
+
 .env
 *.env
 .env.local
 *.tfstate
 *.tfstate.backup
+*.txt
+docs.txt    
 
-# IDE & OS
+
 .idea/
 .vscode/
 .DS_Store

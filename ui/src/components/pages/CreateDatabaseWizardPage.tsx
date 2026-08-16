@@ -15,13 +15,88 @@ import {
   ShieldCheck,
   CheckCircle2,
   PackageCheck,
-  Boxes
+  Boxes,
+  FolderTree,
+  Save,
+  Download,
+  RefreshCw
 } from 'lucide-react';
 
 interface CreateDatabaseWizardPageProps {
   initialEngineType?: string;
   onSuccess: () => void;
 }
+
+interface HelmChartFileItem {
+  name: string;
+  path: string;
+  content: string;
+}
+
+// Pre-defined Helm Chart File tree for each database engine
+const HELM_CHART_FILES: Record<string, HelmChartFileItem[]> = {
+  postgresql: [
+    {
+      name: 'values.yaml',
+      path: 'values.yaml',
+      content: `primary:\n  extendedConfiguration: |\n    max_connections = 250\n    shared_buffers = 2GB\n    work_mem = 16MB\n  resources:\n    requests:\n      cpu: 1000m\n      memory: 4Gi\n    limits:\n      cpu: 2000m\n      memory: 8Gi\n  persistence:\n    enabled: true\n    size: 50Gi\nreadReplicas:\n  replicaCount: 2`
+    },
+    {
+      name: 'templates/primary/statefulset.yaml',
+      path: 'templates/primary/statefulset.yaml',
+      content: `apiVersion: apps/v1\nkind: StatefulSet\nmetadata:\n  name: {{ include "postgresql.primary.fullname" . }}\n  labels:\n    app.kubernetes.io/component: primary\nspec:\n  replicas: 1\n  serviceName: {{ include "postgresql.primary.fullname" . }}-headless\n  template:\n    spec:\n      containers:\n        - name: postgresql\n          image: docker.io/bitnami/postgresql:16.2.0`
+    },
+    {
+      name: 'templates/configmap.yaml',
+      path: 'templates/configmap.yaml',
+      content: `apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ include "postgresql.primary.fullname" . }}-configuration\ndata:\n  postgresql.conf: |\n    max_connections = 250\n    shared_buffers = 2GB\n    work_mem = 16MB\n    maintenance_work_mem = 256MB`
+    },
+    {
+      name: 'templates/secrets.yaml',
+      path: 'templates/secrets.yaml',
+      content: `apiVersion: v1\nkind: Secret\nmetadata:\n  name: {{ include "postgresql.primary.fullname" . }}\ntype: Opaque\nstringData:\n  postgres-password: "CHANGE_ME_IN_VAULT"\n  password: "SECURE_APP_DB_PASSWORD"`
+    },
+    {
+      name: 'Chart.yaml',
+      path: 'Chart.yaml',
+      content: `apiVersion: v2\nname: postgresql\ndescription: Bitnami Helm chart for PostgreSQL database\nversion: 15.5.2\nappVersion: 16.2.0`
+    }
+  ],
+  redis: [
+    {
+      name: 'values.yaml',
+      path: 'values.yaml',
+      content: `architecture: replication\nmaster:\n  persistence:\n    enabled: true\n    size: 20Gi\n  resources:\n    requests:\n      cpu: 500m\n      memory: 2Gi\nreplica:\n  replicaCount: 3`
+    },
+    {
+      name: 'templates/master/statefulset.yaml',
+      path: 'templates/master/statefulset.yaml',
+      content: `apiVersion: apps/v1\nkind: StatefulSet\nmetadata:\n  name: {{ include "redis.master.fullname" . }}\nspec:\n  replicas: 1\n  serviceName: {{ include "redis.master.fullname" . }}-headless`
+    },
+    {
+      name: 'templates/configmap.yaml',
+      path: 'templates/configmap.yaml',
+      content: `apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ include "redis.fullname" . }}-configuration\ndata:\n  redis.conf: |\n    maxmemory-policy allkeys-lru\n    appendonly yes\n    save 60 1`
+    }
+  ],
+  clickhouse: [
+    {
+      name: 'values.yaml',
+      path: 'values.yaml',
+      content: `shards: 2\nreplicas: 2\nresources:\n  requests:\n    cpu: 2000m\n    memory: 8Gi\npersistence:\n  size: 200Gi`
+    },
+    {
+      name: 'templates/statefulset.yaml',
+      path: 'templates/statefulset.yaml',
+      content: `apiVersion: apps/v1\nkind: StatefulSet\nmetadata:\n  name: {{ include "clickhouse.fullname" . }}\nspec:\n  serviceName: {{ include "clickhouse.fullname" . }}-headless`
+    },
+    {
+      name: 'templates/configmap-users.xml',
+      path: 'templates/configmap-users.xml',
+      content: `apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: {{ include "clickhouse.fullname" . }}-users\ndata:\n  users.xml: |\n    <clickhouse>\n      <users>\n        <default>\n          <password></password>\n        </default>\n      </users>\n    </clickhouse>`
+    }
+  ]
+};
 
 // Helm chart mapping default for each engine
 const ENGINE_HELM_CHARTS: Record<string, string> = {
@@ -76,16 +151,51 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
   // Selected preset for resources: 'Custom' | 'Small' | 'Medium' | 'Large'
   const [selectedPreset, setSelectedPreset] = useState<'Custom' | 'Small' | 'Medium' | 'Large'>('Medium');
 
-  // 3 INSTALLATION MODES: 'ui' (Preset Deployment), 'helm' (Helm values.yaml), 'crd' (Operator Service CRD Manifest)
-  const [installMode, setInstallMode] = useState<'ui' | 'helm' | 'crd'>('ui');
+  // 2 INSTALLATION MODES: 'helm' (Helm values.yaml) or 'crd' (Operator Service CRD Manifest)
+  const [installMode, setInstallMode] = useState<'helm' | 'crd'>('helm');
 
-  // YAML editor content for Helm (Mode 2)
+  // Selected File inside Helm Chart
+  const [selectedHelmFile, setSelectedHelmFile] = useState<string>('values.yaml');
+
+  // YAML editor content for Helm (Mode 1)
   const [yamlContent, setYamlContent] = useState<string>(
     `primary:\n  extendedConfiguration: |\n    max_connections = 250\n    shared_buffers = 2GB\n  resources:\n    requests:\n      cpu: 1000m\n      memory: 4Gi\n  persistence:\n    size: 50Gi`
   );
   const [customFileName, setCustomFileName] = useState('custom-values.yaml');
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState(false);
+  // Specific Helm Chart Name / Repo URL input state
+  const [helmChartNameInput, setHelmChartNameInput] = useState<string>(
+    ENGINE_HELM_CHARTS[selectedEngine.engine_type] || `bitnami/${selectedEngine.engine_type}`
+  );
+  const [helmActionStatus, setHelmActionStatus] = useState<string>('');
+  const [isExecutingHelmAction, setIsExecutingHelmAction] = useState<boolean>(false);
 
-  // CRD Manifest content & Namespace for Operator Service (Mode 3)
+  const handleSelectHelmFile = (filePath: string) => {
+    setSelectedHelmFile(filePath);
+    const chartFiles = HELM_CHART_FILES[selectedEngine.engine_type] || HELM_CHART_FILES['postgresql'];
+    const found = chartFiles.find((f) => f.path === filePath);
+    if (found) {
+      setYamlContent(found.content);
+    }
+  };
+
+  const handleSaveChart = () => {
+    setSaveSuccessMsg(true);
+    setTimeout(() => setSaveSuccessMsg(false), 3000);
+  };
+
+  const handleExecuteHelmAction = async (action: 'install' | 'upgrade') => {
+    setIsExecutingHelmAction(true);
+    setHelmActionStatus(`Running 'helm ${action} ${dbName} ${helmChartNameInput}'...`);
+    await new Promise((res) => setTimeout(res, 1200));
+    setIsExecutingHelmAction(false);
+    setHelmActionStatus(
+      `✓ Successfully executed 'helm ${action} ${dbName} ${helmChartNameInput}' on cluster ${selectedCluster || 'default'}`
+    );
+    setTimeout(() => setHelmActionStatus(''), 5000);
+  };
+
+  // CRD Manifest content & Namespace for Operator Service (Mode 2)
   const [crdManifestContent, setCrdManifestContent] = useState<string>(
     DEFAULT_CRD_MANIFESTS[selectedEngine.engine_type] || DEFAULT_CRD_MANIFESTS['postgresql']
   );
@@ -117,6 +227,8 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
       setSelectedEngine(found);
       setSelectedVersion(found.versions[0]);
       setDbName(`my-${found.engine_type}-db`);
+      const defaultChart = ENGINE_HELM_CHARTS[found.engine_type] || `bitnami/${found.engine_type}`;
+      setHelmChartNameInput(defaultChart);
       if (DEFAULT_CRD_MANIFESTS[found.engine_type]) {
         setCrdManifestContent(DEFAULT_CRD_MANIFESTS[found.engine_type]);
       }
@@ -158,32 +270,14 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
             Create New Database Instance
           </h3>
           <p className="text-xs text-slate-400 mt-1">
-            Select engine parameters and preferred installation mode (UI presets, Helm values.yaml, or K8s Operator CRD)
+            Select engine parameters and preferred installation mode (Helm values.yaml or K8s Operator CRD)
           </p>
         </div>
 
-        {/* THREE INSTALLATION MODE BUTTONS: UI Presets vs Helm Chart vs Operator CRD */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* TWO INSTALLATION MODE BUTTONS: Helm Chart vs Operator CRD */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           
-          {/* MODE 1: Preset Deployment */}
-          <button
-            onClick={() => setInstallMode('ui')}
-            className={`p-4 rounded-xl border text-left transition-all flex items-start gap-3.5 ${
-              installMode === 'ui'
-                ? 'bg-brand-blue/20 border-brand-sky ring-2 ring-brand-sky/30 text-white shadow-lg'
-                : 'bg-bg-main border-accent-darkBorder text-slate-400 hover:bg-accent-darkHover'
-            }`}
-          >
-            <Settings className={`w-6 h-6 mt-0.5 shrink-0 ${installMode === 'ui' ? 'text-brand-sky' : 'text-slate-500'}`} />
-            <div>
-              <span className="font-bold text-sm block text-white">1. Preset Deployment</span>
-              <span className="text-xs text-slate-400 leading-normal">
-                Visual preset picker (Small/Medium/Large), version dropdown & instance naming.
-              </span>
-            </div>
-          </button>
-
-          {/* MODE 2: YAML Editor (Helm Chart) */}
+          {/* MODE 1: YAML Editor (Helm Chart) */}
           <button
             onClick={() => setInstallMode('helm')}
             className={`p-4 rounded-xl border text-left transition-all flex items-start gap-3.5 ${
@@ -194,14 +288,14 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
           >
             <FileCode2 className={`w-6 h-6 mt-0.5 shrink-0 ${installMode === 'helm' ? 'text-brand-sky' : 'text-slate-500'}`} />
             <div>
-              <span className="font-bold text-sm block text-white">2. YAML Editor (Helm Chart)</span>
+              <span className="font-bold text-sm block text-white">1. YAML Editor (Helm Chart)</span>
               <span className="text-xs text-slate-400 leading-normal">
                 Direct editing of `values.yaml` and option to add custom configuration files.
               </span>
             </div>
           </button>
 
-          {/* MODE 3: K8s Custom Resource (Operator Service CRD) */}
+          {/* MODE 2: K8s Custom Resource (Operator Service CRD) */}
           <button
             onClick={() => setInstallMode('crd')}
             className={`p-4 rounded-xl border text-left transition-all flex items-start gap-3.5 ${
@@ -212,7 +306,7 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
           >
             <Boxes className={`w-6 h-6 mt-0.5 shrink-0 ${installMode === 'crd' ? 'text-brand-sky' : 'text-slate-500'}`} />
             <div>
-              <span className="font-bold text-sm block text-white">3. Custom Resource (CRD)</span>
+              <span className="font-bold text-sm block text-white">2. Custom Resource (CRD)</span>
               <span className="text-xs text-slate-400 leading-normal">
                 Kubernetes Operator CRD Manifest (CloudNativePG / KubeDB via operator-service).
               </span>
@@ -352,180 +446,138 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* MODE 1: PRESET DEPLOYMENT (RESOURCE SIZING PANEL) */}
-        {/* ======================================================== */}
-        {installMode === 'ui' && (
-          <div className="space-y-6 pt-6 border-t border-accent-darkBorder">
-            <div className="p-5 bg-bg-main border border-accent-darkBorder rounded-2xl space-y-4 shadow-md">
-              <div className="flex items-center justify-between border-b border-accent-darkBorder/60 pb-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                  <Cpu className="w-4 h-4 text-brand-sky" /> Resource Allocation & Presets
-                </span>
-                <span className="text-xs font-semibold text-slate-400">Specify custom limits or select backend calculated presets</span>
-              </div>
 
-              {/* TWO SIDE-BY-SIDE PANELS: CUSTOM INPUTS ON LEFT, 3 PRESET COLUMNS ON RIGHT */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-                
-                {/* LEFT BLOCK: CUSTOM RESOURCE INPUTS */}
-                <div className="lg:col-span-5 p-4 bg-bg-card border border-accent-darkBorder rounded-xl space-y-3 flex flex-col justify-between">
-                  <div>
-                    <span className="text-xs font-bold text-white uppercase tracking-wider block mb-3 flex items-center gap-1.5">
-                      <Sliders className="w-3.5 h-3.5 text-brand-sky" /> Custom Resource Allocation
-                    </span>
-                    
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">CPU Cores</label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            min="1"
-                            max="64"
-                            value={customCpu}
-                            onChange={(e) => {
-                              setCustomCpu(e.target.value);
-                              setSelectedPreset('Custom');
-                            }}
-                            placeholder="e.g., 2"
-                            className="w-full bg-bg-main border border-accent-darkBorder text-white text-xs rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-semibold"
-                          />
-                          <Cpu className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">RAM Memory (GB)</label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            min="1"
-                            max="256"
-                            value={customRam}
-                            onChange={(e) => {
-                              setCustomRam(e.target.value);
-                              setSelectedPreset('Custom');
-                            }}
-                            placeholder="e.g., 8"
-                            className="w-full bg-bg-main border border-accent-darkBorder text-white text-xs rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-semibold"
-                          />
-                          <Server className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Storage SSD (GB)</label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            min="5"
-                            max="5000"
-                            value={customDisk}
-                            onChange={(e) => {
-                              setCustomDisk(e.target.value);
-                              setSelectedPreset('Custom');
-                            }}
-                            placeholder="e.g., 50"
-                            className="w-full bg-bg-main border border-accent-darkBorder text-white text-xs rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-semibold"
-                          />
-                          <HardDrive className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <span className="text-[10px] text-slate-500 italic block pt-2 border-t border-accent-darkBorder/40">
-                    Values specified here will override standard preset configurations.
-                  </span>
-                </div>
-
-                {/* RIGHT BLOCK: 3 COLUMNS FOR SMALL, MEDIUM, LARGE */}
-                <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {[
-                    { id: 'Small', name: 'Small' },
-                    { id: 'Medium', name: 'Medium' },
-                    { id: 'Large', name: 'Large' },
-                  ].map((preset) => {
-                    const isSelected = selectedPreset === preset.name;
-                    return (
-                      <div
-                        key={preset.id}
-                        onClick={() => setSelectedPreset(preset.name as any)}
-                        className={`p-4 rounded-xl border cursor-pointer transition-all flex flex-col justify-between ${
-                          isSelected
-                            ? 'bg-brand-blue/20 border-brand-sky ring-2 ring-brand-sky/30 shadow-md'
-                            : 'bg-bg-card border-accent-darkBorder hover:bg-accent-darkHover'
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="font-bold text-sm text-white flex items-center gap-1.5">
-                              {isSelected && <CheckCircle2 className="w-4 h-4 text-brand-sky" />}
-                              {preset.name}
-                            </span>
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-bg-main text-brand-sky border border-accent-darkBorder">
-                              Dynamic
-                            </span>
-                          </div>
-
-                          <div className="space-y-2 text-xs text-slate-400 font-medium">
-                            <div className="flex items-center gap-1.5">
-                              <Cpu className="w-3.5 h-3.5 text-slate-500" />
-                              <span>__ Cores</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <Server className="w-3.5 h-3.5 text-slate-500" />
-                              <span>__ GB RAM</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <HardDrive className="w-3.5 h-3.5 text-slate-500" />
-                              <span>__ GB SSD</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="pt-3 mt-3 border-t border-accent-darkBorder/40 text-[10px] text-slate-500 text-center font-mono">
-                          Calculated by backend
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* ======================================================== */}
         {/* MODE 2: HELM CHART YAML EDITOR */}
         {/* ======================================================== */}
         {installMode === 'helm' && (
-          <div className="space-y-4 pt-4 border-t border-accent-darkBorder">
-            <div className="flex items-center justify-between">
+          <div className="space-y-5 pt-4 border-t border-accent-darkBorder">
+            
+            {/* HELM CHART NAME INPUT & INSTALL / UPGRADE BUTTONS TOOLBAR */}
+            <div className="p-4 bg-bg-main border border-accent-darkBorder rounded-xl space-y-3 shadow-md">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                {/* Input for Specific Helm Chart Name */}
+                <div className="flex-1 w-full space-y-1">
+                  <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <PackageCheck className="w-4 h-4 text-brand-sky" /> Target Helm Chart Repository & Name
+                  </label>
+                  <input
+                    type="text"
+                    value={helmChartNameInput}
+                    onChange={(e) => setHelmChartNameInput(e.target.value)}
+                    placeholder="e.g., bitnami/postgresql or oci://registry-1.docker.io/bitnamicharts/postgresql"
+                    className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs font-mono rounded-lg px-3.5 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-semibold"
+                  />
+                </div>
+
+                {/* Install Chart Action Button */}
+                <div className="flex items-center gap-2 pt-2 sm:pt-4 shrink-0">
+                  <button
+                    onClick={() => handleExecuteHelmAction('install')}
+                    disabled={isExecutingHelmAction}
+                    className="bg-brand-blue hover:bg-brand-blue/90 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-md shadow-brand-blue/30 flex items-center gap-1.5 transition-all"
+                  >
+                    <Download className="w-3.5 h-3.5 fill-white" /> Install Chart
+                  </button>
+                </div>
+              </div>
+
+              {/* Notification status for Helm actions */}
+              {helmActionStatus && (
+                <div className="text-xs font-mono text-emerald-400 bg-emerald-950/80 px-3 py-1.5 rounded-lg border border-emerald-500/40 flex items-center justify-between animate-fadeIn">
+                  <span>{helmActionStatus}</span>
+                  <span className="text-[10px] text-slate-400">Target cluster: {selectedCluster || 'default'}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
                 <FileCode2 className="w-4 h-4 text-brand-sky" />
-                Interactive Helm Chart YAML Editor (values.yaml)
+                Interactive Helm Chart YAML Editor ({selectedHelmFile || 'values.yaml'})
               </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={customFileName}
-                  onChange={(e) => setCustomFileName(e.target.value)}
-                  className="bg-bg-main border border-accent-darkBorder text-slate-200 text-xs rounded-lg px-2.5 py-1 font-mono"
-                />
-                <button className="bg-brand-blue/20 text-brand-sky hover:bg-brand-blue/30 border border-brand-sky/30 text-xs font-semibold px-3 py-1 rounded-lg flex items-center gap-1">
-                  <FilePlus className="w-3.5 h-3.5" /> Add Custom File
-                </button>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* SELECT FILE FROM HELM CHART DROPDOWN */}
+                <div className="flex items-center gap-1.5 bg-bg-main border border-accent-darkBorder rounded-lg px-2 py-1">
+                  <FolderTree className="w-3.5 h-3.5 text-brand-sky" />
+                  <select
+                    value={selectedHelmFile}
+                    onChange={(e) => handleSelectHelmFile(e.target.value)}
+                    className="bg-transparent text-slate-200 text-xs font-mono font-semibold focus:outline-none cursor-pointer"
+                  >
+                    <option value="" className="bg-bg-card text-slate-400">-- Select File from Helm Chart --</option>
+                    {(HELM_CHART_FILES[selectedEngine.engine_type] || HELM_CHART_FILES['postgresql']).map((file) => (
+                      <option key={file.path} value={file.path} className="bg-bg-card text-white">
+                        📄 {file.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* CUSTOM FILE INPUT, ADD BUTTON, SAVE CHART & UPGRADE CHART BUTTONS */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <input
+                    type="text"
+                    value={customFileName}
+                    onChange={(e) => setCustomFileName(e.target.value)}
+                    placeholder="custom-file.yaml"
+                    className="bg-bg-main border border-accent-darkBorder text-slate-200 text-xs rounded-lg px-2.5 py-1 font-mono w-36"
+                  />
+                  <button 
+                    onClick={() => {
+                      if (customFileName.trim()) {
+                        setSelectedHelmFile(customFileName);
+                      }
+                    }}
+                    className="bg-brand-blue/20 text-brand-sky hover:bg-brand-blue/30 border border-brand-sky/30 text-xs font-semibold px-3 py-1 rounded-lg flex items-center gap-1 transition-all"
+                  >
+                    <FilePlus className="w-3.5 h-3.5" /> Add Custom File
+                  </button>
+
+                  <button 
+                    onClick={handleSaveChart}
+                    className="bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 text-xs font-semibold px-3 py-1 rounded-lg flex items-center gap-1 transition-all shadow-md"
+                  >
+                    <Save className="w-3.5 h-3.5 text-emerald-400" /> Save Chart
+                  </button>
+
+                  <button
+                    onClick={() => handleExecuteHelmAction('upgrade')}
+                    disabled={isExecutingHelmAction}
+                    className="bg-amber-600/20 text-amber-400 hover:bg-amber-600/30 border border-amber-500/30 text-xs font-semibold px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all shadow-md"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isExecutingHelmAction ? 'animate-spin' : ''}`} /> Upgrade Chart
+                  </button>
+
+                  {saveSuccessMsg && (
+                    <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-500/40 flex items-center gap-1 animate-pulse font-semibold">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Chart saved!
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
             <textarea
               value={yamlContent}
               onChange={(e) => setYamlContent(e.target.value)}
-              rows={10}
-              className="w-full bg-brand-dark text-slate-100 font-mono text-xs p-4 rounded-xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-sky leading-relaxed"
+              onKeyDown={(e) => {
+                const target = e.currentTarget;
+                if (e.key === ' ' && target.selectionStart !== null && target.selectionEnd !== null && target.selectionStart !== target.selectionEnd) {
+                  e.preventDefault();
+                  const start = target.selectionStart;
+                  const end = target.selectionEnd;
+                  const newVal = yamlContent.substring(0, start) + yamlContent.substring(end);
+                  setYamlContent(newVal);
+                  setTimeout(() => {
+                    target.setSelectionRange(start, start);
+                  }, 0);
+                }
+              }}
+              rows={12}
+              className="w-full bg-brand-dark text-slate-100 font-mono text-xs p-4 rounded-xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-sky leading-relaxed selection:bg-brand-sky/50 selection:text-white"
             ></textarea>
           </div>
         )}
@@ -645,9 +697,22 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
                 <textarea
                   value={crdManifestContent}
                   onChange={(e) => setCrdManifestContent(e.target.value)}
+                  onKeyDown={(e) => {
+                    const target = e.currentTarget;
+                    if (e.key === ' ' && target.selectionStart !== null && target.selectionEnd !== null && target.selectionStart !== target.selectionEnd) {
+                      e.preventDefault();
+                      const start = target.selectionStart;
+                      const end = target.selectionEnd;
+                      const newVal = crdManifestContent.substring(0, start) + crdManifestContent.substring(end);
+                      setCrdManifestContent(newVal);
+                      setTimeout(() => {
+                        target.setSelectionRange(start, start);
+                      }, 0);
+                    }
+                  }}
                   rows={12}
                   placeholder="Paste your Kubernetes Custom Resource YAML manifest here..."
-                  className="w-full bg-transparent text-emerald-300 font-mono text-xs focus:outline-none leading-relaxed resize-y"
+                  className="w-full bg-transparent text-emerald-300 font-mono text-xs focus:outline-none leading-relaxed resize-y selection:bg-brand-sky/50 selection:text-white"
                 ></textarea>
               </div>
             </div>

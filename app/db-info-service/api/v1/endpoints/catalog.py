@@ -9,6 +9,7 @@ from core.exceptions import EngineNotFoundError, VersionNotSupportedError
 
 router = APIRouter(prefix="/api/v1/catalog", tags=["catalog"])
 
+# UI CATALOG (return lists of info and presets)
 
 # GET /api/v1/catalog - Get list of active DB engines for showcase
 @router.get("", response_model=List[EngineSummaryResponse])

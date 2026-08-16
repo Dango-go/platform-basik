@@ -28,3 +28,20 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #38BDF8;
 }
+
+/* Bright Visible Text Selection Highlight for Terminals and Inputs */
+::selection {
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+input::selection,
+textarea::selection {
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+::-moz-selection {
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+}

@@ -7,7 +7,7 @@ class DatabaseVersionEntity(Base):
     __tablename__ = "database_versions"
 
     id = Column(Integer, primary_key=True, index=True)
-    engine_id = Column(Integer, ForeignKey("database_engines.id"), nullable=False)
+    engine_id = Column(Integer, ForeignKey("database_engines.id"), nullable=False) # match with selectinload(DatabaseEngineEntity.versions)
     version = Column(String, nullable=False)  # e.g., "16", "15"
     helm_repo_url = Column(String, nullable=False)  # e.g., "https://charts.bitnami.com/bitnami"
     chart_name = Column(String, nullable=False)  # e.g., "postgresql"

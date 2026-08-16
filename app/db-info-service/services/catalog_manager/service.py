@@ -28,6 +28,7 @@ class CatalogService:
             })
         return result
 
+# GET /api/v1/catalog/{engine_type} (when target db)
     async def get_engine_details(self, engine_type: str) -> Dict[str, Any]:
         """Get engine detail with available versions and resource presets (Small/Medium/Large)."""
         engine = await self.repository.get_engine_details(engine_type)

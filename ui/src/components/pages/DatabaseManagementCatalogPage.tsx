@@ -557,8 +557,21 @@ export const DatabaseManagementCatalogPage: React.FC<DatabaseManagementCatalogPa
                 type="text"
                 value={terminalInput}
                 onChange={(e) => setTerminalInput(e.target.value)}
+                onKeyDown={(e) => {
+                  const target = e.currentTarget;
+                  if (e.key === ' ' && target.selectionStart !== null && target.selectionEnd !== null && target.selectionStart !== target.selectionEnd) {
+                    e.preventDefault();
+                    const start = target.selectionStart;
+                    const end = target.selectionEnd;
+                    const newVal = terminalInput.substring(0, start) + terminalInput.substring(end);
+                    setTerminalInput(newVal);
+                    setTimeout(() => {
+                      target.setSelectionRange(start, start);
+                    }, 0);
+                  }
+                }}
                 placeholder="Type SQL query or CLI command (e.g. \dt, SELECT * FROM users;) and press Enter..."
-                className="flex-1 bg-bg-main border border-accent-darkBorder text-white text-xs font-mono rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky"
+                className="flex-1 bg-bg-main border border-accent-darkBorder text-white text-xs font-mono rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky selection:bg-brand-sky/50 selection:text-white"
               />
               <button
                 type="submit"

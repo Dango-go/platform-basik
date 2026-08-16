@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 
 
+# DB catalog
 class EngineSummaryResponse(BaseModel):
     id: int
     name: str = Field(..., description="Display name e.g., PostgreSQL")
@@ -9,7 +10,7 @@ class EngineSummaryResponse(BaseModel):
     category: str = Field(..., description="Category e.g., Relational SQL")
     icon_url: Optional[str] = Field(None, description="Logo URL")
     description: Optional[str] = Field(None, description="Short summary for UI card")
-    versions: List[str] = Field(..., description="Supported active versions")
+    versions: List[str] = Field(..., description="Supported active versions") # engines_version
     default_version: Optional[str] = Field(None, description="Default version")
 
 
