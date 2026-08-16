@@ -15,5 +15,4 @@ class DatabaseEngineEntity(Base):
     is_active = Column(Boolean, default=True)  # Showcase toggle (Soft hide)
 
     versions = relationship("DatabaseVersionEntity", back_populates="engine", cascade="all, delete-orphan")
-    presets = relationship("ResourcePresetEntity", back_populates="engine", cascade="all, delete-orphan")
     schemas = relationship("ConfigSchemaEntity", back_populates="engine", cascade="all, delete-orphan")

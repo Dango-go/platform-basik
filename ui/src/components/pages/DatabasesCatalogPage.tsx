@@ -11,7 +11,8 @@ import {
   FileCode2,
   ArrowLeft,
   Wrench,
-  Layers
+  Layers,
+  Terminal
 } from 'lucide-react';
 
 interface DatabasesCatalogPageProps {
@@ -22,8 +23,18 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({ onNa
   const [selectedDb, setSelectedDb] = useState<DeployedDatabase | null>(null);
   const [activeDbTab, setActiveDbTab] = useState<'config' | 'monitoring' | 'budget'>('config');
 
-  // Selected item for Management Catalog Page
+  // Selected item for Management Catalog Page (Fast Management)
   const [selectedManagementCatalogItem, setSelectedManagementCatalogItem] = useState<any>(null);
+
+  const handleOpenFastManagement = (db: DeployedDatabase) => {
+    const found = CATALOG_ITEMS.find((c) => c.engine_type === db.engine_type) || CATALOG_ITEMS[0];
+    const customItem = {
+      ...found,
+      name: `${db.name} (${found.name})`,
+      engine_type: db.engine_type,
+    };
+    setSelectedManagementCatalogItem(customItem);
+  };
 
   // Track image load errors for fallbacks
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
@@ -305,10 +316,14 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({ onNa
               </thead>
               <tbody className="divide-y divide-accent-darkBorder/60 text-sm">
                 {INITIAL_DEPLOYED_DBS.map((db) => (
-                  <tr key={db.id} className="hover:bg-accent-darkHover transition-colors">
+                  <tr 
+                    key={db.id} 
+                    onClick={() => handleOpenFastManagement(db)}
+                    className="hover:bg-accent-darkHover transition-colors cursor-pointer"
+                  >
                     <td className="p-4 font-bold text-white flex items-center gap-2">
                       <Database className="w-4 h-4 text-brand-sky" />
-                      {db.name}
+                      <span className="hover:underline text-brand-sky font-bold">{db.name}</span>
                     </td>
                     <td className="p-4 text-slate-300 capitalize">
                       {db.engine_type} <span className="text-xs text-slate-500">v{db.version}</span>
@@ -325,10 +340,13 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({ onNa
                     <td className="p-4 font-extrabold text-white text-right">${db.monthly_cost.toFixed(2)}</td>
                     <td className="p-4 text-center">
                       <button
-                        onClick={() => setSelectedDb(db)}
-                        className="text-xs font-semibold bg-brand-blue text-white px-3 py-1.5 rounded-lg hover:bg-brand-blue/80 transition-colors shadow-md shadow-brand-blue/20"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenFastManagement(db);
+                        }}
+                        className="text-xs font-bold bg-brand-blue hover:bg-brand-blue/90 text-white px-3.5 py-1.5 rounded-lg transition-all shadow-md shadow-brand-blue/20 flex items-center gap-1.5 mx-auto"
                       >
-                        Inspect 3 Panels
+                        <Terminal className="w-3.5 h-3.5 text-white" /> Fast Management
                       </button>
                     </td>
                   </tr>

@@ -121,6 +121,56 @@ export const DatabaseManagementCatalogPage: React.FC<DatabaseManagementCatalogPa
     runningInstances[0]?.name || `prod-${item.engine_type}-main-0`
   );
 
+  // Day-2 Instance Management Modal state (Day-2 Operations: Scale, Config Tuning, Pause/Resume)
+  const [activeDay2Instance, setActiveDay2Instance] = useState<any | null>(null);
+  const [scaleCpu, setScaleCpu] = useState<number>(2.0);
+  const [scaleRam, setScaleRam] = useState<number>(8.0);
+  const [scaleDisk, setScaleDisk] = useState<number>(100);
+  const [isScaling, setIsScaling] = useState<boolean>(false);
+
+  // Config Tuning state
+  const [maxConnections, setMaxConnections] = useState<number>(500);
+  const [sharedBuffers, setSharedBuffers] = useState<string>('4GB');
+  const [isConfiguring, setIsConfiguring] = useState<boolean>(false);
+
+  // Lifecycle status: 'Running' | 'Stopped'
+  const [instanceStatus, setInstanceStatus] = useState<'Running' | 'Stopped'>('Running');
+  const [day2Notification, setDay2Notification] = useState<string | null>(null);
+
+  const handleOpenDay2 = (db: any) => {
+    setActiveDay2Instance(db);
+    setScaleCpu((db.cpu_usage_m || 1000) / 1000);
+    setScaleRam((db.memory_usage_mb || 4096) / 1024);
+    setScaleDisk(db.storage_gb || 50);
+    setInstanceStatus(db.status === 'Stopped' ? 'Stopped' : 'Running');
+  };
+
+  const handleApplyScale = async () => {
+    setIsScaling(true);
+    setDay2Notification(`[PATCH /api/v1/databases/${activeDay2Instance?.id || 1}/scale]: Scaling CPU to ${scaleCpu} Cores, RAM to ${scaleRam} GB, Storage to ${scaleDisk} GB...`);
+    await new Promise((res) => setTimeout(res, 1200));
+    setIsScaling(false);
+    setDay2Notification(`✓ Resource Scaling successfully applied via helm upgrade for ${activeDay2Instance?.name}!`);
+    setTimeout(() => setDay2Notification(null), 4000);
+  };
+
+  const handleApplyConfig = async () => {
+    setIsConfiguring(true);
+    setDay2Notification(`[PUT /api/v1/databases/${activeDay2Instance?.id || 1}/config]: Applying max_connections=${maxConnections}, shared_buffers=${sharedBuffers}...`);
+    await new Promise((res) => setTimeout(res, 1200));
+    setIsConfiguring(false);
+    setDay2Notification(`✓ Config tuning values.yaml applied via helm upgrade for ${activeDay2Instance?.name}!`);
+    setTimeout(() => setDay2Notification(null), 4000);
+  };
+
+  const handleToggleStopStart = () => {
+    const newStatus = instanceStatus === 'Running' ? 'Stopped' : 'Running';
+    setInstanceStatus(newStatus);
+    const action = newStatus === 'Stopped' ? 'stop (scale replicas: 0)' : 'start (scale replicas: 1)';
+    setDay2Notification(`✓ Executed POST /api/v1/databases/${activeDay2Instance?.id || 1}/${action}. Instance status updated to ${newStatus}.`);
+    setTimeout(() => setDay2Notification(null), 4000);
+  };
+
   // Terminal Command Line State
   const [terminalInput, setTerminalInput] = useState('');
   const [terminalLogs, setTerminalLogs] = useState<Array<{ type: 'cmd' | 'output' | 'info'; text: string }>>([
@@ -341,13 +391,14 @@ export const DatabaseManagementCatalogPage: React.FC<DatabaseManagementCatalogPa
                 <div className="flex items-center justify-between pt-2 border-t border-accent-darkBorder/40">
                   <span className="text-[11px] font-mono text-slate-500">ns: {db.namespace}</span>
                   
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    {/* DAY-2 OPERATIONS BUTTON (Scale, Config, Pause/Resume) */}
                     <button
-                      onClick={() => alert(`Opening monitoring dashboard for ${db.name}...`)}
-                      className="text-xs font-semibold text-slate-400 hover:text-white flex items-center gap-1 transition-colors"
+                      onClick={() => handleOpenDay2(db)}
+                      className="text-xs font-bold bg-brand-blue/20 hover:bg-brand-blue text-brand-sky hover:text-white px-3 py-1.5 rounded-lg border border-brand-sky/30 transition-all flex items-center gap-1.5 shadow-sm"
                     >
-                      <Activity className="w-3.5 h-3.5 text-brand-sky" />
-                      <span>Open Monitoring &rarr;</span>
+                      <Sliders className="w-3.5 h-3.5" />
+                      <span>Day-2 Operations (Scale/Tune/Stop)</span>
                     </button>
 
                     {/* DIRECT TERMINAL CONNECT BUTTON FOR THIS POD */}
@@ -356,10 +407,10 @@ export const DatabaseManagementCatalogPage: React.FC<DatabaseManagementCatalogPa
                         setSelectedInstanceForTerminal(db.name);
                         setShowTerminalModal(true);
                       }}
-                      className="text-xs font-bold text-brand-sky hover:text-white flex items-center gap-1 hover:underline"
+                      className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1 hover:underline"
                     >
-                      <TerminalIcon className="w-3.5 h-3.5" />
-                      <span>Connect Terminal ⚡</span>
+                      <TerminalIcon className="w-3.5 h-3.5 text-brand-sky" />
+                      <span>Terminal ⚡</span>
                     </button>
                   </div>
                 </div>
@@ -533,7 +584,7 @@ export const DatabaseManagementCatalogPage: React.FC<DatabaseManagementCatalogPa
                     <span className="text-slate-500 font-semibold">{log.text}</span>
                   )}
                   {log.type === 'cmd' && (
-                    <span className="text-blue-400 font-bold">{log.text}</span>
+                    <span className="text-blue-500 font-bold">{log.text}</span>
                   )}
                   {log.type === 'output' && (
                     <span className="text-sky-300 font-semibold">{log.text}</span>
@@ -550,7 +601,7 @@ export const DatabaseManagementCatalogPage: React.FC<DatabaseManagementCatalogPa
               }}
               className="flex items-center gap-2 pt-2 border-t border-accent-darkBorder"
             >
-              <span className="text-blue-400 font-mono font-bold text-xs">
+              <span className="text-blue-500 font-mono font-bold text-xs">
                 {item.engine_type === 'redis' ? '127.0.0.1:6379>' : `${item.engine_type}=#`}
               </span>
               <input
@@ -580,6 +631,194 @@ export const DatabaseManagementCatalogPage: React.FC<DatabaseManagementCatalogPa
                 <Play className="w-3.5 h-3.5 fill-white" /> Run
               </button>
             </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* DAY-2 OPERATIONS MODAL (Scale, Parameter Tuning, Stop/Start) */}
+      {/* ======================================================== */}
+      {activeDay2Instance && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-bg-card border border-accent-darkBorder rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-6">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-accent-darkBorder pb-4">
+              <div>
+                <h3 className="text-lg font-extrabold text-white flex items-center gap-2">
+                  <Sliders className="w-5 h-5 text-brand-sky" /> Day-2 Operations & Controls: {activeDay2Instance.name}
+                  <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                    instanceStatus === 'Running' 
+                      ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/40' 
+                      : 'bg-amber-950/80 text-amber-400 border-amber-500/40'
+                  }`}>
+                    ● {instanceStatus.toUpperCase()}
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Target Cluster: <span className="text-slate-200 font-mono">{activeDay2Instance.cluster_name}</span> | Namespace: <span className="text-slate-200 font-mono">{activeDay2Instance.namespace}</span>
+                </p>
+              </div>
+              <button 
+                onClick={() => setActiveDay2Instance(null)}
+                className="p-2 hover:bg-accent-darkHover rounded-xl text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Notification Banner */}
+            {day2Notification && (
+              <div className="p-3 bg-brand-blue/20 border border-brand-sky/40 text-brand-sky rounded-xl text-xs font-mono font-semibold animate-pulse">
+                {day2Notification}
+              </div>
+            )}
+
+            {/* SECTION 4: Day-2 Resource Scaling (PATCH /scale) */}
+            <div className="p-5 bg-bg-main border border-accent-darkBorder rounded-2xl space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-brand-sky flex items-center gap-2">
+                  <Cpu className="w-4 h-4" /> 4. 📈 Day-2 Resource Scaling (PATCH /api/v1/databases/{activeDay2Instance.id || 1}/scale)
+                </h4>
+                <span className="text-[10px] text-slate-400 bg-bg-card px-2 py-0.5 rounded border border-accent-darkBorder">
+                  Rolling Update (No Downtime)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-bg-card p-3 rounded-xl border border-accent-darkBorder">
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">CPU Cores</label>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="number" 
+                      step="0.5"
+                      min="0.5"
+                      max="64"
+                      value={scaleCpu} 
+                      onChange={(e) => setScaleCpu(parseFloat(e.target.value))}
+                      className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm font-mono font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:border-brand-sky"
+                    />
+                    <span className="text-xs text-slate-500 font-bold">Cores</span>
+                  </div>
+                </div>
+
+                <div className="bg-bg-card p-3 rounded-xl border border-accent-darkBorder">
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">RAM Memory</label>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="number" 
+                      step="1"
+                      min="1"
+                      max="256"
+                      value={scaleRam} 
+                      onChange={(e) => setScaleRam(parseFloat(e.target.value))}
+                      className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm font-mono font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:border-brand-sky"
+                    />
+                    <span className="text-xs text-slate-500 font-bold">GB</span>
+                  </div>
+                </div>
+
+                <div className="bg-bg-card p-3 rounded-xl border border-accent-darkBorder">
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Persistent Disk (PVC)</label>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="number" 
+                      step="10"
+                      min="10"
+                      max="5000"
+                      value={scaleDisk} 
+                      onChange={(e) => setScaleDisk(parseInt(e.target.value, 10))}
+                      className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm font-mono font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:border-brand-sky"
+                    />
+                    <span className="text-xs text-slate-500 font-bold">GB SSD</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleApplyScale}
+                disabled={isScaling}
+                className="bg-brand-blue hover:bg-brand-blue/90 text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-brand-blue/20 transition-all"
+              >
+                <Play className="w-3.5 h-3.5 fill-white" /> 
+                {isScaling ? 'Scaling via helm upgrade...' : 'Apply Resource Scaling (helm upgrade)'}
+              </button>
+            </div>
+
+            {/* SECTION 5: Parameter Editing & Config Tuning (PUT /config) */}
+            <div className="p-5 bg-bg-main border border-accent-darkBorder rounded-2xl space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-brand-sky flex items-center gap-2">
+                <Code2 className="w-4 h-4" /> 5. ⚙️ Parameter Editing & Tuning (PUT /api/v1/databases/{activeDay2Instance.id || 1}/config)
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-bg-card p-3 rounded-xl border border-accent-darkBorder">
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Max Connections (max_connections)</label>
+                  <input 
+                    type="number" 
+                    value={maxConnections} 
+                    onChange={(e) => setMaxConnections(parseInt(e.target.value, 10))}
+                    className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm font-mono font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:border-brand-sky"
+                  />
+                </div>
+                <div className="bg-bg-card p-3 rounded-xl border border-accent-darkBorder">
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Shared Buffers (shared_buffers)</label>
+                  <input 
+                    type="text" 
+                    value={sharedBuffers} 
+                    onChange={(e) => setSharedBuffers(e.target.value)}
+                    className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm font-mono font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:border-brand-sky"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={handleApplyConfig}
+                disabled={isConfiguring}
+                className="bg-emerald-600 hover:bg-emerald-600/90 text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-emerald-600/20 transition-all"
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                {isConfiguring ? 'Applying values.yaml tuning...' : 'Apply Config Tuning (values.yaml)'}
+              </button>
+            </div>
+
+            {/* SECTION 6: Lifecycle Pause/Resume & Delete (POST /stop & /start) */}
+            <div className="p-5 bg-bg-main border border-accent-darkBorder rounded-2xl space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-amber-400" /> 6. ⏹️ Lifecycle Controls (POST /stop & /start & DELETE)
+              </h4>
+
+              <div className="flex items-center gap-3 flex-wrap">
+                {instanceStatus === 'Running' ? (
+                  <button
+                    onClick={handleToggleStopStart}
+                    className="bg-amber-600/20 text-amber-400 hover:bg-amber-600/30 border border-amber-500/30 text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all"
+                  >
+                    ⏸️ Pause Database (Scale replicas to 0)
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleToggleStopStart}
+                    className="bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all"
+                  >
+                    ▶️ Resume Database (Scale replicas to 1)
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    if (confirm(`Are you sure you want to delete ${activeDay2Instance.name}? A final snapshot will be created.`)) {
+                      setActiveDay2Instance(null);
+                      alert(`✓ Final snapshot created and database ${activeDay2Instance.name} deleted.`);
+                    }
+                  }}
+                  className="bg-rose-950/60 text-rose-400 hover:bg-rose-900/60 border border-rose-500/30 text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 transition-all"
+                >
+                  🗑️ Delete Database Instance (Safe Removal)
+                </button>
+              </div>
+            </div>
 
           </div>
         </div>

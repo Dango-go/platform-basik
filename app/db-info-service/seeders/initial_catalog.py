@@ -3,14 +3,13 @@ from sqlalchemy import select
 
 from models.engine import DatabaseEngineEntity
 from models.version import DatabaseVersionEntity
-from models.preset import ResourcePresetEntity
 from models.schema import ConfigSchemaEntity
 
 # File initializes when main.py is run. All info in DB at this step.
 
 
 async def seed_catalog(db: AsyncSession):
-    """Seed initial database engines, versions, and presets if empty."""
+    """Seed initial database engines and versions if empty."""
     stmt = select(DatabaseEngineEntity)
     result = await db.execute(stmt)
     existing = result.scalars().first()
@@ -47,9 +46,6 @@ async def seed_catalog(db: AsyncSession):
             chart_version="12.10.0",
             is_default=False
         ),
-        ResourcePresetEntity(engine_id=postgres.id, preset_name="Small", cpu_cores=1.0, ram_gb=2.0, storage_gb=10),
-        ResourcePresetEntity(engine_id=postgres.id, preset_name="Medium", cpu_cores=2.0, ram_gb=8.0, storage_gb=50),
-        ResourcePresetEntity(engine_id=postgres.id, preset_name="Large", cpu_cores=4.0, ram_gb=16.0, storage_gb=200),
         ConfigSchemaEntity(
             engine_id=postgres.id,
             json_schema={
@@ -84,9 +80,6 @@ async def seed_catalog(db: AsyncSession):
             chart_version="18.0.1",
             is_default=True
         ),
-        ResourcePresetEntity(engine_id=redis.id, preset_name="Small", cpu_cores=0.5, ram_gb=1.0, storage_gb=5),
-        ResourcePresetEntity(engine_id=redis.id, preset_name="Medium", cpu_cores=1.0, ram_gb=4.0, storage_gb=20),
-        ResourcePresetEntity(engine_id=redis.id, preset_name="Large", cpu_cores=2.0, ram_gb=8.0, storage_gb=50),
         ConfigSchemaEntity(
             engine_id=redis.id,
             json_schema={
@@ -125,9 +118,6 @@ async def seed_catalog(db: AsyncSession):
             chart_version="4.2.1",
             is_default=True
         ),
-        ResourcePresetEntity(engine_id=clickhouse.id, preset_name="Small", cpu_cores=2.0, ram_gb=4.0, storage_gb=50),
-        ResourcePresetEntity(engine_id=clickhouse.id, preset_name="Medium", cpu_cores=4.0, ram_gb=16.0, storage_gb=250),
-        ResourcePresetEntity(engine_id=clickhouse.id, preset_name="Large", cpu_cores=8.0, ram_gb=32.0, storage_gb=1000),
         ConfigSchemaEntity(
             engine_id=clickhouse.id,
             json_schema={
