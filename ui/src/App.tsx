@@ -3,6 +3,7 @@ import { LoginPage } from './components/pages/LoginPage';
 import { MainLayout } from './components/layout/MainLayout';
 import { DatabasesCatalogPage } from './components/pages/DatabasesCatalogPage';
 import { CreateDatabaseWizardPage } from './components/pages/CreateDatabaseWizardPage';
+import { StoreAndBackupsPage } from './components/pages/StoreAndBackupsPage';
 import { FinancePage } from './components/pages/FinancePage';
 import { MonitoringPage } from './components/pages/MonitoringPage';
 import { CloudPage } from './components/pages/CloudPage';
@@ -39,6 +40,8 @@ export const App: React.FC = () => {
       {activeTab === 'databases' && (
         <DatabasesCatalogPage onNavigateCreate={handleNavigateCreate} />
       )}
+
+      {activeTab === 'store_backups' && <StoreAndBackupsPage />}
 
       {activeTab === 'finance' && <FinancePage />}
 

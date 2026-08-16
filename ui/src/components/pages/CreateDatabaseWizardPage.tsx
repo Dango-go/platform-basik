@@ -19,7 +19,12 @@ import {
   FolderTree,
   Save,
   Download,
-  RefreshCw
+  RefreshCw,
+  Key,
+  Eye,
+  EyeOff,
+  Wand2,
+  Lock
 } from 'lucide-react';
 
 interface CreateDatabaseWizardPageProps {
@@ -156,6 +161,19 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
 
   // Selected File inside Helm Chart
   const [selectedHelmFile, setSelectedHelmFile] = useState<string>('values.yaml');
+
+  const generateRandomPassword = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=';
+    let res = '';
+    for (let i = 0; i < 20; i++) {
+      res += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return res + 'Secured';
+  };
+
+  const [passwordMode, setPasswordMode] = useState<'auto' | 'custom'>('auto');
+  const [dbPassword, setDbPassword] = useState<string>(generateRandomPassword());
+  const [showPassword, setShowPassword] = useState<boolean>(false);
 
   // YAML editor content for Helm (Mode 1)
   const [yamlContent, setYamlContent] = useState<string>(
@@ -327,7 +345,7 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
             <div className="border-b border-accent-darkBorder pb-3 flex items-center justify-between">
               <div>
                 <h4 className="text-sm font-bold uppercase tracking-wider text-brand-sky flex items-center gap-2">
-                  <Database className="w-4 h-4" /> Instance & Cluster Target Parameters
+                  <Database className="w-4 h-4" /> Deploy Management Catalog
                 </h4>
                 <p className="text-xs text-slate-400 mt-0.5">Specify instance ID, database engine, cloud provider, and target cluster</p>
               </div>
@@ -443,6 +461,104 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
               </div>
 
             </div>
+
+            {/* DATABASE SECURITY & CREDENTIALS CARD */}
+            <div className="p-5 bg-bg-main border border-accent-darkBorder rounded-2xl space-y-4 shadow-md mt-6">
+              <div className="flex items-center justify-between border-b border-accent-darkBorder/60 pb-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
+                  <Key className="w-4 h-4 text-brand-sky" /> Database Security & Credentials Setup
+                </span>
+                <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Required for Vault & Kubernetes Secret
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                {/* Password Mode Toggle Buttons */}
+                <div className="lg:col-span-5 space-y-2">
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Password Generation Mode <span className="text-rose-400">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPasswordMode('auto');
+                        if (!dbPassword) {
+                          setDbPassword(generateRandomPassword());
+                        }
+                      }}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                        passwordMode === 'auto'
+                          ? 'bg-brand-blue/20 text-brand-sky border-brand-sky ring-1 ring-brand-sky/30'
+                          : 'bg-bg-card text-slate-400 border-accent-darkBorder hover:bg-accent-darkHover'
+                      }`}
+                    >
+                      <Wand2 className="w-3.5 h-3.5" /> Auto-Generated
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPasswordMode('custom');
+                        setDbPassword('');
+                      }}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                        passwordMode === 'custom'
+                          ? 'bg-brand-blue/20 text-brand-sky border-brand-sky ring-1 ring-brand-sky/30'
+                          : 'bg-bg-card text-slate-400 border-accent-darkBorder hover:bg-accent-darkHover'
+                      }`}
+                    >
+                      <Lock className="w-3.5 h-3.5" /> Custom Password
+                    </button>
+                  </div>
+                </div>
+
+                {/* Password Input & Generation Controls */}
+                <div className="lg:col-span-7 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                      Database Admin Password <span className="text-rose-400">*</span>
+                    </label>
+                    {passwordMode === 'auto' && (
+                      <button
+                        type="button"
+                        onClick={() => setDbPassword(generateRandomPassword())}
+                        className="text-[11px] text-brand-sky font-semibold hover:underline flex items-center gap-1"
+                      >
+                        <RefreshCw className="w-3 h-3" /> Re-generate Random
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="relative flex items-center">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={dbPassword}
+                      onChange={(e) => setDbPassword(e.target.value)}
+                      placeholder="Enter database admin password..."
+                      className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs font-mono rounded-xl pl-9 pr-10 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky font-semibold selection:bg-brand-sky/50 selection:text-white"
+                    />
+                    <Key className="w-4 h-4 text-slate-500 absolute left-3" />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 text-slate-400 hover:text-white focus:outline-none"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  
+                  {!dbPassword && (
+                    <span className="text-[10px] text-rose-400 font-semibold block pt-1">
+                      ⚠️ Password is required before deploying database
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
           </div>
         )}
 
@@ -577,7 +693,7 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
                 }
               }}
               rows={12}
-              className="w-full bg-brand-dark text-slate-100 font-mono text-xs p-4 rounded-xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-sky leading-relaxed selection:bg-brand-sky/50 selection:text-white"
+              className="w-full bg-brand-dark text-sky-300 font-mono text-xs p-4 rounded-xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-sky leading-relaxed selection:bg-brand-sky/50 selection:text-white font-semibold"
             ></textarea>
           </div>
         )}

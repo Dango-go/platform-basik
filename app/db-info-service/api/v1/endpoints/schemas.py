@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 
 
-# DB catalog
+# Public Database Catalog DTOs
 class EngineSummaryResponse(BaseModel):
     id: int
     name: str = Field(..., description="Display name e.g., PostgreSQL")
@@ -10,33 +10,8 @@ class EngineSummaryResponse(BaseModel):
     category: str = Field(..., description="Category e.g., Relational SQL")
     icon_url: Optional[str] = Field(None, description="Logo URL")
     description: Optional[str] = Field(None, description="Short summary for UI card")
-    versions: List[str] = Field(..., description="Supported active versions") # engines_version
+    versions: List[str] = Field(..., description="Supported active versions")
     default_version: Optional[str] = Field(None, description="Default version")
-
-
-class VersionResponse(BaseModel):
-    version: str
-    is_default: bool
-    is_deprecated: bool
-
-
-class PresetResponse(BaseModel):
-    preset_name: str
-    cpu_cores: float
-    ram_gb: float
-    storage_gb: int
-
-
-class EngineDetailResponse(BaseModel):
-    id: int
-    name: str
-    engine_type: str
-    category: str
-    icon_url: Optional[str]
-    description: Optional[str]
-    versions: List[VersionResponse]
-    presets: List[PresetResponse]
-    json_schema: Dict[str, Any]
 
 
 class ChartInfoResponse(BaseModel):
@@ -53,3 +28,4 @@ class EngineCreateRequest(BaseModel):
     category: str = Field(..., description="Category")
     icon_url: Optional[str] = None
     description: Optional[str] = None
+

@@ -6,7 +6,8 @@ import {
   Activity, 
   Cloud, 
   LogOut, 
-  Layers
+  Layers,
+  HardDrive
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -19,6 +20,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLog
   const menuItems = [
     { id: 'create', label: 'Create Database', icon: PlusCircle, highlight: true },
     { id: 'databases', label: 'Databases', icon: Database },
+    { id: 'store_backups', label: 'Store and Backups', icon: HardDrive },
     { id: 'finance', label: 'Finance', icon: DollarSign },
     { id: 'monitoring', label: 'Monitoring', icon: Activity },
     { id: 'cloud', label: 'Cloud', icon: Cloud },

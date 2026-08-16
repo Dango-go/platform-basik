@@ -15,31 +15,27 @@ class CatalogRepository:
         self.db = db
 
     async def get_all_active_engines(self) -> List[DatabaseEngineEntity]:
-        """Fetch all active database engines for showcase catalog."""
+        """Fetch all active database engines and their supported versions."""
         stmt = (
             select(DatabaseEngineEntity)
             .where(DatabaseEngineEntity.is_active == True)
             .options(
-                selectinload(DatabaseEngineEntity.versions), # all version for database
-                selectinload(DatabaseEngineEntity.presets)
+                selectinload(DatabaseEngineEntity.versions)
             )
         )
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-
-    async def get_engine_details(self, engine_type: str) -> DatabaseEngineEntity:
-        """Fetch engine details with versions, presets, and config schema."""
+    async def get_chart_info(self, engine_type: str, version_str: Optional[str] = None) -> DatabaseVersionEntity:
+        """Fetch Helm chart deployment details for a specific engine and version."""
         stmt = (
             select(DatabaseEngineEntity)
             .where(
                 DatabaseEngineEntity.engine_type == engine_type,
                 DatabaseEngineEntity.is_active == True
             )
-            .options( # method which adds additional query  which loaded after main query where (load the data in one query instead of multiple)
-                selectinload(DatabaseEngineEntity.versions),  # selectinload - additional query  which loaded after main query where 
-                selectinload(DatabaseEngineEntity.presets),  # SELECT * FROM database_presets WHERE engine_id IN (1);  
-                selectinload(DatabaseEngineEntity.schemas)   # SELECT * FROM database_schemas WHERE engine_id IN (1);
+            .options(
+                selectinload(DatabaseEngineEntity.versions)
             )
         )
         result = await self.db.execute(stmt)
@@ -47,12 +43,6 @@ class CatalogRepository:
 
         if not engine:
             raise EngineNotFoundError(f"Database engine '{engine_type}' was not found in catalog.")
-
-        return engine
-
-    async def get_chart_info(self, engine_type: str, version_str: Optional[str] = None) -> DatabaseVersionEntity:
-        """Fetch Helm chart deployment details for a specific engine and version."""
-        engine = await self.get_engine_details(engine_type)
 
         if version_str:
             for v in engine.versions:

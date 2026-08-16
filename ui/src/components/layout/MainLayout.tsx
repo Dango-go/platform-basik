@@ -18,6 +18,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const titles: Record<string, string> = {
     create: 'Create Database',
     databases: 'Databases Catalog & Installed List',
+    store_backups: 'Store and Backups Management',
     finance: 'Finance & Budget Tracking',
     monitoring: 'Monitoring & Performance Metrics',
     cloud: 'Cloud Credentials & K8s Clusters'

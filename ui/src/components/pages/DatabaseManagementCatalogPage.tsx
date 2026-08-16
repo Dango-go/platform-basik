@@ -526,17 +526,17 @@ export const DatabaseManagementCatalogPage: React.FC<DatabaseManagementCatalogPa
             </div>
 
             {/* DARK TERMINAL CONSOLE WINDOW */}
-            <div className="bg-brand-dark border border-slate-800 rounded-2xl p-4 font-mono text-xs text-emerald-400 space-y-2 overflow-y-auto flex-1 min-h-[300px] shadow-inner">
+            <div className="bg-brand-dark border border-slate-800 rounded-2xl p-4 font-mono text-xs space-y-2 overflow-y-auto flex-1 min-h-[300px] shadow-inner">
               {terminalLogs.map((log, index) => (
                 <div key={index} className="leading-relaxed whitespace-pre-wrap">
                   {log.type === 'info' && (
                     <span className="text-slate-500 font-semibold">{log.text}</span>
                   )}
                   {log.type === 'cmd' && (
-                    <span className="text-brand-sky font-bold">{log.text}</span>
+                    <span className="text-blue-400 font-bold">{log.text}</span>
                   )}
                   {log.type === 'output' && (
-                    <span className="text-slate-200">{log.text}</span>
+                    <span className="text-sky-300 font-semibold">{log.text}</span>
                   )}
                 </div>
               ))}
@@ -550,7 +550,7 @@ export const DatabaseManagementCatalogPage: React.FC<DatabaseManagementCatalogPa
               }}
               className="flex items-center gap-2 pt-2 border-t border-accent-darkBorder"
             >
-              <span className="text-brand-sky font-mono font-bold text-xs">
+              <span className="text-blue-400 font-mono font-bold text-xs">
                 {item.engine_type === 'redis' ? '127.0.0.1:6379>' : `${item.engine_type}=#`}
               </span>
               <input
@@ -571,7 +571,7 @@ export const DatabaseManagementCatalogPage: React.FC<DatabaseManagementCatalogPa
                   }
                 }}
                 placeholder="Type SQL query or CLI command (e.g. \dt, SELECT * FROM users;) and press Enter..."
-                className="flex-1 bg-bg-main border border-accent-darkBorder text-white text-xs font-mono rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky selection:bg-brand-sky/50 selection:text-white"
+                className="flex-1 bg-bg-main border border-accent-darkBorder text-sky-300 text-xs font-mono rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky selection:bg-brand-sky/50 selection:text-white font-semibold"
               />
               <button
                 type="submit"
