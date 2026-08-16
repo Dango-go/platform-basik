@@ -83,6 +83,7 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({ onNa
                   return (
                     <div
                       key={item.id}
+                      onClick={() => setSelectedManagementCatalogItem(item)}
                       className="bg-bg-card border border-accent-darkBorder rounded-2xl p-4 hover:border-brand-sky hover:shadow-xl hover:shadow-brand-sky/10 transition-all cursor-pointer group flex flex-col justify-between relative overflow-hidden min-h-[220px]"
                     >
                       {/* TOP-LEFT UNDER DEVELOPMENT BADGE (EXCEPT PG, MONGO, REDIS) */}
@@ -124,31 +125,20 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({ onNa
                       {/* STATIC FOOTER FOR VERSION */}
                       <div className="mt-4 pt-3 border-t border-accent-darkBorder/60 flex items-center justify-between text-xs font-semibold text-slate-400">
                         <span>Version: {item.versions[0]}</span>
+                        <span className="text-brand-sky text-[11px] font-bold group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
+                          Catalog &rarr;
+                        </span>
                       </div>
 
-                      {/* DYNAMIC HOVER BUTTONS AT BOTTOM-RIGHT (+ AND MANAGEMENT CATALOG) */}
-                      <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-200 flex items-center gap-2 bg-bg-card/90 backdrop-blur-sm p-1 rounded-xl border border-brand-sky/40 shadow-xl">
-                        {/* MANAGEMENT CATALOG BUTTON */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedManagementCatalogItem(item);
-                          }}
-                          title="Open Management Catalog"
-                          className="bg-bg-main hover:bg-brand-blue text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-accent-darkBorder flex items-center gap-1 shadow-md transition-colors"
-                        >
-                          <Layers className="w-3.5 h-3.5 text-brand-sky" />
-                          <span>Management Catalog</span>
-                        </button>
-
-                        {/* PLUS BUTTON FOR DEPLOYMENT */}
+                      {/* HOVER PLUS BUTTON FOR QUICK CREATION */}
+                      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-200">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             onNavigateCreate(item.engine_type);
                           }}
                           title="Provision Database Instance"
-                          className="bg-brand-blue hover:bg-brand-blue/80 text-white p-1.5 rounded-lg shadow-md transition-colors"
+                          className="bg-brand-blue hover:bg-brand-blue/90 text-white p-1.5 rounded-lg shadow-lg border border-brand-sky/40 transition-colors"
                         >
                           <Plus className="w-4 h-4 text-white" />
                         </button>
