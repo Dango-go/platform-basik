@@ -4,6 +4,7 @@ from typing import List, Optional
 from api.v1.endpoints.schemas import ApplyRequest
 from api.core.database import db_session
 from api.services.k8s.client_factory import K8sClientFactory
+from services.operator_manager.service import MainService
 
 
 router = APIRouter(prefix="/api/v1/helm", tags=["helm"])
@@ -15,9 +16,9 @@ async def deploy_chart(
     request: ApplyRequest,
     db: AsyncSession = Depends(db_session)
 ):
-    cluster_info = await db.get(InfoCluster, request.cluster_id)
-    service = HelmService(db_session=db)
-    applied = await service.apply_release(
+    cluster_info = await db.get(ClusterDB, request.cluster_id)
+    service = MainService(db_session=db)
+    applied = await service.apply_main(
         # main data
         content=request.content,
         target_namespace=request.target_namespace,
