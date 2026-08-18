@@ -6,6 +6,9 @@ from db.models.models import ClusterDB
 
 logger = logging.getLogger(__name__)
 
+
+# Client with all info aboout cluster
+
 class K8sClientFactory:
  
     @staticmethod

@@ -22,4 +22,7 @@ class ApplyRequest(BaseModel):
     cloud_region: str = Field(..., description="Name of the region")
     cluster_uid: str = Field(..., description="Unique identifier of the cluster")
 
+class DeleteRequest(BaseModel):
+    
+
 

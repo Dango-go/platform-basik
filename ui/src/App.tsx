@@ -7,6 +7,8 @@ import { StoreAndBackupsPage } from './components/pages/StoreAndBackupsPage';
 import { FinancePage } from './components/pages/FinancePage';
 import { MonitoringPage } from './components/pages/MonitoringPage';
 import { CloudPage } from './components/pages/CloudPage';
+import { QuotasPage } from './components/pages/QuotasPage';
+import { NotificationsPage } from './components/pages/NotificationsPage';
 
 export const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
@@ -42,6 +44,10 @@ export const App: React.FC = () => {
       )}
 
       {activeTab === 'store_backups' && <StoreAndBackupsPage />}
+
+      {activeTab === 'quotas' && <QuotasPage />}
+
+      {activeTab === 'notifications' && <NotificationsPage />}
 
       {activeTab === 'finance' && <FinancePage />}
 

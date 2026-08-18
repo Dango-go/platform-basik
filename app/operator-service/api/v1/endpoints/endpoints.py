@@ -18,7 +18,7 @@ async def deploy_chart(
 ):
     cluster_info = await db.get(ClusterDB, request.cluster_id)
     service = MainService(db_session=db)
-    applied = await service.apply_main(
+    applied = await service.apply_manifest(
         # main data
         content=request.content,
         target_namespace=request.target_namespace,
@@ -38,4 +38,19 @@ async def deploy_chart(
         "namespace": request.namespace,
         "output": applied
     }
+
+@router.post("/delete")
+async def delete_resource(
+    request: DeleteRequest
+):
+    service = MainService()
+    deleting = await service.delete_manifest(
+        api_client=client.ApiClient,
+        group=request.group,
+        version=request.version,
+        namespace=request.namespace,
+        kind=request.kind,
+        plural=request.plural,
+        name=request.name,
+    )
 

@@ -37,8 +37,9 @@ class ServiceYAMLManager:
 
         group, version, kind, plural = self.builder.extract_gvk(manifest)
 
-        api_net_client = K8sClientFactory.create_from_cluster_entity(cluster)
+        api_net_client = K8sClientFactory.create_from_cluster_entity(cluster) # create client to cluster
 
+        # apply action
         return await self.runner.apply(
             api_client=api_net_client,
             kind=kind,
@@ -76,7 +77,7 @@ class ServiceYAMLManager:
 
 
     async def delete_manifest(
-        api_client: client.ApiClient,
+        cluster_id: str,
         group: str,
         version: str,
         namespace: str,
@@ -84,11 +85,17 @@ class ServiceYAMLManager:
         plural: str,
         name: str,
     ):
+        cluster_info = await self.db.get(ClusterDB, cluster_id)
+
+        api_net_client = K8sClientFactory.create_from_cluster_entity(cluster_info)
+
         name = self.validator.validate_name(name)
         namespace = self.validator.validate_namespace(namespace)
 
+        
+
         return await self.runner.delete(
-            api_client=api_client,
+            api_client=api_net_client,
             group=group,
             version=version,
             namespace=namespace,
