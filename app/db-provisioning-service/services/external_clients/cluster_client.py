@@ -22,7 +22,7 @@ class ClusterServiceClient:
             except Exception as exc:
                 logger.warning("Failed to fetch cluster credentials from cluster-service: %s", str(exc))
 
-        # Fallback in-cluster configuration (if /api/v1/clusters/{cluster_id}/credentials not reachable)
+        # Fallback in-cluster configuration (if /api/v1/clusters/{cluster_id}/credentials )
         return {
             "api_server_url": getattr(settings, "KUBERNETES_API_URL", "https://kubernetes.default.svc"),
             "auth_token": getattr(settings, "KUBERNETES_AUTH_TOKEN", "default-cluster-token")

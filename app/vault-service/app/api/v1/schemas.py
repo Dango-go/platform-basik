@@ -7,6 +7,14 @@ class VaultRequest(BaseModel):
     alias: str = Field(..., description="Credentials name.")
     credentials: Dict [str, Any] = Field(..., description="The credentials data as a dictionary. Will be encrypted before storing in the database.")
 
+class VaultRequestK8s_creds(BaseModel):
+    cluster_id: str = Field(..., description="The ID of the cluster for which the credentials are being requested.")
+    url: str = Field(..., description="The URL of the Kubernetes cluster.")
+    bare_token: str = Field(..., description="The bare token used for authentication with the Kubernetes cluster.")
+
+
+
+
 class VaultResponse(BaseModel):
     user_id: int
     provider_type: str
