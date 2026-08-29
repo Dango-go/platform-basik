@@ -137,6 +137,87 @@ export const DatabaseManagementCatalogPage: React.FC<DatabaseManagementCatalogPa
   const [instanceStatus, setInstanceStatus] = useState<'Running' | 'Stopped'>('Running');
   const [day2Notification, setDay2Notification] = useState<string | null>(null);
 
+  // Top-level Day-2 Live Scaling Panel state
+  const [selectedScaleInstanceId, setSelectedScaleInstanceId] = useState<string>(
+    runningInstances[0]?.id || '1'
+  );
+  const selectedInstance = runningInstances.find(db => db.id === selectedScaleInstanceId) || runningInstances[0] || INITIAL_DEPLOYED_DBS[0];
+
+  const [topCpu, setTopCpu] = useState<number>(
+    selectedInstance ? (selectedInstance.cpu_usage_m || 1000) / 1000 : 2.0
+  );
+  const [topRam, setTopRam] = useState<number>(
+    selectedInstance ? Math.round((selectedInstance.memory_usage_mb || 4096) / 1024) : 8.0
+  );
+  const [topDisk, setTopDisk] = useState<number>(
+    selectedInstance ? selectedInstance.storage_gb || 50 : 100
+  );
+  const [topScaleStatus, setTopScaleStatus] = useState<'Running' | 'Scaling'>('Running');
+  const [topScaleNotification, setTopScaleNotification] = useState<string | null>(null);
+
+  // Live Config Tuning & custom-values.yaml Terminal Editor State
+  const defaultYamlContent = `# custom-values.yaml — Live Runtime Engine Configuration Overrides
+# Target Database: ${selectedInstance?.name || 'prod-postgres-main'} (${selectedInstance?.namespace || 'databases'})
+# Service Endpoint: PUT /api/v1/databases/${selectedInstance?.id || '1'}/config
+
+postgresql:
+  max_connections: 500
+  shared_buffers: "2GB"
+  effective_cache_size: "6GB"
+  maintenance_work_mem: "512MB"
+  work_mem: "32MB"
+  min_wal_size: "1GB"
+  max_wal_size: "4GB"
+  checkpoint_completion_target: 0.9
+  wal_buffers: "16MB"
+  default_statistics_target: 100
+  random_page_cost: 1.1
+  effective_io_concurrency: 200
+
+auth:
+  enablePostgreSQLPassword: true
+  database: "app_production"
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: "30s"
+`;
+
+  const [customValuesYaml, setCustomValuesYaml] = useState<string>(defaultYamlContent);
+  const [yamlConfigStatus, setYamlConfigStatus] = useState<'idle' | 'applying' | 'success' | 'error'>('idle');
+  const [yamlConfigNotification, setYamlConfigNotification] = useState<string | null>(null);
+
+  const handleApplyCustomYamlConfig = async () => {
+    setYamlConfigStatus('applying');
+    setYamlConfigNotification(
+      `[PUT /api/v1/databases/${selectedInstance?.id || '1'}/config]: Transmitted custom-values.yaml to helm-deployer & operator-service (helm upgrade --install)...`
+    );
+    await new Promise((res) => setTimeout(res, 1400));
+    setYamlConfigStatus('success');
+    setYamlConfigNotification(
+      `✓ custom-values.yaml configuration successfully applied for ${selectedInstance?.name || 'prod-postgres-main'}! StatefulSet updated without downtime.`
+    );
+    setTimeout(() => {
+      setYamlConfigStatus('idle');
+      setYamlConfigNotification(null);
+    }, 5000);
+  };
+
+  const handleTopApplyScale = async () => {
+    setTopScaleStatus('Scaling');
+    setTopScaleNotification(
+      `[PATCH /api/v1/databases/${selectedInstance?.id}/scale]: Transmitted StatefulSet resource update command to helm-deployer & operator-service...`
+    );
+    await new Promise((res) => setTimeout(res, 1500));
+    setTopScaleStatus('Running');
+    setTopScaleNotification(
+      `✓ Day-2 Scaling successfully executed for ${selectedInstance?.name}! New specs: ${topCpu} Cores CPU, ${topRam} GB RAM, ${topDisk} GB PVC Storage.`
+    );
+    setTimeout(() => setTopScaleNotification(null), 5000);
+  };
+
   const handleOpenDay2 = (db: any) => {
     setActiveDay2Instance(db);
     setScaleCpu((db.cpu_usage_m || 1000) / 1000);
@@ -326,148 +407,348 @@ export const DatabaseManagementCatalogPage: React.FC<DatabaseManagementCatalogPa
             <TerminalIcon className="w-4 h-4 text-brand-sky" />
             <span>⚡ Interactive Web Terminal</span>
           </button>
-
-          <button
-            onClick={() => onNavigateCreate(item.engine_type)}
-            className="bg-brand-blue hover:bg-brand-blue/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-brand-blue/30 flex items-center gap-2 transition-all"
-          >
-            <Database className="w-4 h-4" />
-            <span>Provision {item.name} Instance</span>
-          </button>
         </div>
       </div>
 
       {/* ======================================================== */}
-      {/* 1. 🚀 ACTIVE RUNNING INSTANCES WIDGET */}
+      {/* 🚀 DAY-2 LIVE SCALING & RESOURCE ALLOCATION PANEL */}
+      {/* (PATCH /api/v1/databases/{id}/scale) */}
       {/* ======================================================== */}
-      <section className="bg-bg-card border border-accent-darkBorder rounded-2xl p-6 shadow-xl space-y-4">
-        <div className="flex items-center justify-between border-b border-accent-darkBorder pb-3">
-          <div>
-            <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <Server className="w-4 h-4 text-brand-cyan" /> 1. Active Running {item.name} Instances
-            </h4>
-            <p className="text-xs text-slate-400">Live Kubernetes database pods running across connected worker clusters</p>
+      <section className="bg-gradient-to-r from-bg-card via-bg-main to-bg-card border border-brand-blue/40 rounded-2xl p-6 shadow-2xl space-y-6">
+        {/* Header & Instance Selector */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-accent-darkBorder pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-brand-blue/10 border border-brand-blue/30 text-brand-sky flex items-center justify-center">
+              <Activity className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-white text-base flex items-center gap-2">
+                📈 Day-2 Live Scaling & Resource Allocation
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-brand-blue/20 text-brand-sky border border-brand-blue/30">
+                  PATCH /api/v1/databases/{'{id}'}/scale
+                </span>
+              </h3>
+              <p className="text-xs text-slate-400">Zero-downtime hot scaling of CPU, RAM, and PVC Storage for active Kubernetes StatefulSets</p>
+            </div>
           </div>
-          <span className="text-xs font-bold text-brand-sky px-2.5 py-1 rounded-lg bg-brand-blue/10 border border-brand-sky/20">
-            {runningInstances.length} Active Pods
-          </span>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold px-3.5 py-1.5 rounded-xl bg-bg-main text-brand-sky border border-brand-sky/30 flex items-center gap-2 shadow-sm">
+              <Database className="w-4 h-4 text-brand-sky" />
+              <span className="font-extrabold text-white">{selectedInstance.name}</span>
+              <span className="text-[10px] text-slate-400 font-mono">({selectedInstance.cluster_name})</span>
+            </span>
+          </div>
         </div>
 
-        {runningInstances.length === 0 ? (
-          <div className="p-6 text-center text-slate-400 text-xs">
-            No active instances currently running for {item.name}. Click "Provision Instance" to deploy one!
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {runningInstances.map((db) => (
-              <div 
-                key={db.id}
-                className="p-4 bg-bg-main border border-accent-darkBorder rounded-xl space-y-3 hover:border-brand-sky transition-all flex flex-col justify-between"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-extrabold text-white flex items-center gap-2">
-                    <Database className="w-4 h-4 text-brand-sky" /> {db.name}
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-                    <CheckCircle className="w-3 h-3" /> ● Running
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2 text-xs text-slate-400 pt-2 border-t border-accent-darkBorder/60">
-                  <div>
-                    <span className="text-[10px] text-slate-500 block">Cluster</span>
-                    <strong className="text-slate-200">{db.cluster_name}</strong>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 block">Resources</span>
-                    <strong className="text-slate-200">{db.cpu_usage_m}m / {db.memory_usage_mb}MB</strong>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 block">Storage</span>
-                    <strong className="text-slate-200">{db.storage_gb} GB SSD</strong>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-2 border-t border-accent-darkBorder/40">
-                  <span className="text-[11px] font-mono text-slate-500">ns: {db.namespace}</span>
-                  
-                  <div className="flex items-center gap-2">
-                    {/* DAY-2 OPERATIONS BUTTON (Scale, Config, Pause/Resume) */}
-                    <button
-                      onClick={() => handleOpenDay2(db)}
-                      className="text-xs font-bold bg-brand-blue/20 hover:bg-brand-blue text-brand-sky hover:text-white px-3 py-1.5 rounded-lg border border-brand-sky/30 transition-all flex items-center gap-1.5 shadow-sm"
-                    >
-                      <Sliders className="w-3.5 h-3.5" />
-                      <span>Day-2 Operations (Scale/Tune/Stop)</span>
-                    </button>
-
-                    {/* DIRECT TERMINAL CONNECT BUTTON FOR THIS POD */}
-                    <button
-                      onClick={() => {
-                        setSelectedInstanceForTerminal(db.name);
-                        setShowTerminalModal(true);
-                      }}
-                      className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1 hover:underline"
-                    >
-                      <TerminalIcon className="w-3.5 h-3.5 text-brand-sky" />
-                      <span>Terminal ⚡</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+        {/* Live Notification Bar if any */}
+        {topScaleNotification && (
+          <div className={`p-4 rounded-xl text-xs font-bold flex items-center gap-3 transition-all ${
+            topScaleStatus === 'Scaling'
+              ? 'bg-amber-500/10 border border-amber-500/30 text-amber-400 animate-pulse'
+              : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
+          }`}>
+            {topScaleStatus === 'Scaling' ? (
+              <Activity className="w-4 h-4 text-amber-400 animate-spin" />
+            ) : (
+              <CheckCircle className="w-4 h-4 text-emerald-400" />
+            )}
+            <span>{topScaleNotification}</span>
           </div>
         )}
-      </section>
 
-      {/* ======================================================== */}
-      {/* 2. ⚡ CONNECTION SNIPPETS GENERATOR */}
-      {/* ======================================================== */}
-      <section className="bg-bg-card border border-accent-darkBorder rounded-2xl p-6 shadow-xl space-y-4">
-        <div className="flex items-center justify-between border-b border-accent-darkBorder pb-3">
-          <div>
-            <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <Code2 className="w-4 h-4 text-brand-sky" /> 2. Connection Code Snippets Generator
-            </h4>
-            <p className="text-xs text-slate-400">Copy pre-configured connection code snippets for your preferred programming language</p>
+        {/* 3 Columns: CPU, RAM, STORAGE */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* 1. CPU Cores */}
+          <div className="bg-bg-main border border-accent-darkBorder p-5 rounded-2xl space-y-4 shadow-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-brand-sky" /> CPU Cores
+              </span>
+              <span className="text-xs font-bold text-slate-400">
+                Current: <strong className="text-white">{(selectedInstance.cpu_usage_m / 1000).toFixed(1)} Cores</strong>
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-300 font-semibold">New Desired CPU:</span>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    step="0.05"
+                    min="0.1"
+                    max="64"
+                    value={topCpu}
+                    onChange={(e) => setTopCpu(Math.max(0.1, parseFloat(e.target.value) || 0.1))}
+                    className="w-20 bg-bg-card border border-accent-darkBorder rounded-lg px-2 py-1 text-right text-xs font-bold text-brand-sky focus:outline-none focus:border-brand-sky shadow-inner"
+                  />
+                  <span className="text-brand-sky font-extrabold text-xs">Cores</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-1.5 text-xs font-bold">
+                {[0.5, 1.0, 2.0, 4.0].map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setTopCpu(c)}
+                    className={`py-1.5 rounded-lg border transition-all ${
+                      topCpu === c
+                        ? 'bg-brand-blue text-white border-brand-sky shadow-md'
+                        : 'bg-bg-card text-slate-400 border-accent-darkBorder hover:text-white'
+                    }`}
+                  >
+                    {c}C
+                  </button>
+                ))}
+              </div>
+
+              <input
+                type="range"
+                min="0.1"
+                max="16.0"
+                step="0.05"
+                value={topCpu}
+                onChange={(e) => setTopCpu(parseFloat(e.target.value))}
+                className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-brand-sky mt-2"
+              />
+            </div>
           </div>
 
-          {/* LANGUAGE TABS */}
-          <div className="flex items-center gap-1.5 bg-bg-main p-1 rounded-xl border border-accent-darkBorder">
-            {[
-              { id: 'cli', label: '💻 CLI (psql)' },
-              { id: 'python', label: '🐍 Python' },
-              { id: 'node', label: '🟨 Node.js' },
-              { id: 'go', label: '🟦 Go' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveSnippetTab(tab.id as any)}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                  activeSnippetTab === tab.id
-                    ? 'bg-brand-blue text-white shadow-md'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          {/* 2. RAM Memory */}
+          <div className="bg-bg-main border border-accent-darkBorder p-5 rounded-2xl space-y-4 shadow-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <Server className="w-4 h-4 text-brand-cyan" /> RAM Memory
+              </span>
+              <span className="text-xs font-bold text-slate-400">
+                Current: <strong className="text-white">{Math.round(selectedInstance.memory_usage_mb / 1024)} GB</strong>
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-300 font-semibold">New Desired RAM:</span>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0.5"
+                    max="256"
+                    value={topRam}
+                    onChange={(e) => setTopRam(Math.max(0.5, parseFloat(e.target.value) || 0.5))}
+                    className="w-20 bg-bg-card border border-accent-darkBorder rounded-lg px-2 py-1 text-right text-xs font-bold text-brand-cyan focus:outline-none focus:border-brand-cyan shadow-inner"
+                  />
+                  <span className="text-brand-cyan font-extrabold text-xs">GB</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-1.5 text-xs font-bold">
+                {[2, 4, 8, 16].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setTopRam(r)}
+                    className={`py-1.5 rounded-lg border transition-all ${
+                      topRam === r
+                        ? 'bg-brand-cyan text-slate-950 border-brand-cyan font-extrabold shadow-md'
+                        : 'bg-bg-card text-slate-400 border-accent-darkBorder hover:text-white'
+                    }`}
+                  >
+                    {r}GB
+                  </button>
+                ))}
+              </div>
+
+              <input
+                type="range"
+                min="0.5"
+                max="64"
+                step="0.5"
+                value={topRam}
+                onChange={(e) => setTopRam(parseFloat(e.target.value))}
+                className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-brand-cyan mt-2"
+              />
+            </div>
+          </div>
+
+          {/* 3. PVC Storage SSD */}
+          <div className="bg-bg-main border border-accent-darkBorder p-5 rounded-2xl space-y-4 shadow-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <HardDrive className="w-4 h-4 text-emerald-400" /> Storage (PVC SSD)
+              </span>
+              <span className="text-xs font-bold text-slate-400">
+                Current: <strong className="text-white">{selectedInstance.storage_gb} GB</strong>
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-300 font-semibold">New Desired Disk Size:</span>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    step="5"
+                    min="5"
+                    max="10000"
+                    value={topDisk}
+                    onChange={(e) => setTopDisk(Math.max(5, parseInt(e.target.value) || 5))}
+                    className="w-20 bg-bg-card border border-accent-darkBorder rounded-lg px-2 py-1 text-right text-xs font-bold text-emerald-400 focus:outline-none focus:border-emerald-400 shadow-inner"
+                  />
+                  <span className="text-emerald-400 font-extrabold text-xs">GB</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-1.5 text-xs font-bold">
+                {[50, 100, 200, 500].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setTopDisk(d)}
+                    className={`py-1.5 rounded-lg border transition-all ${
+                      topDisk === d
+                        ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-extrabold shadow-md'
+                        : 'bg-bg-card text-slate-400 border-accent-darkBorder hover:text-white'
+                    }`}
+                  >
+                    {d}GB
+                  </button>
+                ))}
+              </div>
+
+              <input
+                type="range"
+                min="20"
+                max="1000"
+                step="20"
+                value={topDisk}
+                onChange={(e) => setTopDisk(parseInt(e.target.value))}
+                className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-400 mt-2"
+              />
+            </div>
           </div>
         </div>
 
-        {/* CODE SNIPPET DISPLAY CONTAINER */}
-        <div className="relative bg-brand-dark border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-200">
-          <button
-            onClick={() => handleCopySnippet(snippets[activeSnippetTab])}
-            className="absolute top-3 right-3 bg-bg-card hover:bg-accent-darkHover text-slate-300 hover:text-white px-3 py-1.5 rounded-lg border border-accent-darkBorder flex items-center gap-1.5 text-xs font-bold transition-all"
-          >
-            {copiedSnippet ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>{copiedSnippet ? 'Copied!' : 'Copy Code'}</span>
-          </button>
+        {/* Action Trigger Bar */}
+        <div className="flex items-center justify-between pt-4 border-t border-accent-darkBorder">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-slate-400">StatefulSet Scale Target:</span>
+            <span className="text-xs font-mono font-bold text-white bg-bg-main px-3 py-1.5 rounded-lg border border-accent-darkBorder">
+              {selectedInstance.name} ({selectedInstance.namespace})
+            </span>
+          </div>
 
-          <pre className="overflow-x-auto pr-24 leading-relaxed">
-            <code>{snippets[activeSnippetTab]}</code>
-          </pre>
+          <button
+            onClick={handleTopApplyScale}
+            disabled={topScaleStatus === 'Scaling'}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-extrabold text-xs shadow-lg transition-all ${
+              topScaleStatus === 'Scaling'
+                ? 'bg-amber-500 text-slate-950 cursor-wait shadow-amber-500/30'
+                : 'bg-gradient-to-r from-brand-blue via-brand-sky to-brand-cyan hover:opacity-90 text-white shadow-brand-blue/30'
+            }`}
+          >
+            <Activity className={`w-4 h-4 ${topScaleStatus === 'Scaling' ? 'animate-spin' : ''}`} />
+            <span>
+              {topScaleStatus === 'Scaling'
+                ? 'Scaling StatefulSet...'
+                : '📈 Apply Day-2 Scale (PATCH /api/v1/databases/scale)'}
+            </span>
+          </button>
+        </div>
+      </section>
+
+
+
+      {/* ======================================================== */}
+      {/* 2. ⚙️ LIVE CONFIG TUNING & custom-values.yaml TERMINAL EDITOR */}
+      {/* ======================================================== */}
+      <section className="bg-bg-card border border-accent-darkBorder rounded-2xl p-6 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-accent-darkBorder pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-brand-blue/20 flex items-center justify-center border border-brand-sky/30 text-brand-sky">
+              <Code2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-white uppercase tracking-wider">
+                2. Live Config Tuning & custom-values.yaml Terminal Editor
+              </h4>
+              <p className="text-xs text-slate-400">
+                Modify engine parameters in custom-values.yaml for real-time hot-reload / rolling deployment
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCustomValuesYaml(defaultYamlContent)}
+              className="px-3.5 py-2 rounded-xl bg-bg-main hover:bg-slate-800 text-slate-300 hover:text-white border border-accent-darkBorder text-xs font-bold transition-all flex items-center gap-1.5"
+            >
+              <History className="w-3.5 h-3.5 text-slate-400" />
+              <span>Reset to Chart Defaults (values.yaml from chart)</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setYamlConfigNotification(`[Template]: Rendered Helm template manifest successfully against custom-values.yaml!`);
+                setTimeout(() => setYamlConfigNotification(null), 4000);
+              }}
+              className="px-3.5 py-2 rounded-xl bg-bg-main hover:bg-slate-800 text-slate-300 hover:text-white border border-accent-darkBorder text-xs font-bold transition-all flex items-center gap-1.5"
+            >
+              <CheckCircle className="w-3.5 h-3.5 text-brand-cyan" />
+              <span>template</span>
+            </button>
+
+            <button
+              onClick={handleApplyCustomYamlConfig}
+              disabled={yamlConfigStatus === 'applying'}
+              className={`px-5 py-2 rounded-xl font-extrabold text-xs shadow-lg transition-all flex items-center gap-2 ${
+                yamlConfigStatus === 'applying'
+                  ? 'bg-amber-500 text-slate-950 cursor-wait'
+                  : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20'
+              }`}
+            >
+              <Sliders className={`w-4 h-4 ${yamlConfigStatus === 'applying' ? 'animate-spin' : ''}`} />
+              <span>
+                {yamlConfigStatus === 'applying' ? 'Upgrading...' : 'upgrade'}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* NOTIFICATION FEEDBACK BANNER */}
+        {yamlConfigNotification && (
+          <div className="p-3 bg-brand-blue/10 border border-brand-sky/30 rounded-xl text-xs text-brand-sky font-mono font-bold flex items-center justify-between animate-fadeIn">
+            <span>{yamlConfigNotification}</span>
+            <button onClick={() => setYamlConfigNotification(null)} className="hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* CODE TERMINAL EDITOR WINDOW */}
+        <div className="relative bg-[#0d1117] border border-slate-800 rounded-xl overflow-hidden shadow-2xl font-mono text-xs text-slate-200">
+          <div className="bg-[#161b22] px-4 py-2.5 border-b border-slate-800 flex items-center justify-between text-slate-400 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-red-500/80 inline-block"></span>
+              <span className="w-3 h-3 rounded-full bg-amber-500/80 inline-block"></span>
+              <span className="w-3 h-3 rounded-full bg-emerald-500/80 inline-block"></span>
+              <span className="ml-2 text-slate-300 font-bold font-mono">custom-values.yaml</span>
+            </div>
+            <span className="text-[11px] text-slate-500 font-mono">YAML Editor • Hot-Reload Supported</span>
+          </div>
+
+          <div className="p-4 bg-[#0d1117]">
+            <textarea
+              value={customValuesYaml}
+              onChange={(e) => setCustomValuesYaml(e.target.value)}
+              rows={16}
+              spellCheck={false}
+              className="w-full bg-transparent text-slate-200 font-mono text-xs leading-relaxed focus:outline-none resize-y selection:bg-brand-blue selection:text-white"
+              style={{ tabSize: 2 }}
+            />
+          </div>
         </div>
       </section>
 

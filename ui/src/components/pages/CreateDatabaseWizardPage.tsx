@@ -371,10 +371,10 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               
-              {/* FIELD 1: Database Name (ID) */}
+              {/* FIELD 1: Database Name (Release name) */}
               <div>
                 <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                  Database Instance Name (ID)
+                  Database Instance Name (Release name)
                 </label>
                 <input
                   type="text"
@@ -384,7 +384,7 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
                   placeholder="e.g., my-app-db"
                   className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky font-semibold"
                 />
-                <span className="text-[11px] text-slate-500 mt-1 block">Unique identifier inside K8s namespace</span>
+                <span className="text-[11px] text-slate-500 mt-1 block">Unique Helm release / CRD metadata name in K8s namespace</span>
               </div>
 
               {/* FIELD 2: Database Engine Name (Select) */}
@@ -469,7 +469,7 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
                   <Key className="w-4 h-4 text-brand-sky" /> Database Security & Credentials Setup
                 </span>
                 <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Required for Vault & Kubernetes Secret
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Automatically injected during DB initialization
                 </span>
               </div>
 

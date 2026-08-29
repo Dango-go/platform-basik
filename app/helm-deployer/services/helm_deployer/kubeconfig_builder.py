@@ -53,7 +53,7 @@ class KubeconfBuilder:
         }
         return yaml.dump(config, default_flow_style=False)  # long string of kubeconfig content 
 
-    def fast_creating(
+    async def fast_creating(
         self, 
         cluster_name: str,
         release_name: str,

@@ -1,0 +1,111 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List
+
+from core.database import get_db
+from api.v1.endpoints.schemas import (
+    DatabaseItemResponse,
+    DatabasePassportResponse,
+    ScaleRequest,
+    ConfigRequest,
+    StatusResponse
+)
+from services.provisioning_manager.service import ProvisioningService
+
+router = APIRouter(prefix="/api/v1/provisioning", tags=["db-provisioning"])
+
+
+# 1. 📋 GET /api/v1/provisioning — Список активних баз
+@router.get("", response_model=List[DatabaseItemResponse])
+async def list_databases(db: AsyncSession = Depends(get_db)):
+    service = ProvisioningService(db)
+    instances = await service.get_all_databases()
+    return [
+        DatabaseItemResponse(
+            id=item.id,
+            name=item.name,
+            engine_type=item.engine_type,
+            version=item.version,
+            cluster_name=item.cluster_name,
+            namespace=item.namespace,
+            status=item.status,
+            cpu=item.cpu,
+            ram=item.ram,
+            disk=item.disk,
+            monthly_cost=item.cpu * 15.0 + item.ram * 4.0 + item.disk * 0.15,
+            created_at=item.created_at
+        )
+        for item in instances
+    ]
+
+
+# 2. 🔍 GET /api/v1/provisioning/{id} — Повний паспорт конкретної бази
+@router.get("/{id}", response_model=DatabasePassportResponse)
+async def get_database_passport(id: str, db: AsyncSession = Depends(get_db)):
+    service = ProvisioningService(db)
+    item = await service.get_database_by_id(id)
+    if not item:
+        raise HTTPException(status_code=404, detail=f"Database instance '{id}' not found")
+    
+    return DatabasePassportResponse(
+        id=item.id,
+        name=item.name,
+        engine_type=item.engine_type,
+        version=item.version,
+        cluster_id=item.cluster_id,
+        cluster_name=item.cluster_name,
+        namespace=item.namespace,
+        status=item.status,
+        host=item.host or f"{item.name}.{item.namespace}.svc.cluster.local",
+        port=item.port or 5432,
+        connection_string=item.connection_string or f"{item.engine_type}://admin:***@{item.name}:{item.port or 5432}",
+        cpu=item.cpu,
+        ram=item.ram,
+        disk=item.disk,
+        values_yaml=item.values_yaml or "",
+        created_at=item.created_at
+    )
+
+
+# 3. 📈 PATCH /api/v1/provisioning/{id}/scale — Day-2 Live Scaling
+@router.patch("/{id}/scale", response_model=StatusResponse)
+async def scale_database(id: str, request: ScaleRequest, db: AsyncSession = Depends(get_db)):
+    service = ProvisioningService(db)
+    try:
+        updated = await service.scale_database(
+            db_id=id,
+            cluster_id=request.cluster_id,
+            namespace=request.namespace,
+            cpu=request.cpu,
+            ram=request.ram,
+            disk=request.disk
+        )
+        return StatusResponse(
+            status="success",
+            message=f"Successfully scaled instance '{updated.name}' to CPU={updated.cpu}, RAM={updated.ram}GB, Disk={updated.disk}GB",
+            database_id=updated.id,
+            current_status=updated.status
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+# 4. ⚙️ PUT /api/v1/provisioning/{id}/config — Parameter Editing & custom-values.yaml Upgrade
+@router.put("/{id}/config", response_model=StatusResponse)
+async def update_database_config(id: str, request: ConfigRequest, db: AsyncSession = Depends(get_db)):
+    service = ProvisioningService(db)
+    try:
+        updated = await service.update_database_config(
+            db_id=id,
+            cluster_id=request.cluster_id,
+            namespace=request.namespace,
+            values_yaml=request.values_yaml
+        )
+        return StatusResponse(
+            status="success",
+            message=f"Successfully upgraded custom-values.yaml configuration for instance '{updated.name}'",
+            database_id=updated.id,
+            current_status=updated.status
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))

@@ -14,12 +14,18 @@ export const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<string>('databases');
   const [preselectedEngine, setPreselectedEngine] = useState<string>('postgresql');
+  const [customHeaderTitle, setCustomHeaderTitle] = useState<string | null>(null);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setCustomHeaderTitle(null);
+  };
 
   const handleNavigateCreate = (engineType?: string) => {
     if (engineType) {
       setPreselectedEngine(engineType);
     }
-    setActiveTab('create');
+    handleTabChange('create');
   };
 
   if (!isAuthenticated) {
@@ -29,18 +35,22 @@ export const App: React.FC = () => {
   return (
     <MainLayout
       activeTab={activeTab}
-      setActiveTab={setActiveTab}
+      setActiveTab={handleTabChange}
+      customTitle={customHeaderTitle}
       onLogout={() => setIsAuthenticated(false)}
     >
       {activeTab === 'create' && (
         <CreateDatabaseWizardPage
           initialEngineType={preselectedEngine}
-          onSuccess={() => setActiveTab('databases')}
+          onSuccess={() => handleTabChange('databases')}
         />
       )}
 
       {activeTab === 'databases' && (
-        <DatabasesCatalogPage onNavigateCreate={handleNavigateCreate} />
+        <DatabasesCatalogPage
+          onNavigateCreate={handleNavigateCreate}
+          onTitleChange={(title) => setCustomHeaderTitle(title)}
+        />
       )}
 
       {activeTab === 'store_backups' && <StoreAndBackupsPage />}

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CATALOG_ITEMS, INITIAL_DEPLOYED_DBS } from '../../services/mockData';
 import { DeployedDatabase, CategoryType } from '../../types';
 import { DatabaseManagementCatalogPage } from './DatabaseManagementCatalogPage';
+import { DatabaseEngineOverviewPage } from './DatabaseEngineOverviewPage';
 import { 
   Database, 
   Settings, 
@@ -17,15 +18,29 @@ import {
 
 interface DatabasesCatalogPageProps {
   onNavigateCreate: (engineType?: string) => void;
+  onTitleChange?: (title: string | null) => void;
 }
 
-export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({ onNavigateCreate }) => {
+export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({ 
+  onNavigateCreate,
+  onTitleChange 
+}) => {
   const [selectedDb, setSelectedDb] = useState<DeployedDatabase | null>(null);
   const [activeDbTab, setActiveDbTab] = useState<'config' | 'monitoring' | 'budget'>('config');
 
-  // Selected item for Management Catalog Page (Fast Management)
+  // Selected item for Engine Overview (Catalog Card Click)
+  const [selectedEngineOverviewItem, setSelectedEngineOverviewItem] = useState<any>(null);
+
+  // Selected item for Management Catalog Page (Running DB Instance Click)
   const [selectedManagementCatalogItem, setSelectedManagementCatalogItem] = useState<any>(null);
 
+  // Flow A: Click Engine Card in Catalog Grid -> Open Engine Overview Page (Create DB, Active instances of this engine, Docs)
+  const handleOpenCatalogItem = (item: any) => {
+    setSelectedEngineOverviewItem(item);
+    onTitleChange?.(`${item.name} Engine Catalog`);
+  };
+
+  // Flow B: Click Active Running DB in Table -> Open Management Database Console
   const handleOpenFastManagement = (db: DeployedDatabase) => {
     const found = CATALOG_ITEMS.find((c) => c.engine_type === db.engine_type) || CATALOG_ITEMS[0];
     const customItem = {
@@ -34,6 +49,13 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({ onNa
       engine_type: db.engine_type,
     };
     setSelectedManagementCatalogItem(customItem);
+    onTitleChange?.('Management Database Console');
+  };
+
+  const handleBackToCatalog = () => {
+    setSelectedEngineOverviewItem(null);
+    setSelectedManagementCatalogItem(null);
+    onTitleChange?.(null);
   };
 
   // Track image load errors for fallbacks
@@ -54,12 +76,24 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({ onNa
   // Fully ready databases (No "Under Development" badge)
   const readyEngines = ['postgresql', 'mongodb', 'redis'];
 
-  // If a management catalog item is opened, show its page
+  // Render Engine Overview Page if engine card clicked
+  if (selectedEngineOverviewItem) {
+    return (
+      <DatabaseEngineOverviewPage
+        item={selectedEngineOverviewItem}
+        onBack={handleBackToCatalog}
+        onNavigateCreate={onNavigateCreate}
+        onOpenManagementConsole={handleOpenFastManagement}
+      />
+    );
+  }
+
+  // Render Running Instance Management Console if running instance clicked
   if (selectedManagementCatalogItem) {
     return (
       <DatabaseManagementCatalogPage
         item={selectedManagementCatalogItem}
-        onBack={() => setSelectedManagementCatalogItem(null)}
+        onBack={handleBackToCatalog}
         onNavigateCreate={onNavigateCreate}
       />
     );
@@ -94,7 +128,7 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({ onNa
                   return (
                     <div
                       key={item.id}
-                      onClick={() => setSelectedManagementCatalogItem(item)}
+                      onClick={() => handleOpenCatalogItem(item)}
                       className="bg-bg-card border border-accent-darkBorder rounded-2xl p-4 hover:border-brand-sky hover:shadow-xl hover:shadow-brand-sky/10 transition-all cursor-pointer group flex flex-col justify-between relative overflow-hidden min-h-[220px]"
                     >
                       {/* TOP-LEFT UNDER DEVELOPMENT BADGE (EXCEPT PG, MONGO, REDIS) */}
