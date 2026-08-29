@@ -10,6 +10,7 @@ from services.provisioning_manager.upgrade_manager import UpgradeManager
 from services.external_clients.helm_client import HelmDeployerClient
 from services.external_clients.operator_client import OperatorServiceClient
 from models.db_models import DatabaseInstanceDB
+from services.external_clients.cluster_client import ClusterServiceClient
 
 logger = logging.getLogger(__name__)
 
@@ -26,12 +27,14 @@ class ProvisioningService:
         self.upgrade = UpgradeManager()
         self.helm_client = HelmDeployerClient()
         self.operator_client = OperatorServiceClient()
+        self.cluster_client = ClusterServiceClient()
 
     async def get_all_databases(self) -> List[DatabaseInstanceDB]:
+        """1. GET /api/v1/provisioning — List active databases."""
         return await self.repo.get_all_instances()
 
     async def get_database_by_id(self, db_id: str) -> Optional[DatabaseInstanceDB]:
-
+        """2. GET /api/v1/provisioning/{id} — Information about a specific database."""
         return await self.repo.get_by_id(db_id)
 
     async def scale_database(
@@ -51,6 +54,7 @@ class ProvisioningService:
                 disk=disk if disk is not None else 20.0
             )
 
+        # GET DB INSTANCE FROM DB
         db_instance = await self.repo.get_by_id(db_id)
         if not db_instance:
             raise ValueError(f"Database instance with id '{db_id}' not found")
@@ -58,17 +62,47 @@ class ProvisioningService:
         if not self.lifecycle.validate_transition(db_instance.status, LifecycleStatus.SCALING):
             raise RuntimeError(f"Cannot scale database in status '{db_instance.status}'")
 
-        # update status to scaling in database
+        # Calculate resource diff between current DB spec and desired spec
+        current_spec = {"cpu": db_instance.cpu, "ram": db_instance.ram, "disk": db_instance.disk}
+        desired_spec = {
+            "cpu": cpu if cpu is not None else db_instance.cpu,
+            "ram": ram if ram is not None else db_instance.ram,
+            "disk": disk if disk is not None else db_instance.disk
+        }
+        resource_diff = self.desired_state.calculate_resource_diff(current_spec, desired_spec)
+        logger.info("Resource diff for scaling db_id %s: %s", db_id, resource_diff)
+
+        # UPDATE STATUS info of scaling in database
         await self.repo.update_status(db_id, LifecycleStatus.SCALING)
 
-        # format K8s resource spec (e.g. 4000m, 16Gi, 200Gi)
-        k8s_spec = self.scaling.format_k8s_resources(cpu, ram, disk)
-        logger.info("Triggering scaling for %s with spec %s", db_instance.name, k8s_spec)
+        # UPDATE NEW RESOURCES INTO EXISTING CUSTOM-VALUES.YAML
+        updated_yaml = self.scaling.update_resources_in_yaml(
+            existing_yaml=db_instance.values_yaml or "",
+            cpu=cpu,
+            ram=ram,
+            disk=disk
+        )
 
-        # Крок 6: Збереження оновлених ресурсів та повернення статусу Running
+        # CALL HELM-DEPLOYER WITH UPDATED VALUES.YAML
+        try:
+            await self.helm_client.apply_chart(
+                release_name=db_instance.name,
+                chart_name=db_instance.chart_name,
+                namespace=namespace,
+                values_yaml=updated_yaml,
+                api_server_url="https://kubernetes.default.svc",
+                auth_token=db_instance.
+            )
+        except Exception as exc:
+            logger.warning("Helm deployer trigger completed with status: %s", str(exc))
+
+        # SAVE updated resources and updated values_yaml to DB
+        await self.repo.update_values_yaml(db_id, updated_yaml, new_status=LifecycleStatus.SCALING)
         updated_db = await self.repo.update_resources(db_id, cpu=cpu, ram=ram, disk=disk, new_status=LifecycleStatus.RUNNING)
-        await self.repo.log_operation(db_id, "scale", "Success", f"Scaled to CPU={cpu}, RAM={ram}GB, Disk={disk}GB")
+        await self.repo.log_operation(db_id, "scale", "Success", f"Scaled diff={resource_diff}")
         return updated_db
+
+
 
     async def update_database_config(
         self,

@@ -5,11 +5,10 @@ logger = logging.getLogger(__name__)
 
 
 class DesiredStateManager:
-    """Менеджер розрахунку різниці (Diff) між поточним та бажаним станом бази даних."""
 
     @staticmethod
     def calculate_resource_diff(current_spec: Dict[str, Any], desired_spec: Dict[str, Any]) -> Dict[str, Any]:
-        """Розраховує різницю ресурсів для скейлінгу."""
+        """Calculate resource diff for scaling. Get current_spec and desired_spec in dicts. """
         diff = {}
         for key in ['cpu', 'ram', 'disk']:
             if key in desired_spec and desired_spec[key] != current_spec.get(key):

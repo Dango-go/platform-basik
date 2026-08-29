@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class HelmDeployerClient:
 
     def __init__(self, base_url: Optional[str] = None):
-        self.base_url = base_url or getattr(settings, "HELM_DEPLOYER_URL", "http://localhost:8000")
+        self.base_url = base_url or getattr(settings, "HELM_DEPLOYER_URL", "http://localhost:8003")
 
     async def apply_chart(
         self,
@@ -18,10 +18,10 @@ class HelmDeployerClient:
         namespace: str,
         values_yaml: str,
         api_server_url: str,
-        auth_token: str,
-        ca_cert_data: Optional[str] = None
+        auth_token: str, # bare token
+        ca_cert_data: Optional[str] = None # pub cert of cluster
     ) -> Dict[str, Any]:
- 
+
         payload = {
             "release_name": release_name,
             "chart_name": chart_name,

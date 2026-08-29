@@ -16,7 +16,7 @@ class LifecycleStatus:
 class LifecycleManager:
 
     @staticmethod
-    def validate_transition(current_status: str, new_status: str) -> bool:
+    def validate_transition(current_status: str, new_STATUS: str) -> bool:
         """Checking for allowed transitions."""
         invalid_transitions = {
             LifecycleStatus.STOPPED: [LifecycleStatus.SCALING, LifecycleStatus.UPGRADING],
@@ -24,7 +24,7 @@ class LifecycleManager:
         }
         
         allowed_blocked = invalid_transitions.get(current_status, [])
-        if new_status in allowed_blocked:
-            logger.error("Invalid status transition from %s to %s", current_status, new_status)
+        if new_STATUS in allowed_blocked:
+            logger.error("Invalid status transition from %s to %s", current_status, new_STATUS)
             return False
         return True
