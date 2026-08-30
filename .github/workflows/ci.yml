@@ -70,19 +70,12 @@ jobs:
         cd ${{ matrix.directory }}
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-      #pip install pytest
 
     - name: Install npm dependencies (ui)
       if: steps.filter.outputs.changed == 'true' && matrix.service == 'ui'
       run: |
         cd ${{ matrix.directory }}
         npm ci
-
-    #- name: Run tests
-      #if: steps.filter.outputs.changed == 'true' && matrix.service != 'ui'
-      #run: |
-        #cd ${{ matrix.directory }}
-        #pytest
 
     - name: Run tests (ui)
       if: steps.filter.outputs.changed == 'true' && matrix.service == 'ui'
@@ -109,10 +102,9 @@ jobs:
       uses: 'google-github-actions/setup-gcloud@v2'
       if: steps.filter.outputs.changed == 'true'
 
-    - name: Login to GAR via Docker command
+    - name: Authorize Docker via gcloud
       if: steps.filter.outputs.changed == 'true'
-      run: |
-        cat ${{ steps.auth.outputs.file_path }} | docker login -u _json_key --password-stdin europe-west3-docker.pkg.dev
+      run: gcloud auth configure-docker europe-west3-docker.pkg.dev --quiet
 
 
     - name: Run Trivy vulnerability scanner (Optional/Placeholder)
