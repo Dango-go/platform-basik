@@ -60,7 +60,7 @@ jobs:
             - '${{ matrix.directory }}/**'
 
     - name: Install dependencies
-      if: steps.filter.outputs.changed == 'true' && matrix.service != 'ui-service'
+      if: steps.filter.outputs.changed == 'true' && matrix.service != 'ui'
       run: |
         cd ${{ matrix.directory }}
         python -m pip install --upgrade pip
@@ -68,7 +68,7 @@ jobs:
         pip install pytest
 
     - name: Install npm dependencies (ui)
-      if: steps.filter.outputs.changed == 'true' && matrix.service == 'ui-service'
+      if: steps.filter.outputs.changed == 'true' && matrix.service == 'ui'
       run: |
         cd ${{ matrix.directory }}
         npm ci
