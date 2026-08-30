@@ -112,9 +112,8 @@ jobs:
     - name: Authorize Docker push
       if: steps.filter.outputs.changed == 'true'
       run: |
-        gcloud auth configure-docker europe-west3-docker.pkg.dev
-        mkdir -p ~/.docker
-        echo '{"credsStore": ""}' > ~/.docker/config.json
+        gcloud auth configure-docker europe-west3-docker.pkg.dev --quiet
+        docker-credential-gcloud configure-docker
 
 
     - name: Run Trivy vulnerability scanner (Optional/Placeholder)
