@@ -1,12 +1,10 @@
 from pydantic import BaseModel, EmailStr
 import uuid
-# Schemas for user registration and response
 
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
 
-# User response
 class UserResponse(BaseModel):
     id: uuid.UUID
     email: EmailStr

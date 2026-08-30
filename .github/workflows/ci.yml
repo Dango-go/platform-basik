@@ -60,18 +60,31 @@ jobs:
             - '${{ matrix.directory }}/**'
 
     - name: Install dependencies
-      if: steps.filter.outputs.changed == 'true'
+      if: steps.filter.outputs.changed == 'true' && matrix.service != 'ui-service
       run: |
         cd ${{ matrix.directory }}
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pytest
 
+    - name: Install npm dependencies (ui)
+      if: steps.filter.outputs.changed == 'true' && matrix.service == 'ui-service'
+      run: |
+        cd ${{ matrix.directory }}
+        npm ci
+
     - name: Run tests
-      if: steps.filter.outputs.changed == 'true'
+      if: steps.filter.outputs.changed == 'true' && matrix.service != 'ui-service'
       run: |
         cd ${{ matrix.directory }}
         pytest
+
+    - name: Run tests (ui)
+      if: steps.filter.outputs.changed == 'true' && matrix.service == 'ui-service'
+      run: |
+        cd ${{ matrix.directory }}
+        npm test -- --ci && npm run build
+         
 
     - name: Set up Docker Buildx
       if: steps.filter.outputs.changed == 'true'
