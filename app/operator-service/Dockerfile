@@ -28,11 +28,9 @@ WORKDIR /app
 RUN mkdir -p /etc/apt/keyrings
 
 # Install kubectl CLI
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
-    curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg && \
-    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list && \
-    apt-get update && apt-get install -y kubectl && \
-    rm -rf /var/lib/apt/lists/*
+RUN curl -LO "https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl" && \
+    chmod +x kubectl && \
+    mv kubectl /usr/local/bin/
 
 COPY --from=builder /root/.local /home/appuser/.local
 COPY --chown=appuser:appgroup . /app
