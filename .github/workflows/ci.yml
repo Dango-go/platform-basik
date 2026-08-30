@@ -11,6 +11,10 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
     strategy:
       matrix:
         service: [auth, vault, provider, provisioner, helm, operator, info, cost, discovery, ui]
