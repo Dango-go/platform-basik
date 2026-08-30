@@ -35,3 +35,5 @@ docs.txt
 *.tfstate.*
 *.tfvars
 *.tfvars.json
+
+docs.md

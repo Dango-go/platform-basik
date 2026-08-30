@@ -2,7 +2,7 @@ name: CI/CD Pipeline for Microservices
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "dev" ]
     paths:
       - 'app/**'
       - '.github/workflows/ci.yml'
@@ -13,14 +13,11 @@ jobs:
 
     strategy:
       matrix:
-        service: [auth, catalog, vault, provider, provisioner, helm, operator, info, cost, discovery, ui]
+        service: [auth, vault, provider, provisioner, helm, operator, info, cost, discovery, ui]
         include:
           - service: auth
             directory: app/auth-service
             image_name: auth-service
-          - service: catalog
-            directory: app/catalog-service
-            image_name: catalog-service
           - service: vault
             directory: app/vault-service
             image_name: vault-service

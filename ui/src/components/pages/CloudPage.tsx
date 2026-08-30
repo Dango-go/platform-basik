@@ -13,12 +13,16 @@ import {
   Trash2,
   Upload,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Search
 } from 'lucide-react';
 
 export const CloudPage: React.FC = () => {
   const [credentialsList, setCredentialsList] = useState<CloudCredential[]>(CLOUD_CREDENTIALS);
   const [clustersList, setClustersList] = useState<K8sCluster[]>(K8S_CLUSTERS);
+
+  // Search creds name state
+  const [searchCredQuery, setSearchCredQuery] = useState<string>('');
 
   // Selected Credentials Provider filter: 'all' | 'none' | CloudProviderType
   const [selectedProviderFilter, setSelectedProviderFilter] = useState<CloudProviderType | 'all' | 'none'>('all');
@@ -154,12 +158,20 @@ export const CloudPage: React.FC = () => {
     }
   ];
 
-  // Filtered credentials list based on selectedProviderFilter
-  const filteredCredentials = selectedProviderFilter === 'all'
-    ? credentialsList
-    : selectedProviderFilter === 'none'
-    ? []
-    : credentialsList.filter((c) => c.provider === selectedProviderFilter);
+  // Filtered credentials list based on selectedProviderFilter and search query
+  const filteredCredentials = credentialsList.filter((c) => {
+    const matchesProvider = selectedProviderFilter === 'all'
+      ? true
+      : selectedProviderFilter === 'none'
+      ? false
+      : c.provider === selectedProviderFilter;
+
+    const matchesSearch = searchCredQuery === '' ||
+                          c.name.toLowerCase().includes(searchCredQuery.toLowerCase()) ||
+                          c.provider.toLowerCase().includes(searchCredQuery.toLowerCase());
+
+    return matchesProvider && matchesSearch;
+  });
 
   // Filtered K8s clusters list based on selectedClusterProviderFilter
   const filteredClusters = selectedClusterProviderFilter === 'all'
@@ -230,6 +242,18 @@ export const CloudPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* SEARCH INPUT BY CREDS NAME */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search creds..."
+                value={searchCredQuery}
+                onChange={(e) => setSearchCredQuery(e.target.value)}
+                className="bg-bg-main border border-accent-darkBorder rounded-xl pl-8 pr-3 py-2 text-xs font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-brand-sky transition-all w-36 sm:w-44"
+              />
+            </div>
+
             {/* TOGGLE VIEW ALL BUTTON */}
             <button
               onClick={toggleViewAll}
