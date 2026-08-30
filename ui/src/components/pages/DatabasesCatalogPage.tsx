@@ -129,17 +129,8 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({
                     <div
                       key={item.id}
                       onClick={() => handleOpenCatalogItem(item)}
-                      className="bg-bg-card border border-accent-darkBorder rounded-2xl p-4 hover:border-brand-sky hover:shadow-xl hover:shadow-brand-sky/10 transition-all cursor-pointer group flex flex-col justify-between relative overflow-hidden min-h-[220px]"
+                      className="bg-bg-card border border-accent-darkBorder rounded-2xl p-4 hover:border-brand-sky hover:shadow-xl hover:shadow-brand-sky/10 transition-all cursor-pointer group flex flex-col justify-between relative overflow-hidden min-h-[200px]"
                     >
-                      {/* TOP-LEFT UNDER DEVELOPMENT BADGE (EXCEPT PG, MONGO, REDIS) */}
-                      {isUnderDev && (
-                        <div className="mb-2 inline-self-start">
-                          <span className="inline-flex items-center gap-1 bg-amber-500/20 text-white border border-amber-500/40 text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider shadow-sm">
-                            <Wrench className="w-2.5 h-2.5 text-amber-400" />
-                            Under Development
-                          </span>
-                        </div>
-                      )}
 
                       <div>
                         <div className="flex items-center justify-between mb-3">

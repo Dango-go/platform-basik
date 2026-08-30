@@ -25,7 +25,10 @@ RUN groupadd -g 10001 appgroup && \
 
 WORKDIR /app
 
-RUN mkdir -p /etc/apt/keyrings
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install kubectl CLI
 RUN curl -LO "https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl" && \
