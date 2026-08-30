@@ -27,3 +27,11 @@ docs.txt
 .idea/
 .vscode/
 .DS_Store
+
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
