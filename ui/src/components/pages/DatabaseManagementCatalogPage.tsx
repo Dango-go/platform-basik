@@ -387,13 +387,18 @@ metrics:
               <img src={item.icon_url} alt={item.name} className="w-8 h-8 object-contain" />
             </div>
             <div>
-              <h3 className="text-xl font-extrabold text-white flex items-center gap-2">
-                {item.name} Management Catalog
-                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-brand-blue/20 text-brand-sky border border-brand-sky/30">
-                  v{item.versions[0]}
+              <h3 className="text-lg font-extrabold text-white flex items-center gap-2">
+                <span className="text-slate-400 font-semibold">name:</span>
+                <span className="text-brand-sky">{selectedInstance?.name || 'prod-postgres-main'}</span>
+                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-brand-blue/20 text-brand-sky border border-brand-sky/30">
+                  {selectedInstance?.engine_type?.toUpperCase() || 'POSTGRESQL'}
                 </span>
+                <span className="text-slate-300 font-semibold">Management Database Console</span>
               </h3>
-              <p className="text-xs text-slate-400">Detailed management modules, active running pods, and connection snippets</p>
+              <p className="text-xs font-mono text-slate-400 mt-0.5 flex items-center gap-1.5">
+                <span className="text-slate-400 font-semibold">cluster:</span>
+                <strong className="text-white font-bold">{selectedInstance?.cluster_name || 'lenovo-prod-k8s'}</strong>
+              </p>
             </div>
           </div>
         </div>

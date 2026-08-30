@@ -15,7 +15,7 @@ from services.provisioning_manager.service import ProvisioningService
 router = APIRouter(prefix="/api/v1/provisioning", tags=["db-provisioning"])
 
 
-# 1. 📋 GET /api/v1/provisioning — Список активних баз
+# 1. GET /api/v1/provisioning
 @router.get("", response_model=List[DatabaseItemResponse])
 async def list_databases(db: AsyncSession = Depends(get_db)):
     service = ProvisioningService(db)
@@ -39,9 +39,9 @@ async def list_databases(db: AsyncSession = Depends(get_db)):
     ]
 
 
-# 2. 🔍 GET /api/v1/provisioning/{id} — Повний паспорт конкретної бази
+# 2. GET /api/v1/provisioning/{id}
 @router.get("/{id}", response_model=DatabasePassportResponse)
-async def get_database_passport(id: str, db: AsyncSession = Depends(get_db)):
+async def get_database_passport(id: str, db: AsyncSession = Depends(get_db)): # id from "/{id}"
     service = ProvisioningService(db)
     item = await service.get_database_by_id(id)
     if not item:
@@ -67,7 +67,7 @@ async def get_database_passport(id: str, db: AsyncSession = Depends(get_db)):
     )
 
 
-# 3. 📈 PATCH /api/v1/provisioning/{id}/scale — Day-2 Live Scaling
+# 3. PATCH /api/v1/provisioning/{id}/scale
 @router.patch("/{id}/scale", response_model=StatusResponse)
 async def scale_database(id: str, request: ScaleRequest, db: AsyncSession = Depends(get_db)):
     service = ProvisioningService(db)
@@ -90,7 +90,7 @@ async def scale_database(id: str, request: ScaleRequest, db: AsyncSession = Depe
         raise HTTPException(status_code=400, detail=str(exc))
 
 
-# 4. ⚙️ PUT /api/v1/provisioning/{id}/config — Parameter Editing & custom-values.yaml Upgrade
+# 4. PUT /api/v1/provisioning/{id}/config
 @router.put("/{id}/config", response_model=StatusResponse)
 async def update_database_config(id: str, request: ConfigRequest, db: AsyncSession = Depends(get_db)):
     service = ProvisioningService(db)

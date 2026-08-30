@@ -1,0 +1,109 @@
+name: CI/CD Pipeline for Microservices
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'app/**'
+      - '.github/workflows/ci-aws.yml'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        service: [auth-svc, order-svc, product-svc, api-gateway]
+        include:
+          - service: auth-svc
+            directory: app/go-grpc-auth-svc
+            image_name: go-auth-service
+          - service: order-svc
+            directory: app/go-grpc-order-svc
+            image_name: go-order-service
+          - service: product-svc
+            directory: app/go-grpc-product-svc
+            image_name: go-product-service
+          - service: api-gateway
+            directory: app/go-grpc-api-gateway
+            image_name: go-gtw-service
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+
+    - name: Check for changes in service directory
+      id: filter
+      uses: dorny/paths-filter@v3
+      with:
+        filters: |
+          changed:
+            - '${{ matrix.directory }}/**'
+
+    - name: Install Go on runner
+      if: steps.filter.outputs.changed == 'true'
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+        cache: true
+        cache-dependency-path: ${{ matrix.directory }}/go.mod
+
+    - name: Linter
+      if: steps.filter.outputs.changed == 'true'
+      uses: golangci/golangci-lint-action@v6
+      continue-on-error: true
+      with:
+        version: v1.59
+        working-directory: ${{ matrix.directory }}
+
+    - name: Run tests
+      if: steps.filter.outputs.changed == 'true'
+      run: |
+        cd ${{ matrix.directory }}
+        go test -v ./...
+
+    - name: Configure AWS credentials
+      if: steps.filter.outputs.changed == 'true'
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.SECRET_KEY }}
+        aws-region: eu-central-1
+
+
+      # Login to AWS
+    - name: Login to AWS ECR
+      id: ecr-login
+      if: steps.filter.outputs.changed == 'true'
+      uses: aws-actions/amazon-ecr-login@v2
+
+
+
+      # Set up Buildx on our runner for advanced caching and saving in GitHub Cache
+    - name: Set up Docker Buildx
+      if: steps.filter.outputs.changed == 'true'
+      uses: docker/setup-buildx-action@v3
+
+      #Security scanning with Trivy (Optional/Placeholder)
+    - name: Run Trivy vulnerability scanner (Optional/Placeholder)
+      if: steps.filter.outputs.changed == 'true'
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '${{ matrix.directory }}'
+        severity: 'CRITICAL,HIGH'
+
+
+    - name: Build and Push to Docker Hub
+      if: steps.filter.outputs.changed == 'true'
+      uses: docker/build-push-action@v5
+      with:
+        context: ${{ matrix.directory }}
+        file: ${{ matrix.directory }}/Dockerfile
+        push: true
+        tags: |
+          ${{ steps.ecr-login.outputs.registry }}/${{ matrix.image_name }}:latest
+          ${{ steps.ecr-login.outputs.registry }}/${{ matrix.image_name }}:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max

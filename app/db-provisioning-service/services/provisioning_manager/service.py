@@ -11,6 +11,7 @@ from services.external_clients.helm_client import HelmDeployerClient
 from services.external_clients.operator_client import OperatorServiceClient
 from models.db_models import DatabaseInstanceDB
 from services.external_clients.cluster_client import ClusterServiceClient
+from services.external_clients.vault_client import VaultServiceClient
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ class ProvisioningService:
         self.helm_client = HelmDeployerClient()
         self.operator_client = OperatorServiceClient()
         self.cluster_client = ClusterServiceClient()
+        self.vault_client = VaultServiceClient()
 
     async def get_all_databases(self) -> List[DatabaseInstanceDB]:
         """1. GET /api/v1/provisioning — List active databases."""
@@ -83,15 +85,18 @@ class ProvisioningService:
             disk=disk
         )
 
-        # CALL HELM-DEPLOYER WITH UPDATED VALUES.YAML
+        # FETCH DECRYPTED K8S CREDENTIALS FROM VAULT-SERVICE BY cluster_id
+        cluster_creds = await self.vault_client.get_k8s_credentials(db_instance.cluster_id)
+
+        # CALL HELM-DEPLOYER WITH UPDATED VALUES.YAML AND DECRYPTED CREDENTIALS
         try:
             await self.helm_client.apply_chart(
                 release_name=db_instance.name,
                 chart_name=db_instance.chart_name,
                 namespace=namespace,
                 values_yaml=updated_yaml,
-                api_server_url="https://kubernetes.default.svc",
-                auth_token=db_instance.
+                api_server_url=cluster_creds.get("api_server_url", "https://kubernetes.default.svc"),
+                auth_token=cluster_creds.get("auth_token")
             )
         except Exception as exc:
             logger.warning("Helm deployer trigger completed with status: %s", str(exc))
@@ -125,14 +130,16 @@ class ProvisioningService:
         # Set status to Upgrading
         await self.repo.update_status(db_id, LifecycleStatus.UPGRADING)
 
+        cluster_creds = await self.vault_client.get_k8s_credentials(db_instance.cluster_id)
+
         try:
             await self.helm_client.apply_chart(
                 release_name=db_instance.name,
                 chart_name=db_instance.chart_name,
                 namespace=namespace,
                 values_yaml=values_yaml,
-                api_server_url="https://kubernetes.default.svc",
-                auth_token="cluster-token"
+                api_server_url=cluster_creds.get("api_server_url", "https://kubernetes.default.svc"),
+                auth_token=cluster_creds.get("auth_token")
             )
         except Exception as exc:
             logger.warning("Helm upgrade trigger completed with notification: %s", str(exc))

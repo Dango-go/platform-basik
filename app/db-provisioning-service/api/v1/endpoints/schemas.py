@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
-# GET /api/v1/databases — Список активних баз (Installed Database List)
+# GET /api/v1/databases  
 class DatabaseItemResponse(BaseModel):
     id: str
     name: str
@@ -18,7 +18,7 @@ class DatabaseItemResponse(BaseModel):
     created_at: datetime
 
 
-# GET /api/v1/databases/{id} — Повний паспорт конкретної бази
+# GET /api/v1/databases/{id}
 class DatabasePassportResponse(BaseModel):
     id: str
     name: str
@@ -39,9 +39,9 @@ class DatabasePassportResponse(BaseModel):
 
 
 
-#  PATCH /api/v1/databases/{id}/scale — Масштабування на льоту 
+#  PATCH /api/v1/databases/{id}/scale 
 # {
-  #"cluster_id": "lenovo-prod-k8s",
+  #"cluster_id": "prod-k8s",
   #"db_id": "1",
   #"namespace": "databases",
   #"cpu": 4.0,
@@ -50,21 +50,20 @@ class DatabasePassportResponse(BaseModel):
 #}
 class ScaleRequest(BaseModel):
     cluster_id: str = Field(..., description="Target cluster ID")
-    db_id: str = Field(..., description="Target database instance ID")
     namespace: str = Field("databases", description="Target namespace")
     cpu: Optional[float] = Field(None, ge=0.1, description="New CPU cores")
     ram: Optional[float] = Field(None, ge=0.25, description="New RAM in GB")
     disk: Optional[float] = Field(None, ge=1.0, description="New Disk size in GB")
 
 
-# PUT /api/v1/databases/{id}/config — Parameter Editing (Тюнінг конфігів)
+# PUT /api/v1/databases/{id}/config
 class ConfigRequest(BaseModel):
     cluster_id: str = Field(..., description="Target cluster ID")
     namespace: str = Field("databases", description="Target namespace")
     values_yaml: str = Field(..., description="Updated values.yaml configuration content")
 
 
-#  Відповідь на операції (Stop / Start / Delete / Scale)
+
 class StatusResponse(BaseModel):
     status: str
     message: str

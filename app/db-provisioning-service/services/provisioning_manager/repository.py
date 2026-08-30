@@ -12,22 +12,22 @@ class DatabaseRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_all_instances(self) -> List[DatabaseInstanceDB]:
+    async def get_all_databases(self) -> List[DatabaseInstanceDB]:
 
         result = await self.db.execute(select(DatabaseInstanceDB))
         return list(result.scalars().all())
 
-    async def get_by_id(self, db_id: str) -> Optional[DatabaseInstanceDB]: # target one (get)
+    async def get_by_id(self, db_id: str) -> Optional[DatabaseInstanceDB]:
 
         result = await self.db.execute(
             select(DatabaseInstanceDB).where(DatabaseInstanceDB.id == db_id)
         )
-        return result.scalar_one_or_none()  # get clean result of data with key=value
+        return result.scalar_one_or_none()
 
     async def update_status(self, db_id: str, new_status: str) -> Optional[DatabaseInstanceDB]:
         instance = await self.get_by_id(db_id)
         if instance:
-            instance.status = new_status # switch
+            instance.status = new_status
             await self.db.commit()
             await self.db.refresh(instance)
         else:
