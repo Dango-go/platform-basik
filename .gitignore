@@ -19,9 +19,7 @@ ui/.vite/
 *.env
 .env.local
 *.tfstate
-*.tfstate.backup
-*.txt
-docs.txt    
+*.tfstate.backup  
 
 
 .idea/
