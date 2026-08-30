@@ -5,6 +5,7 @@ on:
     branches: [ "dev" ]
     paths:
       - 'app/**'
+      - 'ui/**'
       - '.github/workflows/ci.yml'
 
 jobs:
@@ -41,7 +42,7 @@ jobs:
             directory: app/db-info-service
             image_name: info-service
           - service: cost
-            directory: app/cost-managment-service
+            directory: app/cost-management-service
             image_name: cost-service
           - service: discovery
             directory: app/discovery-service
@@ -103,17 +104,18 @@ jobs:
         workload_identity_provider: ${{ secrets.PROVIDER }} 
         service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-    # Install gcloud CLI
+
     - name: Setup Cloud SDK
       uses: 'google-github-actions/setup-gcloud@v2'
       if: steps.filter.outputs.changed == 'true'
 
-    # Added credHelpers
-    - name: Authorize Docker push
+    - name: Login to GAR using Docker Login
       if: steps.filter.outputs.changed == 'true'
-      run: |
-        gcloud auth configure-docker europe-west3-docker.pkg.dev --quiet
-        docker-credential-gcloud configure-docker
+      uses: docker/login-action@v3
+      with:
+        registry: europe-west3-docker.pkg.dev
+        username: oauth2accesstoken
+        password: ${{ steps.auth.outputs.auth_token }}
 
 
     - name: Run Trivy vulnerability scanner (Optional/Placeholder)
