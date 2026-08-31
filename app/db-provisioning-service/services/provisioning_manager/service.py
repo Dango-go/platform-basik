@@ -132,6 +132,7 @@ class ProvisioningService:
 
         cluster_creds = await self.vault_client.get_k8s_credentials(db_instance.cluster_id)
 
+
         try:
             await self.helm_client.apply_chart(
                 release_name=db_instance.name,
@@ -143,6 +144,7 @@ class ProvisioningService:
             )
         except Exception as exc:
             logger.warning("Helm upgrade trigger completed with notification: %s", str(exc))
+
 
         # Save updated values_yaml to DB after helm upgrade execution
         updated_db = await self.repo.update_values_yaml(db_id, values_yaml, new_status=LifecycleStatus.RUNNING)
