@@ -72,13 +72,14 @@ jobs:
         pip install -r requirements.txt
 
     - name: Install npm dependencies (ui)
-      if: steps.filter.outputs.changed == 'true' && matrix.service == 'ui'
+      if: steps.filter.outputs.changed == 'true' && matrix.service == 'ui' && steps.filter.outputs.changed == 'true'
       run: |
         cd ${{ matrix.directory }}
         npm ci
 
     - name: Run tests (ui)
-      if: steps.filter.outputs.changed == 'true' && matrix.service == 'ui'
+      if: steps.filter.outputs.changed == 'true' && matrix.service == 'ui' && steps.filter.outputs.changed == 'true'
+      
       run: |
         cd ${{ matrix.directory }}
         npm test -- --ci && npm run build
