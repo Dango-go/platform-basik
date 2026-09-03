@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Any, Optional
 from services.operator_manager.validator import Validator
-from operator_manager.crd_builder import CRDBuilder
+from services.operator_manager.crd_builder import CRDBuilder
 from services.operator_manager.runner import CRDRunner
 from services.k8s.client_factory import K8sClientFactory
 
