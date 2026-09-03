@@ -22,7 +22,9 @@ import {
   Lock,
   Puzzle,
   ExternalLink,
-  Activity
+  Activity,
+  FilePlus,
+  FileText
 } from 'lucide-react';
 
 interface DatabaseManagementCatalogPageProps {
@@ -188,6 +190,31 @@ metrics:
   const [customValuesYaml, setCustomValuesYaml] = useState<string>(defaultYamlContent);
   const [yamlConfigStatus, setYamlConfigStatus] = useState<'idle' | 'applying' | 'success' | 'error'>('idle');
   const [yamlConfigNotification, setYamlConfigNotification] = useState<string | null>(null);
+
+  // Custom File Management State
+  const [activeYamlFileName, setActiveYamlFileName] = useState<string>('custom-values.yaml');
+  const [mgmtUserCustomFiles, setMgmtUserCustomFiles] = useState<Array<{ name: string; content: string }>>([
+    { name: 'custom-values.yaml', content: defaultYamlContent }
+  ]);
+  const [showMgmtAddCustomFileModal, setShowMgmtAddCustomFileModal] = useState<boolean>(false);
+  const [mgmtNewCustomFileName, setMgmtNewCustomFileName] = useState<string>('my-custom-values.yaml');
+
+  const handleCreateMgmtCustomFile = () => {
+    let cleanName = mgmtNewCustomFileName.trim();
+    if (!cleanName) return;
+    if (!cleanName.endsWith('.yaml') && !cleanName.endsWith('.yml')) {
+      cleanName = `${cleanName}.yaml`;
+    }
+
+    const initialContent = `# ${cleanName} — Custom Runtime Engine Overrides\n# Target DB: ${selectedInstance?.name || item.name} (${selectedInstance?.namespace || 'databases'})\n\n`;
+    const newFileObj = { name: cleanName, content: initialContent };
+
+    setMgmtUserCustomFiles((prev) => [...prev, newFileObj]);
+    setActiveYamlFileName(cleanName);
+    setCustomValuesYaml(initialContent);
+    setShowMgmtAddCustomFileModal(false);
+    setMgmtNewCustomFileName('');
+  };
 
   const handleApplyCustomYamlConfig = async () => {
     setYamlConfigStatus('applying');
@@ -685,18 +712,26 @@ metrics:
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setShowMgmtAddCustomFileModal(true)}
+              className="px-3.5 py-2 rounded-xl bg-brand-blue hover:bg-brand-blue/90 text-white font-bold border border-brand-sky/40 text-xs shadow-md transition-all flex items-center gap-1.5"
+            >
+              <FilePlus className="w-4 h-4 text-white" />
+              <span>Add Custom File</span>
+            </button>
+
             <button
               onClick={() => setCustomValuesYaml(defaultYamlContent)}
               className="px-3.5 py-2 rounded-xl bg-bg-main hover:bg-slate-800 text-slate-300 hover:text-white border border-accent-darkBorder text-xs font-bold transition-all flex items-center gap-1.5"
             >
               <History className="w-3.5 h-3.5 text-slate-400" />
-              <span>Reset to Chart Defaults (values.yaml from chart)</span>
+              <span>Reset to Chart Defaults</span>
             </button>
 
             <button
               onClick={() => {
-                setYamlConfigNotification(`[Template]: Rendered Helm template manifest successfully against custom-values.yaml!`);
+                setYamlConfigNotification(`[Template]: Rendered Helm template manifest successfully against ${activeYamlFileName}!`);
                 setTimeout(() => setYamlConfigNotification(null), 4000);
               }}
               className="px-3.5 py-2 rounded-xl bg-bg-main hover:bg-slate-800 text-slate-300 hover:text-white border border-accent-darkBorder text-xs font-bold transition-all flex items-center gap-1.5"
@@ -732,16 +767,41 @@ metrics:
           </div>
         )}
 
-        {/* CODE TERMINAL EDITOR WINDOW */}
+        {/* CODE TERMINAL EDITOR WINDOW WITH DYNAMIC FILE TABS */}
         <div className="relative bg-[#0d1117] border border-slate-800 rounded-xl overflow-hidden shadow-2xl font-mono text-xs text-slate-200">
-          <div className="bg-[#161b22] px-4 py-2.5 border-b border-slate-800 flex items-center justify-between text-slate-400 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full bg-red-500/80 inline-block"></span>
-              <span className="w-3 h-3 rounded-full bg-amber-500/80 inline-block"></span>
-              <span className="w-3 h-3 rounded-full bg-emerald-500/80 inline-block"></span>
-              <span className="ml-2 text-slate-300 font-bold font-mono">custom-values.yaml</span>
+          <div className="bg-[#161b22] px-4 py-2.5 border-b border-slate-800 flex items-center justify-between text-slate-400 text-xs overflow-x-auto">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 mr-2">
+                <span className="w-3 h-3 rounded-full bg-red-500/80 inline-block"></span>
+                <span className="w-3 h-3 rounded-full bg-amber-500/80 inline-block"></span>
+                <span className="w-3 h-3 rounded-full bg-emerald-500/80 inline-block"></span>
+              </div>
+
+              {/* DYNAMIC YAML FILE TABS */}
+              <div className="flex items-center gap-1">
+                {mgmtUserCustomFiles.map((file) => {
+                  const isActive = file.name === activeYamlFileName;
+                  return (
+                    <button
+                      key={file.name}
+                      onClick={() => {
+                        setActiveYamlFileName(file.name);
+                        setCustomValuesYaml(file.content);
+                      }}
+                      className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 ${
+                        isActive
+                          ? 'bg-brand-blue/30 text-white border border-brand-sky/40 shadow-sm'
+                          : 'bg-bg-main text-slate-400 hover:text-slate-200 border border-slate-800'
+                      }`}
+                    >
+                      <FileText className="w-3.5 h-3.5 text-brand-sky" />
+                      <span>{file.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <span className="text-[11px] text-slate-500 font-mono">YAML Editor • Hot-Reload Supported</span>
+            <span className="text-[11px] text-slate-500 font-mono hidden sm:inline-block">YAML Editor • Hot-Reload Supported</span>
           </div>
 
           <div className="p-4 bg-[#0d1117]">
@@ -1106,6 +1166,74 @@ metrics:
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 📄 ADD CUSTOM YAML FILE MODAL OVERLAY (MANAGEMENT PAGE) */}
+      {/* ======================================================== */}
+      {showMgmtAddCustomFileModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-bg-card border border-accent-darkBorder rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5 relative">
+            <div className="flex items-center justify-between border-b border-accent-darkBorder pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-brand-blue/20 border border-brand-sky/30 flex items-center justify-center">
+                  <FilePlus className="w-5 h-5 text-brand-sky" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Add Custom YAML Configuration File</h3>
+                  <p className="text-[11px] text-slate-400">Create a new YAML override file for hot-reload deployment</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMgmtAddCustomFileModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-bg-main transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                YAML File Name
+              </label>
+              <div className="relative">
+                <FileText className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  autoFocus
+                  value={mgmtNewCustomFileName}
+                  onChange={(e) => setMgmtNewCustomFileName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateMgmtCustomFile();
+                  }}
+                  placeholder="e.g. my-custom-values.yaml"
+                  className="w-full bg-bg-main border border-accent-darkBorder rounded-xl pl-9 pr-4 py-2.5 text-xs font-mono font-bold text-white placeholder-slate-500 focus:outline-none focus:border-brand-sky transition-all"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400">
+                A blank terminal editor tab will open immediately for this file upon creation.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-accent-darkBorder pt-4">
+              <button
+                type="button"
+                onClick={() => setShowMgmtAddCustomFileModal(false)}
+                className="text-xs font-semibold px-4 py-2.5 rounded-xl border border-accent-darkBorder text-slate-400 hover:bg-accent-darkHover transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateMgmtCustomFile}
+                className="bg-brand-blue hover:bg-brand-blue/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-brand-blue/30 flex items-center gap-1.5 transition-all"
+              >
+                <FilePlus className="w-4 h-4" />
+                <span>Create & Open Editor</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

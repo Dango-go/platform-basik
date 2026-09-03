@@ -25,24 +25,14 @@ RUN groupadd -g 10001 appgroup && \
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install kubectl CLI
-RUN curl -LO "https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl" && \
-    chmod +x kubectl && \
-    mv kubectl /usr/local/bin/
-
 COPY --from=builder /root/.local /home/appuser/.local
 COPY --chown=appuser:appgroup . /app
 
 USER appuser
 
-EXPOSE 8005
+EXPOSE 8001
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8005/health || exit 1
+  CMD curl -f http://localhost:8001/health || exit 1
 
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8005"]
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]

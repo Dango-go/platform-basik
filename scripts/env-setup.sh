@@ -59,7 +59,7 @@ GCP_PROJECT_ID=${GCP_PROJECT_ID}
 GCP_REGION=${GCP_REGION}
 
 # ========================================================
-# 🗄️ PRIMARY PLATFORM DATABASE (POSTGRESQL)
+# PRIMARY PLATFORM DATABASE (POSTGRESQL)
 # ========================================================
 POSTGRES_HOST=${POSTGRES_HOST}
 POSTGRES_PORT=${POSTGRES_PORT}
@@ -74,20 +74,20 @@ DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGR
 JWT_SECRET_KEY=${JWT_SECRET_KEY}
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
-VAULT_ADDR=http://vault-service:8000
+VAULT_ADDR=http://vault-service:8001
 VAULT_MASTER_KEY=idp_transit_master_encryption_key_2026
 
 # ========================================================
 # MICROSERVICES PORTS & INTERNAL URLs
 # ========================================================
 AUTH_SERVICE_URL=http://auth-service:8001
-PROVISIONING_SERVICE_URL=http://db-provisioning-service:8002
-HELM_DEPLOYER_URL=http://helm-deployer:8003
-COST_SERVICE_URL=http://cost-management-service:8004
-OPERATOR_SERVICE_URL=http://operator-service:8005
-DISCOVERY_SERVICE_URL=http://discovery-service:8007
-INFO_SERVICE_URL=http://db-info-service:8008
-PROVIDER_SERVICE_URL=http://provider-service:8009
+PROVISIONING_SERVICE_URL=http://db-provisioning-service:8001
+HELM_DEPLOYER_URL=http://helm-deployer:8001
+COST_SERVICE_URL=http://cost-management-service:8001
+OPERATOR_SERVICE_URL=http://operator-service:8001
+DISCOVERY_SERVICE_URL=http://discovery-service:8001
+INFO_SERVICE_URL=http://db-info-service:8001
+PROVIDER_SERVICE_URL=http://provider-service:8001
 EOF
 
 # Export variables to current shell session

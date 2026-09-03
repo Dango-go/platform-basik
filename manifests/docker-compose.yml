@@ -1,49 +1,229 @@
 version: '3.8'
 
 services:
-  #AUTH 
+ 
+  postgres:
+    image: postgres:15-alpine
+    container_name: idp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bohdan-root}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bohdan-key}
+      POSTGRES_DB: ${POSTGRES_DB:-idp_platform}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bohdan-root} -d ${POSTGRES_DB:-idp_platform}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - idp-network
+
+ 
+  vault-service:
+    image: ${DOCKERHUB_USERNAME:-bodya123}/vault-service:latest
+    container_name: idp-vault-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-bohdan-root}:${POSTGRES_PASSWORD:-bohdan-key}@postgres:5432/${POSTGRES_DB:-idp_platform}
+      - VAULT_MASTER_KEY=${VAULT_MASTER_KEY:-idp_transit_master_encryption_key_2026}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - idp-network
+ 
   auth-service:
-    image: ${DOCKERHUB_USERNAME:-your-dockerhub-username}/auth-service:latest
+    image: ${DOCKERHUB_USERNAME:-bodya123}/auth-service:latest
     container_name: idp-auth-service
     restart: unless-stopped
     ports:
       - "8001:8001"
     environment:
       - PORT=8001
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-idp_platform}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-bohdan-root}:${POSTGRES_PASSWORD:-bohdan-key}@postgres:5432/${POSTGRES_DB:-idp_platform}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-super-secret-jwt-key-change-in-production}
-      - JWT_ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=60
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+    networks:
+      - idp-network
+ 
+  db-provisioning-service:
+    image: ${DOCKERHUB_USERNAME:-bodya123}/provisioner-service:latest
+    container_name: idp-db-provisioning-service
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    environment:
+      - PORT=8002
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-bohdan-root}:${POSTGRES_PASSWORD:-bohdan-key}@postgres:5432/${POSTGRES_DB:-idp_platform}
+      - HELM_DEPLOYER_URL=http://helm-deployer:8003
+      - OPERATOR_SERVICE_URL=http://operator-service:8005
+      - VAULT_SERVICE_URL=http://vault-service:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      vault-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     networks:
       - idp-network
 
+ 
+  helm-deployer:
+    image: ${DOCKERHUB_USERNAME:-bodya123}/helm-service:latest
+    container_name: idp-helm-deployer
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    environment:
+      - PORT=8003
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - idp-network
+ 
+  cost-management-service:
+    image: ${DOCKERHUB_USERNAME:-bodya123}/cost-service:latest
+    container_name: idp-cost-management-service
+    restart: unless-stopped
+    ports:
+      - "8004:8004"
+    environment:
+      - PORT=8004
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-bohdan-root}:${POSTGRES_PASSWORD:-bohdan-key}@postgres:5432/${POSTGRES_DB:-idp_platform}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - idp-network
+ 
+  operator-service:
+    image: ${DOCKERHUB_USERNAME:-bodya123}/operator-service:latest
+    container_name: idp-operator-service
+    restart: unless-stopped
+    ports:
+      - "8005:8005"
+    environment:
+      - PORT=8005
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - idp-network
+ 
+  discovery-service:
+    image: ${DOCKERHUB_USERNAME:-bodya123}/discovery-service:latest
+    container_name: idp-discovery-service
+    restart: unless-stopped
+    ports:
+      - "8007:8007"
+    environment:
+      - PORT=8007
+      - PROVISIONING_SERVICE_URL=http://db-provisioning-service:8002
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - idp-network
 
+ 
+  db-info-service:
+    image: ${DOCKERHUB_USERNAME:-bodya123}/info-service:latest
+    container_name: idp-db-info-service
+    restart: unless-stopped
+    ports:
+      - "8008:8008"
+    environment:
+      - PORT=8008
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-bohdan-root}:${POSTGRES_PASSWORD:-bohdan-key}@postgres:5432/${POSTGRES_DB:-idp_platform}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - idp-network
+
+ 
   provider-service:
-    image: ${DOCKERHUB_USERNAME:-your-dockerhub-username}/auth-service:latest
+    image: ${DOCKERHUB_USERNAME:-bodya123}/provider-service:latest
     container_name: idp-provider-service
     restart: unless-stopped
     ports:
-      - "8001:8001"
+      - "8009:8009"
     environment:
-      - PORT=8001
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-idp_platform}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-super-secret-jwt-key-change-in-production}
-      - JWT_ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=60
+      - PORT=8009
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-bohdan-root}:${POSTGRES_PASSWORD:-bohdan-key}@postgres:5432/${POSTGRES_DB:-idp_platform}
+      - VAULT_SERVICE_URL=http://vault-service:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      vault-service:
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
     networks:
       - idp-network
+ 
+  ui:
+    image: ${DOCKERHUB_USERNAME:-bodya123}/ui-service:latest
+    container_name: idp-ui
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - idp-network
+
+volumes:
+  postgres_data:
+    driver: local
 
 networks:
   idp-network:

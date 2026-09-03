@@ -24,7 +24,9 @@ import {
   Eye,
   EyeOff,
   Wand2,
-  Lock
+  Lock,
+  X,
+  FileText
 } from 'lucide-react';
 
 interface CreateDatabaseWizardPageProps {
@@ -179,19 +181,44 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
   const [yamlContent, setYamlContent] = useState<string>(
     `primary:\n  extendedConfiguration: |\n    max_connections = 250\n    shared_buffers = 2GB\n  resources:\n    requests:\n      cpu: 1000m\n      memory: 4Gi\n  persistence:\n    size: 50Gi`
   );
-  const [customFileName, setCustomFileName] = useState('custom-values.yaml');
+  // Modal & User custom YAML files state
+  const [showAddCustomFileModal, setShowAddCustomFileModal] = useState<boolean>(false);
+  const [newCustomFileName, setNewCustomFileName] = useState<string>('my-custom-values.yaml');
+  const [userCustomFiles, setUserCustomFiles] = useState<Array<{ name: string; path: string; content: string }>>([]);
+
   const [saveSuccessMsg, setSaveSuccessMsg] = useState(false);
-  // Specific Helm Chart Name / Repo URL input state
   const [helmChartNameInput, setHelmChartNameInput] = useState<string>(
     ENGINE_HELM_CHARTS[selectedEngine.engine_type] || `bitnami/${selectedEngine.engine_type}`
   );
   const [helmActionStatus, setHelmActionStatus] = useState<string>('');
   const [isExecutingHelmAction, setIsExecutingHelmAction] = useState<boolean>(false);
 
+  const handleCreateCustomFile = () => {
+    let cleanName = newCustomFileName.trim();
+    if (!cleanName) return;
+    if (!cleanName.endsWith('.yaml') && !cleanName.endsWith('.yml')) {
+      cleanName = `${cleanName}.yaml`;
+    }
+
+    const initialContent = `# ${cleanName} — Custom Helm Configuration Overrides\n# Type or paste your custom YAML values below:\n\n`;
+    const newFileObj = {
+      name: cleanName,
+      path: cleanName,
+      content: initialContent
+    };
+
+    setUserCustomFiles((prev) => [...prev, newFileObj]);
+    setSelectedHelmFile(cleanName);
+    setYamlContent(initialContent);
+    setShowAddCustomFileModal(false);
+    setNewCustomFileName('');
+  };
+
   const handleSelectHelmFile = (filePath: string) => {
     setSelectedHelmFile(filePath);
     const chartFiles = HELM_CHART_FILES[selectedEngine.engine_type] || HELM_CHART_FILES['postgresql'];
-    const found = chartFiles.find((f) => f.path === filePath);
+    const allFiles = [...chartFiles, ...userCustomFiles];
+    const found = allFiles.find((f) => f.path === filePath);
     if (found) {
       setYamlContent(found.content);
     }
@@ -629,32 +656,26 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
                         📄 {file.name}
                       </option>
                     ))}
+                    {userCustomFiles.map((file) => (
+                      <option key={file.path} value={file.path} className="bg-bg-card text-brand-sky font-bold">
+                        ⚡ {file.name} (Custom)
+                      </option>
+                    ))}
                   </select>
                 </div>
 
-                {/* CUSTOM FILE INPUT, ADD BUTTON, SAVE CHART & UPGRADE CHART BUTTONS */}
+                {/* ADD CUSTOM FILE BUTTON & SAVE / UPGRADE ACTIONS */}
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <input
-                    type="text"
-                    value={customFileName}
-                    onChange={(e) => setCustomFileName(e.target.value)}
-                    placeholder="custom-file.yaml"
-                    className="bg-bg-main border border-accent-darkBorder text-slate-200 text-xs rounded-lg px-2.5 py-1 font-mono w-36"
-                  />
                   <button 
-                    onClick={() => {
-                      if (customFileName.trim()) {
-                        setSelectedHelmFile(customFileName);
-                      }
-                    }}
-                    className="bg-brand-blue/20 text-brand-sky hover:bg-brand-blue/30 border border-brand-sky/30 text-xs font-semibold px-3 py-1 rounded-lg flex items-center gap-1 transition-all"
+                    onClick={() => setShowAddCustomFileModal(true)}
+                    className="bg-brand-blue hover:bg-brand-blue/90 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-md"
                   >
                     <FilePlus className="w-3.5 h-3.5" /> Add Custom File
                   </button>
 
                   <button 
                     onClick={handleSaveChart}
-                    className="bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 text-xs font-semibold px-3 py-1 rounded-lg flex items-center gap-1 transition-all shadow-md"
+                    className="bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all shadow-md"
                   >
                     <Save className="w-3.5 h-3.5 text-emerald-400" /> Save Chart
                   </button>
@@ -862,6 +883,74 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
           </button>
         </div>
       </div>
+
+      {/* ======================================================== */}
+      {/* 📄 ADD CUSTOM YAML FILE MODAL OVERLAY */}
+      {/* ======================================================== */}
+      {showAddCustomFileModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-bg-card border border-accent-darkBorder rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5 relative">
+            <div className="flex items-center justify-between border-b border-accent-darkBorder pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-brand-blue/20 border border-brand-sky/30 flex items-center justify-center">
+                  <FilePlus className="w-5 h-5 text-brand-sky" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Add Custom YAML File</h3>
+                  <p className="text-[11px] text-slate-400">Create a new empty YAML configuration file</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAddCustomFileModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-bg-main transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                YAML File Name
+              </label>
+              <div className="relative">
+                <FileText className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  autoFocus
+                  value={newCustomFileName}
+                  onChange={(e) => setNewCustomFileName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateCustomFile();
+                  }}
+                  placeholder="e.g. my-custom-values.yaml"
+                  className="w-full bg-bg-main border border-accent-darkBorder rounded-xl pl-9 pr-4 py-2.5 text-xs font-mono font-bold text-white placeholder-slate-500 focus:outline-none focus:border-brand-sky transition-all"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400">
+                A blank code terminal editor will open immediately for this file once created.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-accent-darkBorder pt-4">
+              <button
+                type="button"
+                onClick={() => setShowAddCustomFileModal(false)}
+                className="text-xs font-semibold px-4 py-2.5 rounded-xl border border-accent-darkBorder text-slate-400 hover:bg-accent-darkHover transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateCustomFile}
+                className="bg-brand-blue hover:bg-brand-blue/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-brand-blue/30 flex items-center gap-1.5 transition-all"
+              >
+                <FilePlus className="w-4 h-4" />
+                <span>Create & Open Editor</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
