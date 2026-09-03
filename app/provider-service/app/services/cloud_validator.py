@@ -111,7 +111,7 @@ class ValidationFactory:
     }
 
     @classmethod
-    async def validating_creds(cls, provider_type: str, credentials: dict) -> object.method:
+    async def validating_creds(cls, provider_type: str, credentials: dict):  #-> object.method
         validator = cls.validators.get(provider_type)
         if not validator:
             raise ValueError(f"Unsupported provider type: {provider_type}")
