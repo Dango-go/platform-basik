@@ -58,7 +58,13 @@ class ApiClient {
 
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.detail || 'Incorrect email or password');
+      let message = `Server error (${res.status})`;
+      if (typeof errData.detail === 'string') {
+        message = errData.detail;
+      } else if (Array.isArray(errData.detail) && errData.detail.length > 0) {
+        message = errData.detail.map((e: any) => e.msg || 'Invalid input').join(', ');
+      }
+      throw new Error(message);
     }
 
     const data = await res.json();
@@ -76,7 +82,13 @@ class ApiClient {
 
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.detail || 'Registration failed. Email may already be registered.');
+      let message = `Registration failed (${res.status})`;
+      if (typeof errData.detail === 'string') {
+        message = errData.detail;
+      } else if (Array.isArray(errData.detail) && errData.detail.length > 0) {
+        message = errData.detail.map((e: any) => e.msg || 'Invalid input').join(', ');
+      }
+      throw new Error(message);
     }
 
     return await res.json();

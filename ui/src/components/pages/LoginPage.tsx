@@ -28,9 +28,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setIsLoading(true);
     try {
       if (authMode === 'register') {
-        await apiClient.register(email, password);
-        setSuccessMsg('Account created successfully! Logging in...');
-        await new Promise((res) => setTimeout(res, 800));
+        try {
+          await apiClient.register(email, password);
+          setSuccessMsg('Account created successfully! Logging in...');
+          await new Promise((res) => setTimeout(res, 400));
+        } catch (regErr: any) {
+          // If email is already registered in Postgres, attempt direct login with provided credentials
+          if (regErr?.message?.toLowerCase().includes('already registered')) {
+            await apiClient.login(email, password);
+            setIsLoading(false);
+            onLoginSuccess();
+            return;
+          }
+          throw regErr;
+        }
         await apiClient.login(email, password);
       } else {
         await apiClient.login(email, password);
