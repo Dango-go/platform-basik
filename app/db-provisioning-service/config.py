@@ -5,8 +5,8 @@ class Settings(BaseSettings):
     API_SERVICE_NAME: str = "DB Provisioning Management Service"
     API_V1: str = "/api/v1"
     
-    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "00001111")
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "admin")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "provisioning")
     POSTGRES_SERVER: str = os.getenv("POSTGRES_SERVER", "localhost")
     POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", "5432"))
     POSTGRES_DB_NAME: str = os.getenv("POSTGRES_DB_NAME", "provisioning_db")

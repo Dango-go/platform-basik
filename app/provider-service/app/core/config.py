@@ -5,10 +5,10 @@ class Settings(BaseSettings):
     API_SERVICE_NAME: str = "Provider Service"
     API_V1: str = "/api/v1"
     POSTGRES_USER: str = "admin"
-    POSTGRES_PASSWORD: str = "bohdan"
+    POSTGRES_PASSWORD: str = "provider"
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: int = 5432
-    POSTGRES_DB_NAME: str = "users_metadata"
+    POSTGRES_DB_NAME: str = "idp_users"
 
     @property
     def DB_URL(self) -> str:

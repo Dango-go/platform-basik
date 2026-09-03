@@ -24,7 +24,7 @@ async def register(user_in: UserCreate, db: AsyncSession = Depends(get_db)):
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    return user
+    return UserResponse(id=user.id, email=user.email, is_active=user.is_active)
 
 # Login
 @router.post("/token", response_model=Token)

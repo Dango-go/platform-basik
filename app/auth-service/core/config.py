@@ -3,11 +3,11 @@ from typing import Optional
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Auth Service"
-    POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = "postgres"
+    POSTGRES_USER: str = "admin"
+    POSTGRES_PASSWORD: str = "auth"
     POSTGRES_SERVER: str = "postgres"
     POSTGRES_PORT: str = "5432"
-    POSTGRES_DB: str = "idp_platform"
+    POSTGRES_DB: str = "idp_authentication"
     
     DATABASE_URL: Optional[str] = None
     
