@@ -72,26 +72,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLog
       </div>
 
       {/* Footer Profile & Logout */}
-      <div className="p-4 border-t border-accent-darkBorder bg-bg-main">
-        <div className="flex items-center justify-between p-2 rounded-xl">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-brand-blue text-white flex items-center justify-center font-bold text-sm shadow-md">
-              DB
-            </div>
-            <div className="text-left overflow-hidden">
-              <p className="text-sm font-bold text-slate-200 truncate">bodya@databasik.io</p>
-              <p className="text-xs text-slate-500">Administrator</p>
+      {(() => {
+        const userEmail = localStorage.getItem('user_email') || 'bodya@databasik.io';
+        const initials = userEmail.substring(0, 2).toUpperCase();
+        return (
+          <div className="p-4 border-t border-accent-darkBorder bg-bg-main">
+            <div className="flex items-center justify-between p-2 rounded-xl">
+              <div className="flex items-center gap-3 overflow-hidden">
+                <div className="w-9 h-9 rounded-full bg-brand-blue text-white flex items-center justify-center font-bold text-xs shadow-md shrink-0">
+                  {initials}
+                </div>
+                <div className="text-left overflow-hidden min-w-0">
+                  <p className="text-xs font-bold text-slate-200 truncate" title={userEmail}>
+                    {userEmail}
+                  </p>
+                  <p className="text-[11px] text-slate-500">Administrator</p>
+                </div>
+              </div>
+              <button
+                onClick={onLogout}
+                title="Sign Out"
+                className="text-slate-400 hover:text-rose-400 p-2 rounded-lg hover:bg-rose-950/30 transition-colors shrink-0"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
           </div>
-          <button
-            onClick={onLogout}
-            title="Sign Out"
-            className="text-slate-400 hover:text-rose-400 p-2 rounded-lg hover:bg-rose-950/30 transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+        );
+      })()}
     </aside>
   );
 };

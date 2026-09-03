@@ -4,8 +4,8 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     API_SERVICE_NAME: str = "Provider Service"
     API_V1: str = "/api/v1"
-    POSTGRES_USER: str = "provider-admin"
-    POSTGRES_PASSWORD: str = "0000011111"
+    POSTGRES_USER: str = "admin"
+    POSTGRES_PASSWORD: str = "bohdan"
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_DB_NAME: str = "users_metadata"

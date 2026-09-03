@@ -24,7 +24,7 @@ services:
 
  
   vault-service:
-    image: ${DOCKERHUB_USERNAME:-bodya123}/vault-service:latest
+    image: ${DOCKERHUB_USERNAME}/vault-service:latest
     container_name: idp-vault-service
     restart: unless-stopped
     ports:
@@ -45,7 +45,7 @@ services:
       - idp-network
  
   auth-service:
-    image: ${DOCKERHUB_USERNAME:-bodya123}/auth-service:latest
+    image: ${DOCKERHUB_USERNAME}/auth-service:latest
     container_name: idp-auth-service
     restart: unless-stopped
     ports:
@@ -68,7 +68,7 @@ services:
       - idp-network
  
   db-provisioning-service:
-    image: ${DOCKERHUB_USERNAME:-bodya123}/provisioner-service:latest
+    image: ${DOCKERHUB_USERNAME}/provisioner-service:latest
     container_name: idp-db-provisioning-service
     restart: unless-stopped
     ports:
@@ -94,7 +94,7 @@ services:
 
  
   helm-deployer:
-    image: ${DOCKERHUB_USERNAME:-bodya123}/helm-service:latest
+    image: ${DOCKERHUB_USERNAME}/helm-service:latest
     container_name: idp-helm-deployer
     restart: unless-stopped
     ports:
@@ -110,7 +110,7 @@ services:
       - idp-network
  
   cost-management-service:
-    image: ${DOCKERHUB_USERNAME:-bodya123}/cost-service:latest
+    image: ${DOCKERHUB_USERNAME}/cost-service:latest
     container_name: idp-cost-management-service
     restart: unless-stopped
     ports:
@@ -130,7 +130,7 @@ services:
       - idp-network
  
   operator-service:
-    image: ${DOCKERHUB_USERNAME:-bodya123}/operator-service:latest
+    image: ${DOCKERHUB_USERNAME}/operator-service:latest
     container_name: idp-operator-service
     restart: unless-stopped
     ports:
@@ -146,7 +146,7 @@ services:
       - idp-network
  
   discovery-service:
-    image: ${DOCKERHUB_USERNAME:-bodya123}/discovery-service:latest
+    image: ${DOCKERHUB_USERNAME}/discovery-service:latest
     container_name: idp-discovery-service
     restart: unless-stopped
     ports:
@@ -164,7 +164,7 @@ services:
 
  
   db-info-service:
-    image: ${DOCKERHUB_USERNAME:-bodya123}/info-service:latest
+    image: ${DOCKERHUB_USERNAME}/info-service:latest
     container_name: idp-db-info-service
     restart: unless-stopped
     ports:
@@ -185,7 +185,7 @@ services:
 
  
   provider-service:
-    image: ${DOCKERHUB_USERNAME:-bodya123}/provider-service:latest
+    image: ${DOCKERHUB_USERNAME}/provider-service:latest
     container_name: idp-provider-service
     restart: unless-stopped
     ports:
@@ -208,7 +208,7 @@ services:
       - idp-network
  
   ui:
-    image: ${DOCKERHUB_USERNAME:-bodya123}/ui-service:latest
+    image: ${DOCKERHUB_USERNAME}/ui-service:latest
     container_name: idp-ui
     restart: unless-stopped
     ports:

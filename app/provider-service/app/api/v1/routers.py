@@ -11,7 +11,7 @@ router = APIRouter(prefix="/api/v1", tags=["provider"])
 
 def get_vault_env() -> ServiceClient:
     return ServiceClient(
-        url = os.getenv("VAULT_SERVICE_URL", "http://localhost:8080"),
+        url = os.getenv("VAULT_SERVICE_URL", "vault-service:8080"),
         apikey = os.getenv("VAULT_API_KEY", "default_api_key")
     )
 

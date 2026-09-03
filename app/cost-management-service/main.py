@@ -37,12 +37,8 @@ async def on_startup():
 
 
 @app.get("/health")
-async def health_check():
-    return {
-        "status": "healthy",
-        "service": settings.PROJECT_NAME,
-        "version": "1.0.0"
-    }
+def root():
+    return {"status": "success"}
 
 
 if __name__ == "__main__":

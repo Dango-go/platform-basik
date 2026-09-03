@@ -11,7 +11,7 @@ import { QuotasPage } from './components/pages/QuotasPage';
 import { NotificationsPage } from './components/pages/NotificationsPage';
 
 export const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!localStorage.getItem('access_token'));
   const [activeTab, setActiveTab] = useState<string>('databases');
   const [preselectedEngine, setPreselectedEngine] = useState<string>('postgresql');
   const [customHeaderTitle, setCustomHeaderTitle] = useState<string | null>(null);
@@ -28,6 +28,12 @@ export const App: React.FC = () => {
     handleTabChange('create');
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user_email');
+    setIsAuthenticated(false);
+  };
+
   if (!isAuthenticated) {
     return <LoginPage onLoginSuccess={() => setIsAuthenticated(true)} />;
   }
@@ -37,7 +43,7 @@ export const App: React.FC = () => {
       activeTab={activeTab}
       setActiveTab={handleTabChange}
       customTitle={customHeaderTitle}
-      onLogout={() => setIsAuthenticated(false)}
+      onLogout={handleLogout}
     >
       {activeTab === 'create' && (
         <CreateDatabaseWizardPage

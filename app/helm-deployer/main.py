@@ -6,6 +6,6 @@ app = FastAPI()
 
 app.include_router(endpoints_router)
 
-@app.get("/healtz")
-async def healtz():
-    return {"status": "ok", "service": "helm deployer"}
+@app.get("/health")
+def root():
+    return {"status": "success"}

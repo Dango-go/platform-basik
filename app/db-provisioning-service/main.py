@@ -10,9 +10,5 @@ app = FastAPI(
 app.include_router(db_provisioning_router)
 
 @app.get("/health")
-async def health_check():
-    return {
-        "status": "healthy",
-        "service": "db-provisioning-service",
-        "version": "1.0.0"
-    }
+def root():
+    return {"status": "success"}
