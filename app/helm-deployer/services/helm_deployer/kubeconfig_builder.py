@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 from contextlib import asynccontextmanager
 
-class KubeconfBuilder:
+class KubeconfigBuilder:
     def __init__(self, base_dir: str = "/tmp/kubeconfigs"):
         self.base_dir = Path(base_dir)
         self.base_dir.mkdir(parents=True, exist_ok=True)
