@@ -50,41 +50,36 @@ class ApiClient {
   }
 
   async login(email: string, password: string): Promise<{ access_token: string }> {
-    try {
-      const res = await fetch('/api/v1/auth/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        localStorage.setItem('access_token', data.access_token);
-        localStorage.setItem('user_email', email);
-        return data;
-      }
-    } catch (e) {
-      console.warn('Backend auth-service unreachable, using fallback login session');
+    const res = await fetch('/api/v1/auth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || 'Incorrect email or password');
     }
-    const token = `mock-jwt-token-${Date.now()}`;
-    localStorage.setItem('access_token', token);
+
+    const data = await res.json();
+    localStorage.setItem('access_token', data.access_token);
     localStorage.setItem('user_email', email);
-    return { access_token: token };
+    return data;
   }
 
   async register(email: string, password: string): Promise<{ id: string; email: string }> {
-    try {
-      const res = await fetch('/api/v1/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch (e) {
-      console.warn('Backend auth-service unreachable, using fallback registration');
+    const res = await fetch('/api/v1/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || 'Registration failed. Email may already be registered.');
     }
-    return { id: `user-${Date.now()}`, email };
+
+    return await res.json();
   }
 }
 

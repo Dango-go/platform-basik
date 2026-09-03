@@ -73,7 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLog
 
       {/* Footer Profile & Logout */}
       {(() => {
-        const userEmail = localStorage.getItem('user_email') || 'bodya@databasik.io';
+        const userEmail = localStorage.getItem('user_email') || 'user@idp.platform';
         const initials = userEmail.substring(0, 2).toUpperCase();
         return (
           <div className="p-4 border-t border-accent-darkBorder bg-bg-main">
