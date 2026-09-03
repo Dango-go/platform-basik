@@ -1,9 +1,9 @@
 from fastapi import FastAPI
-from api.v1.endpoints import auth
+from api.v1.endpoints import router as auth_router
 
 app = FastAPI(title="Auth Microservice", version="1.0.0")
 
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 
 @app.get("/health")
 def root():

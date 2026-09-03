@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Any, Optional
 from services.operator_manager.validator import Validator
-from services.operator_manager.crd_manager import BuilderCRD
+from operator_manager.crd_builder import CRDBuilder
 from services.operator_manager.runner import CRDRunner
 from services.k8s.client_factory import K8sClientFactory
 
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class ServiceYAMLManager:
     def __init__(self):
         self.validator = Validator()
-        self.builder = BuilderCRD()
+        self.builder = CRDBuilder()
         self.runner = CRDRunner()
 
     async def apply_manifest(
