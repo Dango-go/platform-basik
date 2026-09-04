@@ -6,9 +6,11 @@ class Settings(BaseSettings):
     API_V1: str = "/api/v1"
     POSTGRES_USER: str = "provider"
     POSTGRES_PASSWORD: str = "provider"
-    POSTGRES_SERVER: str = "localhost"
+    POSTGRES_SERVER: str = "postgres"
     POSTGRES_PORT: int = 5432
     POSTGRES_DB_NAME: str = "provider_db"
+
+    VAULT_SERVICE_URL: str = "http://vault-service:8001"
 
     @property
     def DB_URL(self) -> str:
