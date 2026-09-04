@@ -56,6 +56,8 @@ export const CloudPage: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCredName, setNewCredName] = useState('');
   const [newCredProvider, setNewCredProvider] = useState<CloudProviderType>('aws');
+  const [isSubmittingCred, setIsSubmittingCred] = useState(false);
+  const [credSubmitError, setCredSubmitError] = useState<string | null>(null);
 
   // Provider-specific input fields
   const [awsAccessKeyId, setAwsAccessKeyId] = useState('');
@@ -153,30 +155,66 @@ export const CloudPage: React.FC = () => {
     }
   };
 
-  const handleAddCredential = (e: React.FormEvent) => {
+  const handleAddCredential = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCredName) return;
 
-    const newCred: CloudCredential = {
-      id: `cred-${Date.now()}`,
-      name: newCredName,
-      provider: newCredProvider,
-      account_id: `acc_${Math.floor(100000 + Math.random() * 900000)}`,
-      created_at: new Date().toISOString().split('T')[0],
-      status: 'active',
-      aws_access_key_id: awsAccessKeyId,
-      aws_secret_access_key: awsSecretAccessKey,
-      azure_tenant_id: azureTenantId,
-      azure_client_id: azureClientId,
-      azure_client_secret: azureClientSecret,
-      azure_subscription_id: azureSubscriptionId,
-      do_personal_access_token: doPersonalAccessToken,
-      gcp_service_account_json: gcpKeyJson
-    };
+    setIsSubmittingCred(true);
+    setCredSubmitError(null);
 
-    setCredentialsList([newCred, ...credentialsList]);
-    setShowAddModal(false);
-    resetFormFields();
+    let credsPayload: Record<string, any> = {};
+    if (newCredProvider === 'gcp') {
+      try {
+        credsPayload = JSON.parse(gcpKeyJson);
+      } catch (err) {
+        setCredSubmitError('Invalid JSON format for GCP Service Account key.');
+        setIsSubmittingCred(false);
+        return;
+      }
+    } else if (newCredProvider === 'aws') {
+      credsPayload = {
+        aws_access_key_id: awsAccessKeyId,
+        aws_secret_access_key: awsSecretAccessKey
+      };
+    } else if (newCredProvider === 'azure') {
+      credsPayload = {
+        tenant_id: azureTenantId,
+        client_id: azureClientId,
+        client_secret: azureClientSecret,
+        subscription_id: azureSubscriptionId
+      };
+    } else if (newCredProvider === 'digitalocean') {
+      credsPayload = {
+        token: doPersonalAccessToken
+      };
+    }
+
+    try {
+      // Send credentials payload to provider-service for validation and encrypted storage in vault-service
+      await apiClient.saveCloudCredentials({
+        user_id: 1,
+        provider_type: newCredProvider,
+        alias: newCredName,
+        credentials: credsPayload
+      });
+
+      const newCred: CloudCredential = {
+        id: `cred-${Date.now()}`,
+        name: newCredName,
+        provider: newCredProvider,
+        account_id: `acc_${Math.floor(100000 + Math.random() * 900000)}`,
+        created_at: new Date().toISOString().split('T')[0],
+        status: 'active'
+      };
+
+      setCredentialsList([newCred, ...credentialsList]);
+      setShowAddModal(false);
+      resetFormFields();
+    } catch (err: any) {
+      setCredSubmitError(err.message || 'Validation failed. Check your cloud credentials and try again.');
+    } finally {
+      setIsSubmittingCred(false);
+    }
   };
 
   const confirmDeleteCredential = () => {
@@ -530,6 +568,15 @@ export const CloudPage: React.FC = () => {
               </button>
             </div>
 
+            {credSubmitError && (
+              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-400 font-semibold flex items-center justify-between">
+                <span>{credSubmitError}</span>
+                <button onClick={() => setCredSubmitError(null)} className="text-slate-400 hover:text-white">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             <form onSubmit={handleAddCredential} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">Credential Name</label>
@@ -586,65 +633,61 @@ export const CloudPage: React.FC = () => {
                 </div>
               )}
 
-              {/* AZURE SPECIFIC FIELDS: 4 FIELDS */}
+              {/* AZURE SPECIFIC FIELDS */}
               {newCredProvider === 'azure' && (
                 <div className="space-y-3 p-4 bg-bg-main rounded-xl border border-accent-darkBorder">
-                  <span className="text-xs font-bold text-brand-sky uppercase block">Azure Active Directory Principal</span>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Tenant ID</label>
-                      <input
-                        type="text"
-                        required
-                        value={azureTenantId}
-                        onChange={(e) => setAzureTenantId(e.target.value)}
-                        placeholder="72f988bf-86f1-41af-91ab..."
-                        className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Client ID</label>
-                      <input
-                        type="text"
-                        required
-                        value={azureClientId}
-                        onChange={(e) => setAzureClientId(e.target.value)}
-                        placeholder="e2b34a12-8921-4a1b..."
-                        className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-mono"
-                      />
-                    </div>
+                  <span className="text-xs font-bold text-brand-sky uppercase block">Azure Service Principal Credentials</span>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Tenant ID</label>
+                    <input
+                      type="text"
+                      required
+                      value={azureTenantId}
+                      onChange={(e) => setAzureTenantId(e.target.value)}
+                      placeholder="00000000-0000-0000-0000-000000000000"
+                      className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-mono"
+                    />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Client Secret</label>
-                      <input
-                        type="password"
-                        required
-                        value={azureClientSecret}
-                        onChange={(e) => setAzureClientSecret(e.target.value)}
-                        placeholder="secret_token_sample"
-                        className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Subscription ID</label>
-                      <input
-                        type="text"
-                        required
-                        value={azureSubscriptionId}
-                        onChange={(e) => setAzureSubscriptionId(e.target.value)}
-                        placeholder="sub_901238491023..."
-                        className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-mono"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Client ID (App ID)</label>
+                    <input
+                      type="text"
+                      required
+                      value={azureClientId}
+                      onChange={(e) => setAzureClientId(e.target.value)}
+                      placeholder="00000000-0000-0000-0000-000000000000"
+                      className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Client Secret</label>
+                    <input
+                      type="password"
+                      required
+                      value={azureClientSecret}
+                      onChange={(e) => setAzureClientSecret(e.target.value)}
+                      placeholder="secret_key_string"
+                      className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Subscription ID</label>
+                    <input
+                      type="text"
+                      required
+                      value={azureSubscriptionId}
+                      onChange={(e) => setAzureSubscriptionId(e.target.value)}
+                      placeholder="00000000-0000-0000-0000-000000000000"
+                      className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-mono"
+                    />
                   </div>
                 </div>
               )}
 
-              {/* DIGITALOCEAN SPECIFIC FIELDS: 1 FIELD */}
+              {/* DIGITALOCEAN SPECIFIC FIELDS */}
               {newCredProvider === 'digitalocean' && (
                 <div className="space-y-3 p-4 bg-bg-main rounded-xl border border-accent-darkBorder">
-                  <span className="text-xs font-bold text-brand-sky uppercase block">DigitalOcean Access Token</span>
+                  <span className="text-xs font-bold text-brand-sky uppercase block">DigitalOcean API Token</span>
                   <div>
                     <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Personal Access Token</label>
                     <input
@@ -652,7 +695,7 @@ export const CloudPage: React.FC = () => {
                       required
                       value={doPersonalAccessToken}
                       onChange={(e) => setDoPersonalAccessToken(e.target.value)}
-                      placeholder="dop_v1_819238910291029381023910239..."
+                      placeholder="dop_v1_..."
                       className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-mono"
                     />
                   </div>
@@ -664,12 +707,16 @@ export const CloudPage: React.FC = () => {
                 <div className="space-y-3 p-4 bg-bg-main rounded-xl border border-accent-darkBorder">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-brand-sky uppercase">GCP Service Account Key</span>
-                    <div className="flex items-center gap-1 bg-bg-card p-0.5 rounded-lg border border-accent-darkBorder text-[11px] font-semibold">
+                    
+                    {/* TAB TOGGLE: UPLOAD FILE vs PASTE TEXT */}
+                    <div className="flex items-center gap-1 bg-bg-card p-1 rounded-lg border border-accent-darkBorder">
                       <button
                         type="button"
                         onClick={() => setGcpInputMode('file')}
-                        className={`px-2.5 py-1 rounded-md transition-colors ${
-                          gcpInputMode === 'file' ? 'bg-brand-blue text-white font-bold' : 'text-slate-400 hover:text-white'
+                        className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${
+                          gcpInputMode === 'file' 
+                            ? 'bg-brand-blue text-white shadow-sm' 
+                            : 'text-slate-400 hover:text-white'
                         }`}
                       >
                         Upload File
@@ -677,8 +724,10 @@ export const CloudPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setGcpInputMode('text')}
-                        className={`px-2.5 py-1 rounded-md transition-colors ${
-                          gcpInputMode === 'text' ? 'bg-brand-blue text-white font-bold' : 'text-slate-400 hover:text-white'
+                        className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${
+                          gcpInputMode === 'text' 
+                            ? 'bg-brand-blue text-white shadow-sm' 
+                            : 'text-slate-400 hover:text-white'
                         }`}
                       >
                         Paste JSON
@@ -688,13 +737,13 @@ export const CloudPage: React.FC = () => {
 
                   {gcpInputMode === 'file' ? (
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-400 uppercase mb-2">Upload .json Key File</label>
-                      <label className="flex flex-col items-center justify-center border-2 border-dashed border-accent-darkBorder hover:border-brand-sky rounded-xl p-4 cursor-pointer transition-colors bg-bg-card">
-                        <Upload className="w-6 h-6 text-brand-sky mb-1" />
-                        <span className="text-xs font-semibold text-white">
+                      <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Upload JSON Key File</label>
+                      <label className="border-2 border-dashed border-accent-darkBorder hover:border-brand-sky rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer bg-bg-card/50 transition-colors">
+                        <Upload className="w-6 h-6 text-brand-sky mb-2" />
+                        <span className="text-xs font-bold text-white">
                           {uploadedFileName ? uploadedFileName : 'Click to select GCP .json file'}
                         </span>
-                        <span className="text-[10px] text-slate-500 mt-0.5">Service Account Private Key (.json)</span>
+                        <span className="text-[10px] text-slate-500 mt-1">Service Account Private Key</span>
                         <input
                           type="file"
                           accept=".json"
@@ -723,15 +772,18 @@ export const CloudPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
+                  disabled={isSubmittingCred}
                   className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-brand-blue hover:bg-brand-blue/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-brand-blue/30 transition-all"
+                  disabled={isSubmittingCred}
+                  className="bg-brand-blue hover:bg-brand-blue/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-brand-blue/30 flex items-center gap-2 transition-all disabled:opacity-50"
                 >
-                  Save Credential
+                  {isSubmittingCred && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isSubmittingCred ? 'Validating...' : 'Save Credential'}</span>
                 </button>
               </div>
             </form>

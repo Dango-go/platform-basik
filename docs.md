@@ -71,3 +71,10 @@ compliance-service	Policy/compliance reports	Enterprise governance
 job-history-service	Історія deployment/backup/migration jobs	Debugging + auditability
 
 
+
+
+RabbitMQ
+CloudBeaver або Bytebase
+Jaeger або Grafana Tempo
+MinIO
+Redis

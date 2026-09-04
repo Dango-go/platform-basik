@@ -103,6 +103,36 @@ class ApiClient {
     return Promise.resolve(created);
   }
 
+  async saveCloudCredentials(payload: {
+    user_id: number;
+    provider_type: string;
+    alias: string;
+    credentials: Record<string, any>;
+  }): Promise<boolean> {
+    const token = localStorage.getItem('access_token');
+    const res = await fetch('/api/v1/provider/provider', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      let message = `Cloud provider validation failed (${res.status})`;
+      if (typeof errData.detail === 'string') {
+        message = errData.detail;
+      } else if (Array.isArray(errData.detail) && errData.detail.length > 0) {
+        message = errData.detail.map((e: any) => e.msg || 'Invalid input').join(', ');
+      }
+      throw new Error(message);
+    }
+
+    return true;
+  }
+
   async addCredential(cred: Omit<CloudCredential, 'id' | 'created_at' | 'status'>): Promise<CloudCredential> {
     const created: CloudCredential = {
       ...cred,
