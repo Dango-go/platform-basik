@@ -31,7 +31,7 @@ class Vault_Logic:
         if not searching_creds:
             return None
         
-        encrypted_creds = searching_creds.credentials
+        encrypted_creds = searching_creds.credentials["encrypt_key"]
         decrypting_data = self.encryptor.pull_and_decrypt(encrypted_creds)
 
         return decrypting_data

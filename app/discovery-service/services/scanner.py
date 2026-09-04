@@ -23,7 +23,7 @@ class ClusterScannerService:
 
     # def for get creds from vault service 
     async def fetch_credentials_from_vault(self, alias: str) -> Dict[str, Any]:
-        url = f"{settings.VAULT_SERVICE_URL}/api/v1/secrets/{alias}"
+        url = f"{settings.VAULT_SERVICE_URL}/api/v1/cloud-sa-creds/{alias}"
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.get(url, timeout=5.0)

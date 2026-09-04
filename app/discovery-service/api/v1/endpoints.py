@@ -13,7 +13,7 @@ async def discover_clusters(
     request: DiscoveryRequest,
     db: AsyncSession = Depends(db_session)
 ):
-    scanner = ClusterScannerService(db=db)  # object of ClusterScannerService
+    scanner = ClusterScannerService(db=db)  
     clusters = await scanner.discover_and_save(request)
     return clusters #-> dict with data for each cluster
 

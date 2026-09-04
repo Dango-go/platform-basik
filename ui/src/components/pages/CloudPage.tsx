@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CLOUD_CREDENTIALS, K8S_CLUSTERS } from '../../services/mockData';
 import { CloudCredential, K8sCluster, CloudProviderType } from '../../types';
+import { apiClient } from '../../services/apiClient';
 import { 
   Cloud, 
   Key, 
@@ -32,6 +33,24 @@ export const CloudPage: React.FC = () => {
 
   // Sync / Update state
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatusMsg, setSyncStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Load existing clusters on mount
+  useEffect(() => {
+    apiClient.getUserClusters(1).then((fetched) => {
+      if (fetched.length > 0) {
+        setClustersList((prev) => {
+          const merged = [...fetched];
+          prev.forEach((p) => {
+            if (!merged.some((m) => m.name === p.name)) {
+              merged.push(p);
+            }
+          });
+          return merged;
+        });
+      }
+    }).catch(() => {});
+  }, []);
 
   // Modal State for adding new credentials
   const [showAddModal, setShowAddModal] = useState(false);
@@ -49,17 +68,75 @@ export const CloudPage: React.FC = () => {
 
   const [doPersonalAccessToken, setDoPersonalAccessToken] = useState('');
   const [gcpKeyJson, setGcpKeyJson] = useState('');
+  const [gcpInputMode, setGcpInputMode] = useState<'file' | 'text'>('file');
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 
   // Deletion Modal State
   const [credToDelete, setCredToDelete] = useState<CloudCredential | null>(null);
 
-  // Sync Clusters handler
-  const handleSyncClusters = () => {
+  // Sync Clusters handler - calls discovery-service API
+  const handleSyncClusters = async () => {
     setIsSyncing(true);
-    setTimeout(() => {
+    setSyncStatusMsg(null);
+
+    try {
+      // Find active credentials for scanning
+      const activeCreds = credentialsList.filter((c) => c.status === 'active');
+      if (activeCreds.length === 0) {
+        setSyncStatusMsg({
+          type: 'error',
+          text: 'No active cloud credentials found. Please add a credential first.'
+        });
+        setIsSyncing(false);
+        return;
+      }
+
+      let newlyDiscovered: K8sCluster[] = [];
+
+      for (const cred of activeCreds) {
+        try {
+          const discovered = await apiClient.discoverClusters(
+            cred.provider,
+            cred.name || cred.id,
+            'europe-west1',
+            1
+          );
+          if (discovered.length > 0) {
+            newlyDiscovered = [...newlyDiscovered, ...discovered];
+          }
+        } catch (err: any) {
+          console.warn(`Discovery failed for ${cred.name}:`, err);
+        }
+      }
+
+      if (newlyDiscovered.length > 0) {
+        setClustersList((prev) => {
+          const combined = [...newlyDiscovered];
+          prev.forEach((existing) => {
+            if (!combined.some((c) => c.name === existing.name)) {
+              combined.push(existing);
+            }
+          });
+          return combined;
+        });
+        setSyncStatusMsg({
+          type: 'success',
+          text: `Successfully discovered ${newlyDiscovered.length} Kubernetes cluster(s)!`
+        });
+      } else {
+        setSyncStatusMsg({
+          type: 'success',
+          text: 'Scan completed. No new clusters found in cloud provider.'
+        });
+      }
+    } catch (err: any) {
+      setSyncStatusMsg({
+        type: 'error',
+        text: err.message || 'Failed to scan clusters from discovery-service.'
+      });
+    } finally {
       setIsSyncing(false);
-    }, 1200);
+    }
   };
 
   // GCP File Upload Handler
@@ -358,6 +435,18 @@ export const CloudPage: React.FC = () => {
           </div>
         </div>
 
+        {/* SYNC STATUS NOTIFICATION BANNER */}
+        {syncStatusMsg && (
+          <div className={`p-3 rounded-xl text-xs font-semibold flex items-center justify-between ${
+            syncStatusMsg.type === 'success' ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border border-red-500/30 text-red-400'
+          }`}>
+            <span>{syncStatusMsg.text}</span>
+            <button onClick={() => setSyncStatusMsg(null)} className="text-slate-400 hover:text-white">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* PROVIDER FILTER BADGES BAR FOR CLUSTERS */}
         <div className="flex items-center gap-2 flex-wrap">
           {[
@@ -570,26 +659,63 @@ export const CloudPage: React.FC = () => {
                 </div>
               )}
 
-              {/* GCP SPECIFIC FIELDS: FILE UPLOAD */}
+              {/* GCP SPECIFIC FIELDS: FILE UPLOAD OR RAW TEXT */}
               {newCredProvider === 'gcp' && (
                 <div className="space-y-3 p-4 bg-bg-main rounded-xl border border-accent-darkBorder">
-                  <span className="text-xs font-bold text-brand-sky uppercase block">GCP Service Account JSON Key</span>
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-400 uppercase mb-2">Upload JSON Key File</label>
-                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-accent-darkBorder hover:border-brand-sky rounded-xl p-4 cursor-pointer transition-colors bg-bg-card">
-                      <Upload className="w-6 h-6 text-brand-sky mb-1" />
-                      <span className="text-xs font-semibold text-white">
-                        {uploadedFileName ? uploadedFileName : 'Click to select GCP .json file'}
-                      </span>
-                      <span className="text-[10px] text-slate-500 mt-0.5">Service Account Private Key</span>
-                      <input
-                        type="file"
-                        accept=".json"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                      />
-                    </label>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-brand-sky uppercase">GCP Service Account Key</span>
+                    <div className="flex items-center gap-1 bg-bg-card p-0.5 rounded-lg border border-accent-darkBorder text-[11px] font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => setGcpInputMode('file')}
+                        className={`px-2.5 py-1 rounded-md transition-colors ${
+                          gcpInputMode === 'file' ? 'bg-brand-blue text-white font-bold' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Upload File
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setGcpInputMode('text')}
+                        className={`px-2.5 py-1 rounded-md transition-colors ${
+                          gcpInputMode === 'text' ? 'bg-brand-blue text-white font-bold' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        Paste JSON
+                      </button>
+                    </div>
                   </div>
+
+                  {gcpInputMode === 'file' ? (
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-400 uppercase mb-2">Upload .json Key File</label>
+                      <label className="flex flex-col items-center justify-center border-2 border-dashed border-accent-darkBorder hover:border-brand-sky rounded-xl p-4 cursor-pointer transition-colors bg-bg-card">
+                        <Upload className="w-6 h-6 text-brand-sky mb-1" />
+                        <span className="text-xs font-semibold text-white">
+                          {uploadedFileName ? uploadedFileName : 'Click to select GCP .json file'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 mt-0.5">Service Account Private Key (.json)</span>
+                        <input
+                          type="file"
+                          accept=".json"
+                          onChange={handleFileUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Paste Service Account JSON Content</label>
+                      <textarea
+                        rows={5}
+                        required
+                        value={gcpKeyJson}
+                        onChange={(e) => setGcpKeyJson(e.target.value)}
+                        placeholder='{"type": "service_account", "project_id": "my-gcp-project", ...}'
+                        className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs font-mono rounded-xl p-3 focus:outline-none focus:ring-1 focus:ring-brand-sky"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 

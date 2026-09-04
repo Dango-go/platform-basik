@@ -23,6 +23,71 @@ class ApiClient {
     return Promise.resolve(this.clusters);
   }
 
+  async discoverClusters(providerType: string, alias: string, region?: string, userId: number = 1): Promise<K8sCluster[]> {
+    const token = localStorage.getItem('access_token');
+    const res = await fetch('/api/v1/discovery/discover', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        provider_type: providerType,
+        alias: alias,
+        region: region || null
+      })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      let message = `Discovery scan failed (${res.status})`;
+      if (typeof errData.detail === 'string') {
+        message = errData.detail;
+      } else if (Array.isArray(errData.detail) && errData.detail.length > 0) {
+        message = errData.detail.map((e: any) => e.msg || 'Invalid input').join(', ');
+      }
+      throw new Error(message);
+    }
+
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      return data.map((c: any) => this.mapClusterResponse(c));
+    }
+    return [];
+  }
+
+  async getUserClusters(userId: number = 1): Promise<K8sCluster[]> {
+    const res = await fetch(`/api/v1/discovery/clusters/${userId}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        return data.map((c: any) => this.mapClusterResponse(c));
+      }
+    }
+    return [];
+  }
+
+  private mapClusterResponse(c: any): K8sCluster {
+    const providerMap: Record<string, any> = {
+      gcp: 'GCP GKE',
+      aws: 'AWS EKS',
+      azure: 'Azure AKS',
+      digitalocean: 'DigitalOcean',
+      do: 'DigitalOcean',
+      onprem: 'On-Premise'
+    };
+    return {
+      id: c.id || `cluster-${c.cluster_name || c.name}`,
+      name: c.cluster_name || c.name || 'k8s-cluster',
+      provider: providerMap[c.provider_type?.toLowerCase()] || 'GCP GKE',
+      region: c.region || 'global',
+      nodes_count: c.nodes_count || 3,
+      status: (c.status === 'active' || c.status === 'running') ? 'active' : 'degraded',
+      api_url: c.endpoint || c.api_url || 'https://k8s.cloud.provider'
+    };
+  }
+
   async getMetricsForDb(dbId: string): Promise<DatabaseMetrics> {
     return Promise.resolve({ ...METRICS_SAMPLE, db_id: dbId });
   }

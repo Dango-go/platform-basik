@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     POSTGRES_DB_NAME: str = "provider_db"
 
+    PROVIDER_SERVICE_URL: str = "http://provider-service:8009"
     VAULT_SERVICE_URL: str = "http://vault-service:8001"
 
     @property

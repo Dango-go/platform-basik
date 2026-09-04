@@ -10,9 +10,9 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     POSTGRES_DB_NAME: str = "discovery_db"
 
-    PROVIDER_SERVICE_URL: str = "http://localhost:8001"
-    VAULT_SERVICE_URL: str = "http://vault:8080"
-    CATALOG_SERVICE_URL: str = "http://localhost:8002"
+    PROVIDER_SERVICE_URL: str = "http://provider-service:8009"
+    VAULT_SERVICE_URL: str = "http://vault-service:8000"
+
     @property
     def DB_URL(self) -> str:
         return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB_NAME}"

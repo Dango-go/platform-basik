@@ -6,18 +6,12 @@ class StorageAdaption:
     def __init__(self, db_session: Session):
         self.db_session = db_session
 
-    def save_creds(self, user_id: int, provider_type: str, alias: str, credentials: dict):
-        new_creds = Encrypt_DB(
-            user_id=user_id,
-            provider_type=provider_type,
-            alias=alias,
-            credentials=credentials
-        )
+    def save_creds(self, creds_object: Encrypt_DB):
 
-        self.db_session.add(new_creds)
+        self.db_session.add(creds_object)
         self.db_session.commit()
-        self.db_session.refresh(new_creds)
-        return new_creds
+        self.db_session.refresh(creds_object)
+        return creds_object
 
     def get_creds(self, user_id: int, alias: str):
         credentials_row = self.db_session.query(Encrypt_DB).filter(
