@@ -7,22 +7,23 @@ services:
     container_name: idp-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-bohdan-root}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bohdan-key}
-      POSTGRES_DB: ${POSTGRES_DB:-idp_platform}
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: root
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - /mnt/main-data/postgres:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bohdan-root} -d ${POSTGRES_DB:-idp_platform}"]
+      test: ["CMD-SHELL", "pg_isready -U root -d root"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - idp-network
 
- 
+
   vault-service:
     image: ${DOCKERHUB_USERNAME}/vault-service:latest
     container_name: idp-vault-service
@@ -31,7 +32,7 @@ services:
       - "8000:8001"
     environment:
       - PORT=8001
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-bohdan-root}:${POSTGRES_PASSWORD:-bohdan-key}@postgres:5432/${POSTGRES_DB:-idp_platform}
+      - DATABASE_URL=postgresql+asyncpg://admin:vault@postgres:5432/vault_storage
       - VAULT_MASTER_KEY=${VAULT_MASTER_KEY:-idp_transit_master_encryption_key_2026}
     depends_on:
       postgres:
@@ -50,12 +51,6 @@ services:
     restart: unless-stopped
     ports:
       - "8001:8001"
-    environment:
-      - PORT=8001
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-bohdan-root}:${POSTGRES_PASSWORD:-bohdan-key}@postgres:5432/${POSTGRES_DB:-idp_platform}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-super-secret-jwt-key-change-in-production}
-      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
-      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
     depends_on:
       postgres:
         condition: service_healthy
@@ -73,12 +68,6 @@ services:
     restart: unless-stopped
     ports:
       - "8002:8001"
-    environment:
-      - PORT=8001
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-bohdan-root}:${POSTGRES_PASSWORD:-bohdan-key}@postgres:5432/${POSTGRES_DB:-idp_platform}
-      - HELM_DEPLOYER_URL=http://helm-deployer:8001
-      - OPERATOR_SERVICE_URL=http://operator-service:8001
-      - VAULT_SERVICE_URL=http://vault-service:8001
     depends_on:
       postgres:
         condition: service_healthy
@@ -99,8 +88,6 @@ services:
     restart: unless-stopped
     ports:
       - "8003:8001"
-    environment:
-      - PORT=8001
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
@@ -115,9 +102,6 @@ services:
     restart: unless-stopped
     ports:
       - "8004:8001"
-    environment:
-      - PORT=8001
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-bohdan-root}:${POSTGRES_PASSWORD:-bohdan-key}@postgres:5432/${POSTGRES_DB:-idp_platform}
     depends_on:
       postgres:
         condition: service_healthy
@@ -135,8 +119,6 @@ services:
     restart: unless-stopped
     ports:
       - "8005:8001"
-    environment:
-      - PORT=8001
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
@@ -151,9 +133,6 @@ services:
     restart: unless-stopped
     ports:
       - "8007:8001"
-    environment:
-      - PORT=8001
-      - PROVISIONING_SERVICE_URL=http://db-provisioning-service:8001
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
@@ -169,9 +148,6 @@ services:
     restart: unless-stopped
     ports:
       - "8008:8001"
-    environment:
-      - PORT=8001
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-bohdan-root}:${POSTGRES_PASSWORD:-bohdan-key}@postgres:5432/${POSTGRES_DB:-idp_platform}
     depends_on:
       postgres:
         condition: service_healthy
@@ -190,10 +166,7 @@ services:
     restart: unless-stopped
     ports:
       - "8009:8001"
-    environment:
-      - PORT=8001
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-bohdan-root}:${POSTGRES_PASSWORD:-bohdan-key}@postgres:5432/${POSTGRES_DB:-idp_platform}
-      - VAULT_SERVICE_URL=http://vault-service:8001
+ 
     depends_on:
       postgres:
         condition: service_healthy

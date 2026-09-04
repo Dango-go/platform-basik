@@ -4,11 +4,11 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     API_SERVICE_NAME: str = "Vault Service"
     API_V1: str = "/api/v1"
-    POSTGRES_USER: str = "admin"
+    POSTGRES_USER: str = "vault"
     POSTGRES_PASSWORD: str = "vault"
-    POSTGRES_SERVER: str = "localhost"
+    POSTGRES_SERVER: str = "postgres"
     POSTGRES_PORT: int = 5432
-    POSTGRES_DB_NAME: str = "vault_storage"
+    POSTGRES_DB_NAME: str = "vault_db"
 
     @property
     def DB_URL(self) -> str:

@@ -3,11 +3,11 @@ from typing import Optional
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Auth Service"
-    POSTGRES_USER: str = "admin"
+    POSTGRES_USER: str = "auth"
     POSTGRES_PASSWORD: str = "auth"
-    POSTGRES_SERVER: str = "postgres"
+    POSTGRES_SERVER: str = "postgres" # server name in docker-compose
     POSTGRES_PORT: str = "5432"
-    POSTGRES_DB: str = "idp_authentication"
+    POSTGRES_DB: str = "auth_db"
     
     DATABASE_URL: Optional[str] = None
     

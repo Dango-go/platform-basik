@@ -49,6 +49,19 @@ resource "google_compute_instance" "idp_server" {
   }
 }
 
+resource "google_compute_disk" "data_disk" {
+  name  = "idp-management-data-disk"
+  type  = "pd-standard"  
+  zone  =  var.zone
+  size  = 20  
+}
+
+resource "google_compute_attached_disk" "attachment" {
+  disk     = google_compute_disk.data_disk.id
+  instance = "idp-management-server"  
+}
+
+
 output "instance_public_ip" {
   value       = google_compute_instance.idp_server.network_interface[0].access_config[0].nat_ip
   description = "Public IP address of the IDP Management Server"
