@@ -35,3 +35,4 @@ ui/.vite/
 *.tfvars.json
 
 docs.md
+endpoints.md

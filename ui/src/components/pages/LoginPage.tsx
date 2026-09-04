@@ -202,12 +202,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             )}
           </button>
         </form>
-
-        {/* Security Badge */}
-        <div className="mt-8 pt-6 border-t border-accent-darkBorder flex items-center justify-center gap-2 text-xs text-slate-400">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span>Protected Gateway • auth-service (JWT & PostgreSQL)</span>
-        </div>
       </div>
     </div>
   );
