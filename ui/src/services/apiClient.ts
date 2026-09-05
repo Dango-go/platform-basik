@@ -110,7 +110,7 @@ class ApiClient {
     credentials: Record<string, any>;
   }): Promise<boolean> {
     const token = localStorage.getItem('access_token');
-    const res = await fetch('/api/v1/provider/provider', {
+    const res = await fetch('/api/v1/provider', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

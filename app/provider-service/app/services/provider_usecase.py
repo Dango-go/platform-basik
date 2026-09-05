@@ -11,8 +11,7 @@ class provider_usecase:
         self.data = json_data
         self.vault_client = vault_client
 
-        # Fields from json_data
-        self.user_id = self.data.get("user_id")
+        self.user_id = self.data.get("user_id") or 1
         self.alias = self.data.get("alias") #don't used get() bcs Pydantic haven't get() method. So used '.' for get field.  
         self.provider_type = self.data.get("provider_type")
         self.credentials = self.data.get("credentials")
@@ -22,7 +21,7 @@ class provider_usecase:
             return False
  
         # Check if provider credentials already exist
-        existing_provider = await ProviderRepository.check(db = self.db_session, user_id = self.user_id, alias = self.alias)
+        existing_provider = await ProviderRepository.check(db = self.db_session, alias = self.alias)
     
         if existing_provider:
             return False
@@ -46,7 +45,6 @@ class provider_usecase:
         try:
             provider = await ProviderRepository.create_provider_creds(
                 db = self.db_session,
-                user_id = self.user_id,
                 alias = self.alias,
                 provider_type = self.provider_type,
                 credentials_status = "active"

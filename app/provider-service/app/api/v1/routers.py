@@ -7,7 +7,7 @@ from app.services.service_client import ServiceClient
 import os
 
 
-router = APIRouter(prefix="/api/v1", tags=["provider"])
+router = APIRouter(prefix="/api/v1/provider", tags=["provider"])
 
 def get_vault_env() -> ServiceClient:
     return ServiceClient(
@@ -21,7 +21,7 @@ def get_vault_env() -> ServiceClient:
 async def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
-@router.post("/provider")
+@router.post("/credentials")
 async def check_validate(json_data: ProviderRequest, db_session: AsyncSession = Depends(db_session), vault_client: ServiceClient = Depends(get_vault_env)):
     resulter = provider_usecase(db_session=db_session, json_data=json_data.model_dump(), vault_client=vault_client)
 
