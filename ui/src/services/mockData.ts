@@ -257,47 +257,7 @@ export const INITIAL_DEPLOYED_DBS: DeployedDatabase[] = [
   }
 ];
 
-export const CLOUD_CREDENTIALS: CloudCredential[] = [
-  {
-    id: 'cred-1',
-    name: 'AWS Primary Production Account',
-    provider: 'aws',
-    account_id: 'AKIAIOSFODNN7EXAMPLE',
-    created_at: '2026-08-01',
-    status: 'active',
-    aws_access_key_id: 'AKIAIOSFODNN7EXAMPLE',
-    aws_secret_access_key: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
-  },
-  {
-    id: 'cred-2',
-    name: 'Azure Enterprise Production Tenant',
-    provider: 'azure',
-    account_id: '72f988bf-86f1-41af-91ab-2d7cd011db47',
-    created_at: '2026-08-03',
-    status: 'active',
-    azure_tenant_id: '72f988bf-86f1-41af-91ab-2d7cd011db47',
-    azure_client_id: 'e2b34a12-8921-4a1b-9f12-321049210214',
-    azure_client_secret: 'secret_azure_token_sample',
-    azure_subscription_id: 'sub_9012384910239102'
-  },
-  {
-    id: 'cred-3',
-    name: 'DigitalOcean Kubernetes Token',
-    provider: 'digitalocean',
-    account_id: 'do_pat_81923891029102938102',
-    created_at: '2026-08-05',
-    status: 'active',
-    do_personal_access_token: 'dop_v1_819238910291029381023910239'
-  },
-  {
-    id: 'cred-4',
-    name: 'GCP Analytics Cloud Project',
-    provider: 'gcp',
-    account_id: 'gcp-db-idp-prod-2026',
-    created_at: '2026-08-11',
-    status: 'active'
-  }
-];
+export const CLOUD_CREDENTIALS: CloudCredential[] = [];
 
 export const K8S_CLUSTERS: K8sCluster[] = [
   {
