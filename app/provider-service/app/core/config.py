@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-
+import os
 
 class Settings(BaseSettings):
     API_SERVICE_NAME: str = "Provider Service"
@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     POSTGRES_DB_NAME: str = "provider_db"
 
     PROVIDER_SERVICE_URL: str = "http://provider-service:8009"
-    VAULT_SERVICE_URL: str = "http://vault-service:8001"
+    VAULT_SERVICE_URL: str = os.getenv("VAULT_SERVICE_URL", "http://vault-service:8000")
 
     @property
     def DB_URL(self) -> str:
@@ -24,8 +24,3 @@ class Settings(BaseSettings):
 
 # Default attributes 
 settings = Settings()
-
-
-
-
-
