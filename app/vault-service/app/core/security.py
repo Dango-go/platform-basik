@@ -4,14 +4,12 @@ import hvac
 import json
 from app.domain.db_models import Encrypt_DB
 from app.domain.exceptions import CredentialNotFoundError, EncryptionError
-from app.core.metrics import wrapper_metrics
 
 
 class Crypting:
     def __init__(self, hvac_client: hvac.Client): # Type Hint for hvac client
         self.vault = hvac_client
 
-    @wrapper_metrics(operation_name="encrypt")
     def encrypt(self, user_id: int, provider_type: str, alias: str, credentials: dict):
         json_data = json.dumps(credentials)
 
@@ -53,7 +51,6 @@ class Crypting:
         
         return final_structure
 
-    @wrapper_metrics(operation_name="decrypt")
     def pull_and_decrypt(self, credentials: str) -> dict: 
         # searching_creds - object
         #searching_creds = self.db_session.query(Encrypt_DB).filter(

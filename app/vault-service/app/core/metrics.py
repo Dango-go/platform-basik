@@ -18,29 +18,41 @@ VAULT_REQUEST_DURATION_SECONDS = Histogram(
 )
 
 
-# Deorator to wrap functions and measure metrics. Used in secrity.py for encrypt and decrypt functions
+# Decorator to wrap functions and measure metrics.
 def wrapper_metrics(operation_name: str):
     def metric_decorator(func):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            # Start time
-            start_time = time.time()
-            # Execute the function and handle metrics
-            try:
-                result = await func(*args, **kwargs) if asyncio.iscoroutinefunction(func) else func(*args, **kwargs)
-
-                diff_time  = time.time() - start_time
-                VAULT_REQUESTS_TOTAL.labels(operation=operation_name, status="success").inc()
-                VAULT_REQUEST_DURATION_SECONDS.labels(operation=operation_name).observe(diff_time)
-
-                return result # Return main function result in decorator
-            
-            except Exception as e:
-                diff_time = time.time() - start_time
-                VAULT_REQUEST_DURATION_SECONDS.labels(operation=operation_name).observe(diff_time)
-                VAULT_REQUESTS_TOTAL.labels(operation=operation_name, status="error").inc()
-                raise e
-        return wrapper
+        if asyncio.iscoroutinefunction(func):
+            @wraps(func)
+            async def wrapper(*args, **kwargs):
+                start_time = time.time()
+                try:
+                    result = await func(*args, **kwargs)
+                    diff_time = time.time() - start_time
+                    VAULT_REQUESTS_TOTAL.labels(operation=operation_name, status="success").inc()
+                    VAULT_REQUEST_DURATION_SECONDS.labels(operation=operation_name).observe(diff_time)
+                    return result
+                except Exception as e:
+                    diff_time = time.time() - start_time
+                    VAULT_REQUEST_DURATION_SECONDS.labels(operation=operation_name).observe(diff_time)
+                    VAULT_REQUESTS_TOTAL.labels(operation=operation_name, status="error").inc()
+                    raise e
+            return wrapper
+        else:
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                start_time = time.time()
+                try:
+                    result = func(*args, **kwargs)
+                    diff_time = time.time() - start_time
+                    VAULT_REQUESTS_TOTAL.labels(operation=operation_name, status="success").inc()
+                    VAULT_REQUEST_DURATION_SECONDS.labels(operation=operation_name).observe(diff_time)
+                    return result
+                except Exception as e:
+                    diff_time = time.time() - start_time
+                    VAULT_REQUEST_DURATION_SECONDS.labels(operation=operation_name).observe(diff_time)
+                    VAULT_REQUESTS_TOTAL.labels(operation=operation_name, status="error").inc()
+                    raise e
+            return wrapper
     return metric_decorator
  
 
