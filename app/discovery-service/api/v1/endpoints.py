@@ -5,7 +5,7 @@ from api.v1.schemas import DiscoveryRequest, ClusterResponse
 from services.scanner import ClusterScannerService
 from typing import List
 
-router = APIRouter(prefix="/api/v1", tags=["discovery"])
+router = APIRouter(prefix="/api/v1/discovery", tags=["discovery"])
 
 
 @router.post("/discover", response_model=List[ClusterResponse])

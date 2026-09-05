@@ -259,53 +259,7 @@ export const INITIAL_DEPLOYED_DBS: DeployedDatabase[] = [
 
 export const CLOUD_CREDENTIALS: CloudCredential[] = [];
 
-export const K8S_CLUSTERS: K8sCluster[] = [
-  {
-    id: 'cls-1',
-    name: 'onprem-prod-k8s',
-    provider: 'On-Premise',
-    region: 'EU-Central (Local)',
-    nodes_count: 5,
-    status: 'active',
-    api_url: 'https://192.168.1.50:6443'
-  },
-  {
-    id: 'cls-2',
-    name: 'aws-eks-us-east',
-    provider: 'AWS EKS',
-    region: 'us-east-1 (N. Virginia)',
-    nodes_count: 8,
-    status: 'active',
-    api_url: 'https://eks.us-east-1.amazonaws.com'
-  },
-  {
-    id: 'cls-3',
-    name: 'azure-aks-prod',
-    provider: 'Azure AKS',
-    region: 'westeurope (Amsterdam)',
-    nodes_count: 4,
-    status: 'active',
-    api_url: 'https://aks.westeurope.azure.com'
-  },
-  {
-    id: 'cls-4',
-    name: 'doks-staging-cluster',
-    provider: 'DigitalOcean',
-    region: 'AMS3 (Amsterdam)',
-    nodes_count: 3,
-    status: 'active',
-    api_url: 'https://doks.digitalocean.com'
-  },
-  {
-    id: 'cls-5',
-    name: 'gcp-gke-prod-cluster',
-    provider: 'GCP GKE',
-    region: 'us-central1 (Iowa)',
-    nodes_count: 6,
-    status: 'active',
-    api_url: 'https://container.googleapis.com'
-  }
-];
+export const K8S_CLUSTERS: K8sCluster[] = [];
 
 export const METRICS_SAMPLE: DatabaseMetrics = {
   db_id: 'db-1',

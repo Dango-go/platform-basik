@@ -1,17 +1,18 @@
+import os
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     API_SERVICE_NAME: str = "Cluster Discovery Service"
-    API_V1: str = "/api/v1"
+    API_V1: str = "/api/v1/discovery"
     POSTGRES_USER: str = "discovery"
     POSTGRES_PASSWORD: str = "discovery"
     POSTGRES_SERVER: str = "postgres"
     POSTGRES_PORT: int = 5432
     POSTGRES_DB_NAME: str = "discovery_db"
 
-    PROVIDER_SERVICE_URL: str = "http://provider-service:8009"
-    VAULT_SERVICE_URL: str = "http://vault-service:8000"
+    PROVIDER_SERVICE_URL: str = os.getenv("PROVIDER_SERVICE_URL", "http://provider-service:8009")
+    VAULT_SERVICE_URL: str = os.getenv("VAULT_SERVICE_URL", "http://vault-service:8000")
 
     @property
     def DB_URL(self) -> str:

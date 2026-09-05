@@ -55,19 +55,36 @@ class ClusterScannerService:
 
         saved_entities = []
         for c in found_clusters:
-            entity = ClusterEntity(
-                user_id=request.user_id,
-                provider_type=request.provider_type,
-                provider_alias=request.alias,
-                cluster_name=c["name"],
-                region=c["region"],
-                k8s_version=c.get("version"),
-                status=c.get("status", "active"),
-                endpoint=c.get("endpoint"),
-                raw_data=c.get("raw")
+            existing = await self.db.execute(
+                select(ClusterEntity).where(
+                    ClusterEntity.user_id == request.user_id,
+                    ClusterEntity.provider_alias == request.alias,
+                    ClusterEntity.cluster_name == c["name"]
+                )
             )
-            self.db.add(entity)
-            saved_entities.append(entity)  # append - added to list object entity for return after commit
+            entity = existing.scalars().first()
+
+            if entity:
+                entity.region = c["region"]
+                entity.k8s_version = c.get("version")
+                entity.status = c.get("status", "active")
+                entity.endpoint = c.get("endpoint")
+                entity.raw_data = c.get("raw")
+            else:
+                entity = ClusterEntity(
+                    user_id=request.user_id,
+                    provider_type=request.provider_type,
+                    provider_alias=request.alias,
+                    cluster_name=c["name"],
+                    region=c["region"],
+                    k8s_version=c.get("version"),
+                    status=c.get("status", "active"),
+                    endpoint=c.get("endpoint"),
+                    raw_data=c.get("raw")
+                )
+                self.db.add(entity)
+
+            saved_entities.append(entity)
 
         await self.db.commit()
         for e in saved_entities:
