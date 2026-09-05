@@ -11,18 +11,24 @@ class Crypting:
 
     @wrapper_metrics(operation_name="encrypt")
     def encrypt(self, user_id: int, provider_type: str, alias: str, credentials: dict):
- 
-        
         json_data = json.dumps(credentials)
 
         try: 
-            # encrypt_data - def which encrypts the data using the specified transit key
+            # Ensure Transit secrets engine is enabled and key exists
+            try:
+                self.vault.sys.enable_secrets_engine(backend_type='transit', mount_point='transit')
+            except Exception:
+                pass
+
+            try:
+                self.vault.secrets.transit.create_key(name='cloud-keys')
+            except Exception:
+                pass
+
             encrypting = self.vault.secrets.transit.encrypt_data(
                 name='cloud-keys',
                 plaintext=json_data.encode("utf-8").hex()
             )
- 
- 
 
         except Exception as e:
             raise EncryptionError(f"Failed to encrypt data via Vault: {str(e)}")
