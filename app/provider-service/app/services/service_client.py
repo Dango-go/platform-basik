@@ -21,7 +21,7 @@ class ServiceClient:
     # store in vault-service by alias
     async def store_creds(self, data_json: Optional[Dict]) -> bool:
 
-        url = f"{self.url}/api/v1/secrets"
+        url = f"{self.url}/api/v1/secrets" # http://vault-service:8000/api/v1/secrets
 
         async with httpx.AsyncClient() as client:
             try:
