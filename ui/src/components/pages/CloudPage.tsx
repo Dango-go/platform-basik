@@ -130,6 +130,7 @@ export const CloudPage: React.FC = () => {
       }
 
       let newlyDiscovered: K8sCluster[] = [];
+      let scanErrors: string[] = [];
 
       for (const cred of credsToScan) {
         try {
@@ -144,6 +145,7 @@ export const CloudPage: React.FC = () => {
           }
         } catch (err: any) {
           console.warn(`Discovery failed for ${cred.name}:`, err);
+          scanErrors.push(`${cred.name}: ${err.message || 'Scan failed'}`);
         }
       }
 
@@ -160,6 +162,11 @@ export const CloudPage: React.FC = () => {
         setSyncStatusMsg({
           type: 'success',
           text: `Successfully discovered ${newlyDiscovered.length} Kubernetes cluster(s)!`
+        });
+      } else if (scanErrors.length > 0) {
+        setSyncStatusMsg({
+          type: 'error',
+          text: `Discovery Error: ${scanErrors.join('; ')}`
         });
       } else {
         setSyncStatusMsg({

@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from models.db_models import ClusterEntity
@@ -22,7 +22,7 @@ class ClusterScannerService:
         }
 
     # Fetch official provider_type from provider-service DB by alias
-    async def fetch_provider_type(self, alias: str, user_id: int = 1):
+    async def fetch_provider_type(self, alias: str, user_id: int = 1) -> Optional[str]:
         url = f"{settings.PROVIDER_SERVICE_URL}/api/v1/provider/credentials/{alias}?user_id={user_id}"
         async with httpx.AsyncClient() as client:
             try:
@@ -49,11 +49,6 @@ class ClusterScannerService:
 
 
     async def discover_and_save(self, request: DiscoveryRequest) -> List[ClusterEntity]:
-        cache_key = f"{request.user_id}:{request.alias}"  # 'uid:cred-alias'
-        cached = cache_service.get(cache_key)
-        if cached:
-            return cached
-
         # Authoritatively fetch provider_type from provider-service DB if not provided or to verify
         official_provider_type = await self.fetch_provider_type(request.alias, request.user_id)
         provider_type = (official_provider_type or request.provider_type or "gcp").lower()
@@ -112,8 +107,7 @@ class ClusterScannerService:
         for e in saved_entities:
             await self.db.refresh(e)
 
-        cache_service.set(cache_key, saved_entities)
-        return saved_entities # return for saving in ui
+        return saved_entities
 
     async def get_clusters_by_user(self, user_id: int) -> List[ClusterEntity]:
         result = await self.db.execute(
