@@ -22,7 +22,7 @@ class ClusterScannerService:
         }
 
     # Fetch official provider_type from provider-service DB by alias
-    async def fetch_provider_type(self, alias: str, user_id: int = 1) -> Optional[str]:
+    async def fetch_provider_type(self, alias: str, user_id: int = 1):
         url = f"{settings.PROVIDER_SERVICE_URL}/api/v1/provider/credentials/{alias}?user_id={user_id}"
         async with httpx.AsyncClient() as client:
             try:
