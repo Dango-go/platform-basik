@@ -3,11 +3,13 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 
 
-# If user side clicked on "update clusters" 
+# If user side clicked on "update clusters" and chose one alias 
 class DiscoveryRequest(BaseModel):
-    provider_type: str = Field(..., description="Cloud provider type: aws, gcp, digitalocean")
-    alias: str = Field(..., description="Connected cloud provider alias") # SA for connect to target provider. Front sends in json all sa (any clouds)
+    user_id: int = Field(1, description="User ID")
+    alias: str = Field(..., description="Connected cloud provider alias")
+    provider_type: Optional[str] = Field(..., description="Cloud provider type: aws, gcp, digitalocean")
     region: Optional[str] = Field(None, description="Region for scanning")
+
 
 
 class ClusterResponse(BaseModel):

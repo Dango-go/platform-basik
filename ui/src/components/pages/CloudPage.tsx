@@ -35,8 +35,14 @@ export const CloudPage: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatusMsg, setSyncStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Load existing clusters on mount
+  // Load existing credentials & clusters on mount
   useEffect(() => {
+    apiClient.getCredentials().then((creds) => {
+      if (creds && creds.length > 0) {
+        setCredentialsList(creds);
+      }
+    }).catch(() => {});
+
     apiClient.getUserClusters(1).then((fetched) => {
       if (fetched.length > 0) {
         setClustersList((prev) => {
@@ -76,31 +82,61 @@ export const CloudPage: React.FC = () => {
   // Deletion Modal State
   const [credToDelete, setCredToDelete] = useState<CloudCredential | null>(null);
 
-  // Sync Clusters handler - calls discovery-service API
-  const handleSyncClusters = async () => {
+  // Discovery / Sync Modal State
+  const [showSyncModal, setShowSyncModal] = useState(false);
+  const [selectedCredAliasForSync, setSelectedCredAliasForSync] = useState<string>('all');
+  const [selectedRegionForSync, setSelectedRegionForSync] = useState<string>('');
+
+  // Sync Clusters click handler - opens modal or shows error if no credentials
+  const handleOpenSyncModal = () => {
+    setSyncStatusMsg(null);
+    if (credentialsList.length === 0) {
+      setSyncStatusMsg({
+        type: 'error',
+        text: 'No cloud credentials found on platform. Please add a cloud credential first.'
+      });
+      return;
+    }
+    const active = credentialsList.filter((c) => c.status === 'active');
+    if (active.length > 0) {
+      setSelectedCredAliasForSync(active[0].name || active[0].id);
+    } else {
+      setSelectedCredAliasForSync('all');
+    }
+    setSelectedRegionForSync('');
+    setShowSyncModal(true);
+  };
+
+  // Executes discovery for selected credential alias or all credentials
+  const executeDiscoveryScan = async () => {
     setIsSyncing(true);
     setSyncStatusMsg(null);
+    setShowSyncModal(false);
 
     try {
-      // Find active credentials for scanning
-      const activeCreds = credentialsList.filter((c) => c.status === 'active');
+      let activeCreds = credentialsList.filter((c) => c.status === 'active');
       if (activeCreds.length === 0) {
-        setSyncStatusMsg({
-          type: 'error',
-          text: 'No active cloud credentials found. Please add a credential first.'
-        });
-        setIsSyncing(false);
-        return;
+        activeCreds = credentialsList; // fallback to all
+      }
+
+      let credsToScan = activeCreds;
+      if (selectedCredAliasForSync !== 'all') {
+        credsToScan = activeCreds.filter(
+          (c) => (c.name || c.id) === selectedCredAliasForSync
+        );
+        if (credsToScan.length === 0) {
+          credsToScan = activeCreds;
+        }
       }
 
       let newlyDiscovered: K8sCluster[] = [];
 
-      for (const cred of activeCreds) {
+      for (const cred of credsToScan) {
         try {
           const discovered = await apiClient.discoverClusters(
             cred.provider,
             cred.name || cred.id,
-            'europe-west1',
+            selectedRegionForSync || undefined,
             1
           );
           if (discovered.length > 0) {
@@ -128,7 +164,7 @@ export const CloudPage: React.FC = () => {
       } else {
         setSyncStatusMsg({
           type: 'success',
-          text: 'Scan completed. No new clusters found in cloud provider.'
+          text: 'Scan completed. No new clusters found for selected credential.'
         });
       }
     } catch (err: any) {
@@ -462,7 +498,7 @@ export const CloudPage: React.FC = () => {
 
             {/* UPDATE / REFRESH BUTTON */}
             <button
-              onClick={handleSyncClusters}
+              onClick={handleOpenSyncModal}
               disabled={isSyncing}
               title="Scan & Sync Kubernetes Clusters from Cloud Providers"
               className="bg-bg-main hover:bg-brand-blue/20 text-brand-sky hover:text-white font-bold text-xs px-3.5 py-2 rounded-xl border border-accent-darkBorder hover:border-brand-sky shadow-md flex items-center gap-1.5 transition-all"
@@ -825,6 +861,88 @@ export const CloudPage: React.FC = () => {
                 className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-rose-600/30 transition-all"
               >
                 Delete Credential
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DISCOVERY CLUSTERS MODAL WITH ALIAS SELECTOR */}
+      {showSyncModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-bg-card rounded-3xl border border-accent-darkBorder w-full max-w-lg p-6 shadow-2xl space-y-6 relative text-slate-100">
+            <div className="flex items-center justify-between border-b border-accent-darkBorder pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-brand-blue/20 flex items-center justify-center border border-brand-sky/30">
+                  <Server className="w-5 h-5 text-brand-sky" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-lg">Scan Cloud Clusters</h3>
+                  <p className="text-xs text-slate-400">Select connected credentials to discover Kubernetes clusters</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSyncModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-accent-darkHover transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* ALIAS SELECTOR DROPDOWN */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                  Select Credential (Alias)
+                </label>
+                <select
+                  value={selectedCredAliasForSync}
+                  onChange={(e) => setSelectedCredAliasForSync(e.target.value)}
+                  className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm font-semibold rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-brand-sky"
+                >
+                  <option value="all">✨ All Connected Cloud Credentials (Scan All)</option>
+                  {credentialsList.map((c) => (
+                    <option key={c.id} value={c.name || c.id}>
+                      [{c.provider.toUpperCase()}] {c.name} (Alias: {c.name})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-400 mt-1.5">
+                  Discovery-service will pull decrypted keys from Vault for this specific alias to scan Kubernetes clusters.
+                </p>
+              </div>
+
+              {/* REGION INPUT (OPTIONAL) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                  Target Region (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={selectedRegionForSync}
+                  onChange={(e) => setSelectedRegionForSync(e.target.value)}
+                  placeholder="e.g. us-central1, europe-west1 (Leave empty for all regions)"
+                  className="w-full bg-bg-main border border-accent-darkBorder text-white text-xs rounded-xl p-3 focus:outline-none focus:ring-1 focus:ring-brand-sky"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-accent-darkBorder flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowSyncModal(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={executeDiscoveryScan}
+                disabled={isSyncing}
+                className="bg-brand-blue hover:bg-brand-blue/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-brand-blue/30 flex items-center gap-2 transition-all disabled:opacity-50"
+              >
+                {isSyncing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                <span>{isSyncing ? 'Scanning...' : 'Start Cluster Scan'}</span>
               </button>
             </div>
           </div>

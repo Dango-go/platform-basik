@@ -21,6 +21,19 @@ class ClusterScannerService:
             "do": DigitalOceanClusterScanner(),
         }
 
+    # Fetch official provider_type from provider-service DB by alias
+    async def fetch_provider_type(self, alias: str, user_id: int = 1) -> Optional[str]:
+        url = f"{settings.PROVIDER_SERVICE_URL}/api/v1/provider/credentials/{alias}?user_id={user_id}"
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(url, timeout=5.0)
+                if response.status_code == 200:
+                    data = response.json()
+                    return data.get("provider_type")
+            except httpx.RequestError:
+                pass
+        return None
+
     # def for get creds from vault service 
     async def fetch_credentials_from_vault(self, alias: str) -> Dict[str, Any]:
         url = f"{settings.VAULT_SERVICE_URL}/api/v1/cloud-sa-creds/{alias}"
@@ -41,13 +54,18 @@ class ClusterScannerService:
         if cached:
             return cached
 
-        # get and create object for cloud scanning
-        scanner = self.scanners.get(request.provider_type.lower())
+        # Authoritatively fetch provider_type from provider-service DB if not provided or to verify
+        official_provider_type = await self.fetch_provider_type(request.alias, request.user_id)
+        provider_type = (official_provider_type or request.provider_type or "gcp").lower()
+
+        scanner = self.scanners.get(provider_type)
         if not scanner:
-            raise ValueError(f"Unsupported provider: {request.provider_type}")
+            raise ValueError(f"Unsupported provider: {provider_type}")
 
         # get credentials from vault service
         creds = await self.fetch_credentials_from_vault(request.alias)
+        if not creds:
+            return []
 
         # SCANNING clusters with creds and region
         found_clusters = await scanner.scan_clusters(creds, region=request.region)  # return list
@@ -73,7 +91,7 @@ class ClusterScannerService:
             else:
                 entity = ClusterEntity(
                     user_id=request.user_id,
-                    provider_type=request.provider_type,
+                    provider_type=provider_type,
                     provider_alias=request.alias,
                     cluster_name=c["name"],
                     region=c["region"],

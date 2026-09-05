@@ -7,6 +7,9 @@ from app.services.service_client import ServiceClient
 import os
 
 
+from app.repository.provider_repository import ProviderRepository
+
+
 router = APIRouter(prefix="/api/v1/provider", tags=["provider"])
 
 def get_vault_env() -> ServiceClient:
@@ -34,5 +37,41 @@ async def check_validate(json_data: ProviderRequest, db_session: AsyncSession = 
         raise HTTPException(status_code=400, detail=detail_msg)
 
     return {"status": "success", "message": "Provider credentials added successfully"}
+
+@router.get("/credentials")
+@router.get("/credentials/list")
+async def list_user_credentials(
+    user_id: int = 1,
+    db_session: AsyncSession = Depends(db_session)
+):
+    providers = await ProviderRepository.get_all_accounts_by_user(db=db_session, user_id=user_id)
+    return [
+        {
+            "id": p.id,
+            "user_id": p.user_id,
+            "alias": p.alias,
+            "provider_type": p.provider_type,
+            "credentials_status": p.credentials_status
+        }
+        for p in providers
+    ]
+
+# request from discovery-service to get provider_type
+@router.get("/credentials/{alias}")
+async def get_provider_credential_info(
+    alias: str,
+    user_id: int = 1,
+    db_session: AsyncSession = Depends(db_session)
+):
+    provider = await ProviderRepository.check(db=db_session, user_id=user_id, alias=alias)
+    if not provider:
+        raise HTTPException(status_code=404, detail=f"Provider credential with alias '{alias}' not found")
+    return {
+        "id": provider.id,
+        "user_id": provider.user_id,
+        "alias": provider.alias,
+        "provider_type": provider.provider_type,
+        "credentials_status": provider.credentials_status
+    }
 
 

@@ -1,5 +1,5 @@
 import { CATALOG_ITEMS, INITIAL_DEPLOYED_DBS, CLOUD_CREDENTIALS, K8S_CLUSTERS, METRICS_SAMPLE } from './mockData';
-import { DatabaseCatalogItem, DeployedDatabase, CloudCredential, K8sCluster, DatabaseMetrics } from '../types';
+import { DatabaseCatalogItem, DeployedDatabase, CloudCredential, K8sCluster, DatabaseMetrics, CloudProviderType } from '../types';
 
 class ApiClient {
   private useMock: boolean = true;
@@ -16,6 +16,31 @@ class ApiClient {
   }
 
   async getCredentials(): Promise<CloudCredential[]> {
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch('/api/v1/provider/credentials', {
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          const fetched: CloudCredential[] = data.map((c: any) => ({
+            id: c.id ? String(c.id) : `cred-${c.alias}`,
+            name: c.alias,
+            provider: (c.provider_type || 'gcp') as CloudProviderType,
+            account_id: c.alias || 'default',
+            status: 'active' as const,
+            created_at: c.created_at || new Date().toISOString().substring(0, 10)
+          }));
+          this.credentials = fetched;
+          return fetched;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to fetch credentials from provider-service:', e);
+    }
     return Promise.resolve(this.credentials);
   }
 
