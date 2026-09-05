@@ -6,7 +6,7 @@ from core.database import Base
 
 
 class ClusterEntity(Base):
-    __tablename__ = "discovered_clusters"
+    __tablename__ = "discovery_db"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(Integer, nullable=False, index=True)

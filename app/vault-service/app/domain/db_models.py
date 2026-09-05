@@ -3,7 +3,7 @@ from sqlalchemy import Column, DateTime, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 
 class Encrypt_DB(Base):
-    __tablename__ = "access_cloud_keys"
+    __tablename__ = "vault_db"
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_id = Column(Integer, nullable=False)
     provider_type = Column(String, nullable=False)

@@ -8,7 +8,7 @@ from core.database import Base
 
 
 class DatabaseInstanceDB(Base):
-    __tablename__ = "database_instances_and_yamls"
+    __tablename__ = "provisioning_db"
     
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     name: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
