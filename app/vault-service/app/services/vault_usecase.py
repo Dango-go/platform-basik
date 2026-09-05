@@ -8,7 +8,7 @@ class Vault_Logic:
     def __init__(self, db_session: Session, hvac_client):
         self.db_session = db_session
         # Objects
-        self.encryptor = Crypting(hvac_client)
+        self.encryptor = Crypting(hvac_client)  # hvac object
         self.storage_adapter = StorageAdaption(db_session = db_session)
 
     def execute_encrypt_and_keep(self, client_data: VaultRequest):

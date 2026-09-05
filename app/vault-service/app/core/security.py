@@ -7,7 +7,7 @@ from app.core.metrics import wrapper_metrics
 
 
 class Crypting:
-    def __init__(self, hvac_client: hvac.Client):
+    def __init__(self, hvac_client: hvac.Client): # Type Hint for hvac client
         self.vault = hvac_client
 
     @wrapper_metrics(operation_name="encrypt")
@@ -16,12 +16,12 @@ class Crypting:
 
         try: 
             try:
-                self.vault.sys.enable_secrets_engine(backend_type='transit', mount_point='transit')
+                self.vault.sys.enable_secrets_engine(backend_type='transit', mount_point='transit') # transit engine to encrypt/decrypt (AES-256-GCM)
             except Exception:
                 pass
 
             try:
-                self.vault.secrets.transit.create_key(name='cloud-keys')
+                self.vault.secrets.transit.create_key(name='cloud-keys') # cloud key for encryption
             except Exception:
                 pass
 
