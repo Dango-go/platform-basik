@@ -1,3 +1,4 @@
+from base64 import b64encode, b64decode
 from datetime import datetime, timezone
 import hvac
 import json
@@ -25,9 +26,11 @@ class Crypting:
             except Exception:
                 pass
 
+            b64_plaintext = b64encode(json_data.encode("utf-8")).decode("utf-8")
+
             encrypting = self.vault.secrets.transit.encrypt_data(
                 name='cloud-keys',
-                plaintext=json_data.encode("utf-8").hex()
+                plaintext=b64_plaintext
             )
 
         except Exception as e:
@@ -65,8 +68,8 @@ class Crypting:
                 name='cloud-keys',
                 ciphertext=credentials
             )
-            decrypted_hex = decrypting['data']['plaintext'] # get decrypt keys
-            decrypted_json = bytes.fromhex(decrypted_hex).decode('utf-8')
+            decrypted_b64 = decrypting['data']['plaintext'] # get decrypted b64 string
+            decrypted_json = b64decode(decrypted_b64).decode('utf-8')
 
             return json.loads(decrypted_json)
     
