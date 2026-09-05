@@ -68,7 +68,11 @@ class ClusterScannerService:
             return []
 
         # SCANNING clusters with creds and region
-        found_clusters = await scanner.scan_clusters(creds, region=request.region)  # return list
+        try:
+            found_clusters = await scanner.scan_clusters(creds, region=request.region)
+        except Exception as e:
+            logger.error(f"Cluster scan failed for alias '{request.alias}': {e}")
+            found_clusters = []
 
 
         saved_entities = []
