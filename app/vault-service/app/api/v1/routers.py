@@ -19,7 +19,13 @@ async def health_check() -> dict[str, str]:
 async def encrypt_data(json_data: VaultRequest, session: Session = Depends(db_session)):
     vault_object = Vault_Logic(db_session=session, hvac_client=vault_client)
     result = vault_object.execute_encrypt_and_keep(client_data=json_data)
-    return result
+    return {
+        "status": "success",
+        "message": "Credentials stored and encrypted successfully",
+        "alias": result.alias,
+        "user_id": result.user_id,
+        "provider_type": result.provider_type
+    }
 
 # Need for discovery-service & provider-service to search cloud credentials by alias
 @router_v1.get("/secrets/{alias}")
