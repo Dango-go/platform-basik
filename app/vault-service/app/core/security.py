@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import hvac
 import json
 from app.domain.db_models import Encrypt_DB
@@ -14,7 +15,6 @@ class Crypting:
         json_data = json.dumps(credentials)
 
         try: 
-            # Ensure Transit secrets engine is enabled and key exists
             try:
                 self.vault.sys.enable_secrets_engine(backend_type='transit', mount_point='transit')
             except Exception:
@@ -42,8 +42,9 @@ class Crypting:
         final_structure = Encrypt_DB(
             user_id = user_id,
             provider_type = provider_type,
-            alias =  alias,
-            credentials =  final_credentials,
+            alias = alias,
+            credentials = final_credentials,
+            created_at = datetime.now(timezone.utc)
         )
 
         
