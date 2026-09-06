@@ -27,7 +27,7 @@ class Vault_Logic:
         
     def execute_get_and_decrypt(self, user_id: int, alias: str):
         # get and decrypt
-        searching_creds = self.storage_adapter.get_creds(user_id=user_id, alias=alias)
+        searching_creds = self.storage_adapter.get_creds(user_id=user_id, alias=alias) # search creds from db
         if not searching_creds:
             return None
         

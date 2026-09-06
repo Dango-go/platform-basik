@@ -11,8 +11,8 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     POSTGRES_DB_NAME: str = "discovery_db"
 
-    PROVIDER_SERVICE_URL: str = os.getenv("PROVIDER_SERVICE_URL", "http://provider-service:8009")
-    VAULT_SERVICE_URL: str = os.getenv("VAULT_SERVICE_URL", "http://vault-service:8000")
+    PROVIDER_SERVICE_URL: str = os.getenv("PROVIDER_SERVICE_URL", "http://provider-service:8001")
+    VAULT_SERVICE_URL: str = os.getenv("VAULT_SERVICE_URL", "http://vault-service:8001")
 
     @property
     def DB_URL(self) -> str:

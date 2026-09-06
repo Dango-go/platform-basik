@@ -51,7 +51,7 @@ class ClusterScannerService:
     async def discover_and_save(self, request: DiscoveryRequest) -> List[ClusterEntity]:
         # Authoritatively fetch provider_type from provider-service DB if not provided or to verify
         official_provider_type = await self.fetch_provider_type(request.alias, request.user_id)
-        provider_type = (official_provider_type or request.provider_type or "gcp").lower()
+        provider_type = (official_provider_type or request.provider_type).lower()
 
         scanner = self.scanners.get(provider_type)
         if not scanner:
