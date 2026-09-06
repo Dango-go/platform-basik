@@ -66,7 +66,7 @@ class ClusterScannerService:
         try:
             found_clusters = await scanner.scan_clusters(creds, region=request.region)
         except Exception as e:
-            logger.error(f"Cluster scan failed for alias '{request.alias}': {e}")
+            raise ValueError(f"Cluster scan failed for alias '{request.alias}': {e}")
             found_clusters = []
 
 
