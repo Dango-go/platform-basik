@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { CATALOG_ITEMS, K8S_CLUSTERS } from '../../services/mockData';
+import React, { useState, useEffect } from 'react';
+import { CATALOG_ITEMS, K8S_CLUSTERS as MOCK_CLUSTERS } from '../../services/mockData';
 import { apiClient } from '../../services/apiClient';
+import { K8sCluster } from '../../types';
 import { 
   PlusCircle, 
   Settings, 
@@ -247,10 +248,21 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
   const [crdNamespace, setCrdNamespace] = useState<string>('default (specified in manifest)');
 
   const [isDeploying, setIsDeploying] = useState(false);
+  const [clustersList, setClustersList] = useState<K8sCluster[]>(MOCK_CLUSTERS);
+
+  useEffect(() => {
+    apiClient.getUserClusters(1).then((fetched) => {
+      if (fetched && fetched.length > 0) {
+        setClustersList([...fetched, ...MOCK_CLUSTERS.filter((m) => !fetched.some((f) => f.id === m.id))]);
+      }
+    }).catch((e) => {
+      console.warn('Failed to load user clusters for wizard:', e);
+    });
+  }, []);
 
   // Filter clusters based on selected Cloud Provider
   const availableClusters = selectedProvider
-    ? K8S_CLUSTERS.filter((cls) => {
+    ? clustersList.filter((cls) => {
         const prov = cls.provider.toLowerCase();
         if (selectedProvider === 'aws') return prov.includes('aws') || prov.includes('eks');
         if (selectedProvider === 'gcp') return prov.includes('gcp') || prov.includes('gke');
@@ -286,7 +298,7 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
     let ramMb = (parseInt(customRam, 10) || 8) * 1024;
     let storageGb = parseInt(customDisk, 10) || 50;
 
-    const targetClusterName = selectedCluster || (K8S_CLUSTERS[0]?.name ?? 'onprem-prod-k8s');
+    const targetClusterName = selectedCluster || (clustersList[0]?.name ?? 'onprem-prod-k8s');
 
     await apiClient.deployDatabase({
       name: dbName,
