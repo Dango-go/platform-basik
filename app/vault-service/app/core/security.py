@@ -48,19 +48,20 @@ class Crypting:
             created_at = datetime.now(timezone.utc)
         )
 
-        
         return final_structure
 
     def pull_and_decrypt(self, credentials: str) -> dict: 
-        # searching_creds - object
-        #searching_creds = self.db_session.query(Encrypt_DB).filter(
-            #Encrypt_DB.user_id == user_id,
-            #Encrypt_DB.provider_type == provider_type
-        #).first()
-
-        #if not searching_creds:
-            #raise CredentialNotFoundError()
         try:
+            try:
+                self.vault.sys.enable_secrets_engine(backend_type='transit', mount_point='transit')
+            except Exception:
+                pass
+
+            try:
+                self.vault.secrets.transit.create_key(name='cloud-keys')  
+            except Exception:
+                pass
+                
             decrypting = self.vault.secrets.transit.decrypt_data(
                 name='cloud-keys',
                 ciphertext=credentials
