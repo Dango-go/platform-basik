@@ -60,7 +60,7 @@ class ClusterScannerService:
         # get credentials from vault service
         creds = await self.fetch_credentials_from_vault(request.alias)
         if not creds:
-            return []
+            raise ValueError(f"No valid credentials found for alias '{request.alias}' in Vault. Please re-add credentials.")
 
         # SCANNING clusters with creds and region
         try:

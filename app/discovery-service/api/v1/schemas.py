@@ -1,5 +1,6 @@
+from uuid import UUID
 from pydantic import BaseModel, Field
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
 
 
@@ -13,7 +14,7 @@ class DiscoveryRequest(BaseModel):
 
 
 class ClusterResponse(BaseModel):
-    id: str
+    id: Union[UUID, str]
     user_id: int
     provider_type: str
     provider_alias: str

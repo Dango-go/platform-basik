@@ -27,6 +27,8 @@ async def encrypt_data(json_data: VaultRequest, session: Session = Depends(db_se
         "provider_type": result.provider_type
     }
 
+from app.domain.exceptions import CredentialNotFoundError
+
 # Need for discovery-service & provider-service to search cloud credentials by alias
 @router_v1.get("/secrets/{alias}")
 @router_v1.get("/cloud-sa-creds/{alias}")
@@ -35,17 +37,20 @@ async def get_creds(
     user_id: int = 1, 
     session: Session = Depends(db_session)
 ):
-    vault_object = Vault_Logic(db_session=session, hvac_client=vault_client)
-    giving_creds = vault_object.execute_get_and_decrypt(user_id=user_id, alias=alias)
+    try:
+        vault_object = Vault_Logic(db_session=session, hvac_client=vault_client)
+        giving_creds = vault_object.execute_get_and_decrypt(user_id=user_id, alias=alias)
 
-    if not giving_creds:
-        raise HTTPException(status_code=404, detail=f"Credentials for alias '{alias}' not found")
+        if not giving_creds:
+            raise HTTPException(status_code=404, detail=f"Credentials for alias '{alias}' not found")
 
-    return {
-        "status": "success",
-        "alias": alias,
-        "credentials": giving_creds
-    }
+        return {
+            "status": "success",
+            "alias": alias,
+            "credentials": giving_creds
+        }
+    except CredentialNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
     

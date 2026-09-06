@@ -158,6 +158,27 @@ class ApiClient {
     return true;
   }
 
+  async deleteCloudCredentials(alias: string, userId: number = 1): Promise<boolean> {
+    const token = localStorage.getItem('access_token');
+    const res = await fetch(`/api/v1/provider/credentials/${alias}?user_id=${userId}`, {
+      method: 'DELETE',
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      let message = `Failed to delete credential (${res.status})`;
+      if (typeof errData.detail === 'string') {
+        message = errData.detail;
+      }
+      throw new Error(message);
+    }
+
+    return true;
+  }
+
   async addCredential(cred: Omit<CloudCredential, 'id' | 'created_at' | 'status'>): Promise<CloudCredential> {
     const created: CloudCredential = {
       ...cred,

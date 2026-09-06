@@ -13,9 +13,12 @@ async def discover_clusters(
     request: DiscoveryRequest,
     db: AsyncSession = Depends(db_session)
 ):
-    scanner = ClusterScannerService(db=db)  
-    clusters = await scanner.discover_and_save(request)
-    return clusters #-> dict with data for each cluster
+    try:
+        scanner = ClusterScannerService(db=db)  
+        clusters = await scanner.discover_and_save(request)
+        return clusters #-> dict with data for each cluster
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/clusters/{user_id}", response_model=List[ClusterResponse])

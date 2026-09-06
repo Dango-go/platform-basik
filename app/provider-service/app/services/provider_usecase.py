@@ -30,9 +30,6 @@ class provider_usecase:
                 user_id = self.user_id,
                 alias = self.alias
             )
-            if existing_provider:
-                logger.warning(f"Provider credentials with alias '{self.alias}' already exist for user {self.user_id}")
-                return False, f"Credentials with alias '{self.alias}' already exist"
         except Exception as e:
             logger.error(f"Error checking existing provider in DB: {e}", exc_info=True)
             return False, f"Database check error: {str(e)}"
@@ -57,19 +54,26 @@ class provider_usecase:
             logger.error(f"Failed to store credentials in vault-service for alias '{self.alias}'")
             return False, "Failed to store credentials in vault service"
 
-        # Save in provider database
+        # Save or update in provider database
         try:
-            provider = await ProviderRepository.create_provider_creds(
-                db = self.db_session,
-                user_id = self.user_id,
-                alias = self.alias,
-                provider_type = self.provider_type,
-                credentials_status = "active"
-            )
+            if existing_provider:
+                existing_provider.provider_type = self.provider_type
+                existing_provider.credentials_status = "active"
+                await self.db_session.commit()
+                await self.db_session.refresh(existing_provider)
+                return True, "Credentials updated successfully"
+            else:
+                provider = await ProviderRepository.create_provider_creds(
+                    db = self.db_session,
+                    user_id = self.user_id,
+                    alias = self.alias,
+                    provider_type = self.provider_type,
+                    credentials_status = "active"
+                )
 
-            if not provider:
-                return False, "Failed to save provider metadata in DB"
-            return True, "Success"
+                if not provider:
+                    return False, "Failed to save provider metadata in DB"
+                return True, "Success"
 
         except Exception as e:
             logger.error(f"Database insertion error for '{self.alias}': {e}", exc_info=True)

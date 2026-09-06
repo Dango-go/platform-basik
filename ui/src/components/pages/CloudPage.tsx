@@ -260,8 +260,13 @@ export const CloudPage: React.FC = () => {
     }
   };
 
-  const confirmDeleteCredential = () => {
+  const confirmDeleteCredential = async () => {
     if (credToDelete) {
+      try {
+        await apiClient.deleteCloudCredentials(credToDelete.name);
+      } catch (e) {
+        console.warn('Failed to delete credential from backend:', e);
+      }
       setCredentialsList(credentialsList.filter((c) => c.id !== credToDelete.id));
       setCredToDelete(null);
     }

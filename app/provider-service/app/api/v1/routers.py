@@ -74,4 +74,19 @@ async def get_provider_credential_info(
         "credentials_status": provider.credentials_status
     }
 
+@router.delete("/credentials/{alias}")
+async def delete_credential(
+    alias: str,
+    user_id: int = 1,
+    db_session: AsyncSession = Depends(db_session),
+    vault_client: ServiceClient = Depends(get_vault_env)
+):
+    json_data = {"user_id": user_id, "alias": alias}
+    resulter = provider_usecase(db_session=db_session, json_data=json_data, vault_client=vault_client)
+    deleted = await resulter.delete_provider()
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Credential '{alias}' not found or failed to delete")
+    return {"status": "success", "message": f"Credential '{alias}' deleted successfully"}
+
+
 
