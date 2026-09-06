@@ -203,6 +203,9 @@ services:
       VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
     ports:
       - "8200:8200"
+    volumes:
+      - vault_coffer:/vault/file
+    command: server -dev -dev-file-storage=/vault/file
     cap_add:
       - IPC_LOCK
     networks:
@@ -212,12 +215,15 @@ services:
 volumes:
   postgres_data:
     driver: local
+  vault_coffer:
+    driver: local
   prometheus_data:
     driver: local
   grafana_data:
     driver: local
   loki_data:
     driver: local
+  
 
 networks:
   idp-network:
