@@ -204,7 +204,7 @@ services:
     ports:
       - "8200:8200"
     volumes:
-      - /mnt/main-data/vault_data:/vault/main_file
+      - /mnt/data/vault_data:/vault/main_file
     cap_add:
       - IPC_LOCK
     networks:
@@ -216,12 +216,7 @@ volumes:
     driver: local
   vault_data:
     driver: local
-  prometheus_data:
-    driver: local
-  grafana_data:
-    driver: local
-  loki_data:
-    driver: local
+
   
 
 networks:

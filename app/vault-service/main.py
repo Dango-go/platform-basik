@@ -10,7 +10,6 @@ router = APIRouter()
 
 app.include_router(router_v1)
 
-
 @app.on_event("startup")
 def init_tables():
     Base.metadata.create_all(bind=engine)

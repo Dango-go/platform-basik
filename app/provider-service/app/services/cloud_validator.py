@@ -7,12 +7,13 @@ from google.oauth2 import service_account
 from google.auth.exceptions import GoogleAuthError
 from google.auth.transport.requests import Request
 import httpx
+ 
 
 logger = logging.getLogger(__name__)
 
 
 class CloudValidator(ABC):
-    async def validate(self, credentials: dict) -> bool:
+    async def validate(self, credentials: dict):
         pass
 
 # Health check for each cloud provider client credentials  
@@ -21,7 +22,7 @@ class AWSValidator(CloudValidator):
     async def validate(self, credentials: dict) -> bool:
         access_key = credentials.get("aws_access_key_id")
         secret_key = credentials.get("aws_secret_access_key")
-        region = credentials.get("aws_region", "")
+        region = credentials.get("aws_region") or "us-east-1"
 
         session = aioboto3.Session(
             aws_access_key_id = access_key,
