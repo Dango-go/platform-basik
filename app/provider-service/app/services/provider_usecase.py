@@ -14,14 +14,14 @@ class provider_usecase:
         self.data = json_data
         self.vault_client = vault_client
 
-        self.user_id = self.data.get("user_id") or 1
-        self.alias = self.data.get("alias")
-        self.provider_type = (self.data.get("provider_type") or "").strip().lower()
-        self.credentials = self.data.get("credentials")
+        self.user_id: int = int(self.data.get("user_id") or 1)
+        self.alias: str = str(self.data.get("alias") or "")
+        self.provider_type: str = (self.data.get("provider_type") or "").strip().lower()
+        self.credentials: dict = self.data.get("credentials") or {}
 
     async def add_provider_creds(self) -> Tuple[bool, str]:
-        if not self.data:
-            return False, "Empty payload received"
+        if not self.data or not self.alias or not self.credentials:
+            return False, "Invalid payload: missing alias or credentials"
  
         # Check if provider credentials already exist
         try:
