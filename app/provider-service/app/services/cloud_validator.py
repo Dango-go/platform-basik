@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 class CloudValidator(ABC):
-    async def validate(self, credentials: dict):
+    @abstractmethod
+    async def validate(self, credentials: dict) -> bool:
         pass
 
 # Health check for each cloud provider client credentials  
