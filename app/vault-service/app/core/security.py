@@ -20,7 +20,7 @@ class Crypting:
                 pass
 
             try:
-                self.vault.secrets.transit.create_key(name='cloud-keys') # cloud key for encryption
+                self.vault.secrets.transit.create_key(name='cloud-keys') # name of encryption key
             except Exception:
                 pass
 
