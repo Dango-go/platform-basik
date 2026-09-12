@@ -15,6 +15,12 @@ echo "📝 Generating vault.hcl..."
 sudo mkdir -p /mnt/data/vault_data
 sudo mkdir -p /mnt/main-data/postgres_data
 
+touch .env
+cat << 'EOF' > .env
+export DOCKERHUB_USERNAME=""
+EOF
+
+
 sudo chmod -R 777 /mnt/data/vault_data
 
 cat << 'EOF' > vault/vault.hcl

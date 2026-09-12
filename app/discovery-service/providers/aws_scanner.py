@@ -1,3 +1,4 @@
+import json
 import aioboto3
 from typing import List, Dict, Any
 from providers.base import BaseClusterScanner
@@ -25,13 +26,14 @@ class AWSClusterScanner(BaseClusterScanner):
                 for name in cluster_names:
                     cluster_info = await eks_client.describe_cluster(name=name) # name - embedded arg
                     c_data = cluster_info.get("cluster", {}) # dict data
+                    clean_raw = json.loads(json.dumps(c_data, default=str))
                     clusters_data.append({
                         "name": c_data.get("name"),
                         "region": target_region,
                         "version": c_data.get("version"),
                         "status": c_data.get("status", "ACTIVE").lower(),
                         "endpoint": c_data.get("endpoint"),
-                        "raw": c_data
+                        "raw": clean_raw
                     })
         except ClientError as e:
             raise RuntimeError(f"AWS EKS discovery error: {str(e)}")
