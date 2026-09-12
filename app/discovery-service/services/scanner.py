@@ -1,3 +1,4 @@
+import json
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -72,6 +73,7 @@ class ClusterScannerService:
 
         saved_entities = []
         for c in found_clusters:
+            clean_raw = json.loads(json.dumps(c.get("raw", {}), default=str)) if c.get("raw") else None
             existing = await self.db.execute(
                 select(ClusterEntity).where(
                     ClusterEntity.user_id == request.user_id,
@@ -86,7 +88,7 @@ class ClusterScannerService:
                 entity.k8s_version = c.get("version")
                 entity.status = c.get("status", "active")
                 entity.endpoint = c.get("endpoint")
-                entity.raw_data = c.get("raw")
+                entity.raw_data = clean_raw
             else:
                 entity = ClusterEntity(
                     user_id=request.user_id,
@@ -97,7 +99,7 @@ class ClusterScannerService:
                     k8s_version=c.get("version"),
                     status=c.get("status", "active"),
                     endpoint=c.get("endpoint"),
-                    raw_data=c.get("raw")
+                    raw_data=clean_raw
                 )
                 self.db.add(entity)
 
