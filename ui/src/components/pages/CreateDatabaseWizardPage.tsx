@@ -27,7 +27,8 @@ import {
   Wand2,
   Lock,
   X,
-  FileText
+  FileText,
+  Tag
 } from 'lucide-react';
 
 interface CreateDatabaseWizardPageProps {
@@ -189,8 +190,9 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
 
   const [saveSuccessMsg, setSaveSuccessMsg] = useState(false);
   const [helmChartNameInput, setHelmChartNameInput] = useState<string>(
-    ENGINE_HELM_CHARTS[selectedEngine.engine_type] || `bitnami/${selectedEngine.engine_type}`
+    `bitnami/${selectedEngine.engine_type}`
   );
+  const [helmChartVersionInput, setHelmChartVersionInput] = useState<string>('15.5.2');
   const [helmActionStatus, setHelmActionStatus] = useState<string>('');
   const [isExecutingHelmAction, setIsExecutingHelmAction] = useState<boolean>(false);
 
@@ -235,17 +237,15 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
     setHelmActionStatus(`Executing 'helm ${action} ${dbName} ${helmChartNameInput}'...`);
     try {
       if (action === 'install') {
-        const parts = helmChartNameInput.split(' ');
-        const fullChart = parts[0] || `bitnami/${selectedEngine.engine_type}`;
+        const fullChart = helmChartNameInput.trim() || `bitnami/${selectedEngine.engine_type}`;
         const chartParts = fullChart.split('/');
         const repoName = chartParts.length > 1 ? chartParts[0] : 'bitnami';
         const chartName = chartParts.length > 1 ? chartParts[1] : chartParts[0];
-        const rawVer = parts[1] ? parts[1].replace(/[()v]/g, '') : '15.5.2';
 
         await apiClient.pullHelmChart({
           chart_repo_url: `https://charts.bitnami.com/${repoName}`,
           chart_name: chartName,
-          chart_version: rawVer,
+          chart_version: helmChartVersionInput.trim() || '15.5.2',
           release_name: dbName
         });
       } else {
@@ -310,8 +310,8 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
       setSelectedEngine(found);
       setSelectedVersion(found.versions[0]);
       setDbName(`my-${found.engine_type}-db`);
-      const defaultChart = ENGINE_HELM_CHARTS[found.engine_type] || `bitnami/${found.engine_type}`;
-      setHelmChartNameInput(defaultChart);
+      setHelmChartNameInput(`bitnami/${found.engine_type}`);
+      setHelmChartVersionInput(found.versions[0] || '15.5.2');
       if (DEFAULT_CRD_MANIFESTS[found.engine_type]) {
         setCrdManifestContent(DEFAULT_CRD_MANIFESTS[found.engine_type]);
       }
@@ -658,23 +658,38 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
             
             {/* HELM CHART NAME INPUT & INSTALL / UPGRADE BUTTONS TOOLBAR */}
             <div className="p-4 bg-bg-main border border-accent-darkBorder rounded-xl space-y-3 shadow-md">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                {/* Input for Specific Helm Chart Name */}
-                <div className="flex-1 w-full space-y-1">
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                    <PackageCheck className="w-4 h-4 text-brand-sky" /> Target Helm Chart Repository & Name
-                  </label>
-                  <input
-                    type="text"
-                    value={helmChartNameInput}
-                    onChange={(e) => setHelmChartNameInput(e.target.value)}
-                    placeholder="e.g., bitnami/postgresql or oci://registry-1.docker.io/bitnamicharts/postgresql"
-                    className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs font-mono rounded-lg px-3.5 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-semibold"
-                  />
+              <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
+                {/* Inputs for Specific Helm Chart Name & Version */}
+                <div className="flex-1 w-full space-y-3">
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <PackageCheck className="w-4 h-4 text-brand-sky" /> Target Helm Chart Repository & Name
+                    </label>
+                    <input
+                      type="text"
+                      value={helmChartNameInput}
+                      onChange={(e) => setHelmChartNameInput(e.target.value)}
+                      placeholder="e.g., bitnami/postgresql or oci://registry-1.docker.io/bitnamicharts/postgresql"
+                      className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs font-mono rounded-lg px-3.5 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-semibold"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-brand-sky" /> Chart Version
+                    </label>
+                    <input
+                      type="text"
+                      value={helmChartVersionInput}
+                      onChange={(e) => setHelmChartVersionInput(e.target.value)}
+                      placeholder="e.g., 15.5.2"
+                      className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs font-mono rounded-lg px-3.5 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-semibold"
+                    />
+                  </div>
                 </div>
 
                 {/* Install Chart Action Button */}
-                <div className="flex items-center gap-2 pt-2 sm:pt-4 shrink-0">
+                <div className="flex items-center gap-2 pt-2 sm:pt-0 shrink-0">
                   <button
                     onClick={() => handleExecuteHelmAction('install')}
                     disabled={isExecutingHelmAction}
@@ -697,7 +712,7 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
             <div className="flex flex-wrap items-center justify-between gap-3">
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
                 <FileCode2 className="w-4 h-4 text-brand-sky" />
-                Interactive Helm Chart YAML Editor ({selectedHelmFile || 'values.yaml'})
+                Helm Chart Editor ({selectedHelmFile || 'values.yaml'})
               </label>
 
               <div className="flex items-center gap-2 flex-wrap">
@@ -932,11 +947,11 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
             className="bg-brand-blue hover:bg-brand-blue/90 text-white font-bold text-sm px-8 py-3 rounded-xl shadow-lg shadow-brand-blue/30 flex items-center gap-2 transition-all"
           >
             {isDeploying ? (
-              <span>Deploying via {installMode === 'crd' ? 'Operator Service' : 'Helm Deployer'}...</span>
+              <span>Deploying {installMode === 'crd' ? 'Operator Service' : 'Helm Deployer'}...</span>
             ) : (
               <>
                 <Play className="w-4 h-4 fill-white" />
-                <span>Deploy via {installMode === 'crd' ? 'Operator CRD' : 'Helm Chart'}</span>
+                <span>Deploy {installMode === 'crd' ? 'Operator CRD' : 'Helm Chart'}</span>
               </>
             )}
           </button>
