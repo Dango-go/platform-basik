@@ -13,9 +13,44 @@ class DatabaseRepository:
         self.db = db
 
     async def get_all_databases(self) -> List[DatabaseInstanceDB]:
-
         result = await self.db.execute(select(DatabaseInstanceDB))
         return list(result.scalars().all())
+
+    async def get_all_instances(self) -> List[DatabaseInstanceDB]:
+        return await self.get_all_databases()
+
+    async def create_instance(
+        self,
+        name: str,
+        engine_type: str,
+        version: str,
+        cluster_id: str = "cluster-1",
+        cluster_name: str = "default-prod",
+        namespace: str = "databases",
+        cpu: float = 1.0,
+        ram: float = 2.0,
+        disk: float = 20.0,
+        chart_name: str = "postgresql",
+        values_yaml: Optional[str] = None
+    ) -> DatabaseInstanceDB:
+        instance = DatabaseInstanceDB(
+            name=name,
+            engine_type=engine_type,
+            version=version,
+            cluster_id=cluster_id,
+            cluster_name=cluster_name,
+            namespace=namespace,
+            cpu=cpu,
+            ram=ram,
+            disk=disk,
+            status="Running",
+            chart_name=chart_name,
+            values_yaml=values_yaml
+        )
+        self.db.add(instance)
+        await self.db.commit()
+        await self.db.refresh(instance)
+        return instance
 
     async def get_by_id(self, db_id: str) -> Optional[DatabaseInstanceDB]:
 

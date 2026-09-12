@@ -232,13 +232,39 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
 
   const handleExecuteHelmAction = async (action: 'install' | 'upgrade') => {
     setIsExecutingHelmAction(true);
-    setHelmActionStatus(`Running 'helm ${action} ${dbName} ${helmChartNameInput}'...`);
-    await new Promise((res) => setTimeout(res, 1200));
-    setIsExecutingHelmAction(false);
-    setHelmActionStatus(
-      `✓ Successfully executed 'helm ${action} ${dbName} ${helmChartNameInput}' on cluster ${selectedCluster || 'default'}`
-    );
-    setTimeout(() => setHelmActionStatus(''), 5000);
+    setHelmActionStatus(`Executing 'helm ${action} ${dbName} ${helmChartNameInput}'...`);
+    try {
+      if (action === 'install') {
+        const parts = helmChartNameInput.split(' ');
+        const fullChart = parts[0] || `bitnami/${selectedEngine.engine_type}`;
+        const chartParts = fullChart.split('/');
+        const repoName = chartParts.length > 1 ? chartParts[0] : 'bitnami';
+        const chartName = chartParts.length > 1 ? chartParts[1] : chartParts[0];
+        const rawVer = parts[1] ? parts[1].replace(/[()v]/g, '') : '15.5.2';
+
+        await apiClient.pullHelmChart({
+          chart_repo_url: `https://charts.bitnami.com/${repoName}`,
+          chart_name: chartName,
+          chart_version: rawVer,
+          release_name: dbName
+        });
+      } else {
+        await apiClient.applyHelmRelease({
+          cluster_name: selectedCluster || 'default-prod',
+          release_name: dbName,
+          chart_name: selectedEngine.engine_type,
+          namespace: 'databases'
+        });
+      }
+      setHelmActionStatus(
+        `✓ Successfully executed 'helm ${action} ${dbName}' on cluster ${selectedCluster || 'default'}`
+      );
+    } catch (err: any) {
+      setHelmActionStatus(`⚠️ Helm action error: ${err.message || 'Operation failed'}`);
+    } finally {
+      setIsExecutingHelmAction(false);
+      setTimeout(() => setHelmActionStatus(''), 7000);
+    }
   };
 
   // CRD Manifest content & Namespace for Operator Service (Mode 2)
@@ -294,27 +320,48 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
 
   const handleDeploy = async () => {
     setIsDeploying(true);
-    let cpuM = (parseInt(customCpu, 10) || 2) * 1000;
-    let ramMb = (parseInt(customRam, 10) || 8) * 1024;
-    let storageGb = parseInt(customDisk, 10) || 50;
+    setHelmActionStatus('');
+    try {
+      let cpuM = (parseInt(customCpu, 10) || 2) * 1000;
+      let ramMb = (parseInt(customRam, 10) || 8) * 1024;
+      let storageGb = parseInt(customDisk, 10) || 50;
 
-    const targetClusterName = selectedCluster || (clustersList[0]?.name ?? 'onprem-prod-k8s');
+      const targetClusterName = selectedCluster || (clustersList[0]?.name ?? 'onprem-prod-k8s');
 
-    await apiClient.deployDatabase({
-      name: dbName,
-      engine_type: selectedEngine.engine_type,
-      version: selectedVersion,
-      cluster_name: targetClusterName,
-      namespace: 'databases',
-      cpu_usage_m: cpuM,
-      memory_usage_mb: ramMb,
-      storage_gb: storageGb,
-      monthly_cost: 64.50,
-      values_yaml: installMode === 'crd' ? crdManifestContent : yamlContent
-    });
+      if (installMode === 'crd') {
+        await apiClient.applyOperatorManifest({
+          resource_name: dbName,
+          target_namespace: 'databases',
+          content: crdManifestContent
+        }).catch((e) => console.warn('Operator manifest trigger warning:', e));
+      } else {
+        await apiClient.applyHelmRelease({
+          cluster_name: targetClusterName,
+          release_name: dbName,
+          chart_name: selectedEngine.engine_type,
+          namespace: 'databases'
+        }).catch((e) => console.warn('Helm release trigger warning:', e));
+      }
 
-    setIsDeploying(false);
-    onSuccess();
+      await apiClient.deployDatabase({
+        name: dbName,
+        engine_type: selectedEngine.engine_type,
+        version: selectedVersion,
+        cluster_name: targetClusterName,
+        namespace: 'databases',
+        cpu_usage_m: cpuM,
+        memory_usage_mb: ramMb,
+        storage_gb: storageGb,
+        monthly_cost: (cpuM / 1000) * 15.0 + (ramMb / 1024) * 4.0 + storageGb * 0.15,
+        values_yaml: installMode === 'crd' ? crdManifestContent : yamlContent
+      });
+
+      onSuccess();
+    } catch (err: any) {
+      alert(`Deployment failed: ${err.message || 'Error occurred during provisioning'}`);
+    } finally {
+      setIsDeploying(false);
+    }
   };
 
   return (

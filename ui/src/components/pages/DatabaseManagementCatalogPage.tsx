@@ -143,7 +143,7 @@ export const DatabaseManagementCatalogPage: React.FC<DatabaseManagementCatalogPa
   const [selectedScaleInstanceId, setSelectedScaleInstanceId] = useState<string>(
     runningInstances[0]?.id || '1'
   );
-  const selectedInstance = runningInstances.find(db => db.id === selectedScaleInstanceId) || runningInstances[0] || INITIAL_DEPLOYED_DBS[0];
+  const selectedInstance = runningInstances.find(db => db.id === selectedScaleInstanceId) || runningInstances[0] || INITIAL_DEPLOYED_DBS[0] || null;
 
   const [topCpu, setTopCpu] = useState<number>(
     selectedInstance ? (selectedInstance.cpu_usage_m || 1000) / 1000 : 2.0

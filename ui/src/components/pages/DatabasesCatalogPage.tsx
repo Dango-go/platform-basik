@@ -340,42 +340,50 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-accent-darkBorder/60 text-sm">
-                {INITIAL_DEPLOYED_DBS.map((db) => (
-                  <tr 
-                    key={db.id} 
-                    onClick={() => handleOpenFastManagement(db)}
-                    className="hover:bg-accent-darkHover transition-colors cursor-pointer"
-                  >
-                    <td className="p-4 font-bold text-white flex items-center gap-2">
-                      <Database className="w-4 h-4 text-brand-sky" />
-                      <span className="hover:underline text-brand-sky font-bold">{db.name}</span>
-                    </td>
-                    <td className="p-4 text-slate-300 capitalize">
-                      {db.engine_type} <span className="text-xs text-slate-500">v{db.version}</span>
-                    </td>
-                    <td className="p-4 text-slate-400 text-xs font-mono">{db.cluster_name}</td>
-                    <td className="p-4">
-                      <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">
-                        ● {db.status}
-                      </span>
-                    </td>
-                    <td className="p-4 text-xs text-slate-300">
-                      {db.cpu_usage_m}m CPU / {db.storage_gb}GB SSD
-                    </td>
-                    <td className="p-4 font-extrabold text-white text-right">${db.monthly_cost.toFixed(2)}</td>
-                    <td className="p-4 text-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenFastManagement(db);
-                        }}
-                        className="text-xs font-bold bg-brand-blue hover:bg-brand-blue/90 text-white px-3.5 py-1.5 rounded-lg transition-all shadow-md shadow-brand-blue/20 flex items-center gap-1.5 mx-auto"
-                      >
-                        <Terminal className="w-3.5 h-3.5 text-white" /> Fast Management
-                      </button>
+                {INITIAL_DEPLOYED_DBS.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-slate-400">
+                      No deployed database instances found.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  INITIAL_DEPLOYED_DBS.map((db) => (
+                    <tr 
+                      key={db.id} 
+                      onClick={() => handleOpenFastManagement(db)}
+                      className="hover:bg-accent-darkHover transition-colors cursor-pointer"
+                    >
+                      <td className="p-4 font-bold text-white flex items-center gap-2">
+                        <Database className="w-4 h-4 text-brand-sky" />
+                        <span className="hover:underline text-brand-sky font-bold">{db.name}</span>
+                      </td>
+                      <td className="p-4 text-slate-300 capitalize">
+                        {db.engine_type} <span className="text-xs text-slate-500">v{db.version}</span>
+                      </td>
+                      <td className="p-4 text-slate-400 text-xs font-mono">{db.cluster_name}</td>
+                      <td className="p-4">
+                        <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">
+                          ● {db.status}
+                        </span>
+                      </td>
+                      <td className="p-4 text-xs text-slate-300">
+                        {db.cpu_usage_m}m CPU / {db.storage_gb}GB SSD
+                      </td>
+                      <td className="p-4 font-extrabold text-white text-right">${db.monthly_cost.toFixed(2)}</td>
+                      <td className="p-4 text-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenFastManagement(db);
+                          }}
+                          className="text-xs font-bold bg-brand-blue hover:bg-brand-blue/90 text-white px-3.5 py-1.5 rounded-lg transition-all shadow-md shadow-brand-blue/20 flex items-center gap-1.5 mx-auto"
+                        >
+                          <Terminal className="w-3.5 h-3.5 text-white" /> Fast Management
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

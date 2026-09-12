@@ -12,6 +12,34 @@ class ApiClient {
   }
 
   async getDeployedDatabases(): Promise<DeployedDatabase[]> {
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch('/api/v1/provisioning', {
+        headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          return data.map((item: any) => ({
+            id: String(item.id),
+            name: item.name,
+            engine_type: item.engine_type,
+            version: item.version,
+            status: item.status?.toLowerCase() || 'running',
+            cluster_name: item.cluster_name,
+            namespace: item.namespace || 'databases',
+            cpu_usage_m: Math.round((item.cpu || 1) * 1000),
+            memory_usage_mb: Math.round((item.ram || 2) * 1024),
+            storage_gb: item.disk || 20,
+            monthly_cost: item.monthly_cost || 0,
+            created_at: typeof item.created_at === 'string' ? item.created_at : new Date().toISOString().substring(0, 16),
+            values_yaml: item.values_yaml || ''
+          }));
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to fetch deployed databases from db-provisioning-service:', e);
+    }
     return Promise.resolve(this.deployedDbs);
   }
 
@@ -45,7 +73,7 @@ class ApiClient {
   }
 
   async getClusters(): Promise<K8sCluster[]> {
-    return Promise.resolve(this.clusters);
+    return this.getUserClusters(1);
   }
 
   async discoverClusters(providerType: string, alias: string, region?: string, userId: number = 1): Promise<K8sCluster[]> {
@@ -126,6 +154,74 @@ class ApiClient {
     };
     this.deployedDbs.unshift(created);
     return Promise.resolve(created);
+  }
+
+  async pullHelmChart(payload: { chart_repo_url: string; chart_name: string; chart_version: string; release_name: string }): Promise<any> {
+    const token = localStorage.getItem('access_token');
+    const res = await fetch('/api/v1/helm/pull', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Failed to pull chart (${res.status})`);
+    }
+    return await res.json();
+  }
+
+  async applyHelmRelease(payload: { cluster_name: string; release_name: string; chart_name: string; namespace?: string; target_values_file?: string }): Promise<any> {
+    const token = localStorage.getItem('access_token');
+    const res = await fetch('/api/v1/helm/apply', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        cluster_name: payload.cluster_name,
+        release_name: payload.release_name,
+        chart_name: payload.chart_name,
+        api_server_url: 'https://kubernetes.default.svc',
+        ca_cert_data: '',
+        token: '',
+        user_name: 'cluster-admin',
+        namespace: payload.namespace || 'databases',
+        target_values_file: payload.target_values_file
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Helm apply failed (${res.status})`);
+    }
+    return await res.json();
+  }
+
+  async applyOperatorManifest(payload: { resource_name: string; target_namespace?: string; content: string }): Promise<any> {
+    const token = localStorage.getItem('access_token');
+    const res = await fetch('/api/v1/operator/apply', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        api_server_url: 'https://kubernetes.default.svc',
+        auth_token: '',
+        resource_name: payload.resource_name,
+        target_namespace: payload.target_namespace || 'databases',
+        content: payload.content,
+        ca_cert_data: ''
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Operator manifest apply failed (${res.status})`);
+    }
+    return await res.json();
   }
 
   async saveCloudCredentials(payload: {

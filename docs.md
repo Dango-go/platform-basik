@@ -78,3 +78,42 @@ CloudBeaver або Bytebase
 Jaeger або Grafana Tempo
 MinIO
 Redis
+
+
+1️⃣ Секція: DATABASE SECURITY & CREDENTIALS SETUP
+Перемикач режимів пассворда (Auto-Generated / Custom Password):
+Відповідальний сервіс: vault-service (та auth-service)
+Ендпоінт: POST /api/v1/vault/secrets або POST /api/v1/vault/encrypt
+Що робить: При заповненні кастомного пароля або авто-генерації пароль безпечно шифрується через HashiCorp Vault і зберігається для подальшого інжектирування в K8s Secret під час ініціалізації БД.
+2️⃣ Секція: TARGET HELM CHART REPOSITORY & NAME
+Кнопка 📥 Install Chart / Pull Chart:
+Відповідальний сервіс: helm-deployer
+Ендпоінт: POST /api/v1/helm/pull
+Payload: { "chart_repo_url": "...", "chart_name": "bitnami/postgresql", "chart_version": "15.5.2", "release_name": "my-postgres-db" }
+Що робить: Завантажує (pull) з Helm-репозиторію Bitnami/Helm-Hub та розпаковує структуру чарту на сервері для редагування його файлів.
+3️⃣ Секція: INTERACTIVE HELM CHART YAML EDITOR (VALUES.YAML)
+У цій панелі розміщено 4 ключові кнопки:
+
+Випадаючий список файлів (values.yaml, templates/..., Chart.yaml):
+
+Відповідальний сервіс: helm-deployer
+Ендпоінт: GET /api/v1/helm/file?release_name={name}&file_path={path}
+Що робить: Зчитує вміст обраного конфігураційного файлу з розпакованого Helm-чарту і завантажує його в редактор коду.
+Кнопка 📄 Add Custom File:
+
+Відповідальний сервіс: helm-deployer
+Ендпоінт: POST /api/v1/helm/file/create
+Payload: { "release_name": "my-postgres-db", "file_name": "custom-values.yaml", "content": "..." }
+Що робить: Створює додатковий кастомний custom-values.yaml файл поруч із дефолтним values.yaml.
+Кнопка 💾 Save Chart:
+
+Відповідальний сервіс: helm-deployer
+Ендпоінт: PUT /api/v1/helm/file
+Payload: { "release_name": "my-postgres-db", "file_path": "values.yaml", "content": "..." }
+Що робить: Зберігає внесені зміни у values.yaml (або в будь-який інший обраний файл чарту) перед розгортанням.
+Кнопка 🔄 Upgrade Chart:
+
+Відповідальний сервіс: db-provisioning-service ➔ helm-deployer
+Ендпоінт: PUT /api/v1/provisioning/{id}/config (або безпосередньо POST /api/v1/helm/apply)
+Payload: { "cluster_id": "...", "namespace": "databases", "values_yaml": "..." }
+Що робить: Для вже розгорнутого екземпляра викликає helm upgrade, прикладаючи новий values.yaml без перестворення StatefulSet.

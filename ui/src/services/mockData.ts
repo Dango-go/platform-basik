@@ -209,53 +209,7 @@ export const CATALOG_ITEMS: DatabaseCatalogItem[] = [
   }
 ];
 
-export const INITIAL_DEPLOYED_DBS: DeployedDatabase[] = [
-  {
-    id: 'db-1',
-    name: 'prod-postgres-main',
-    engine_type: 'postgresql',
-    version: '16',
-    status: 'running',
-    cluster_name: 'lenovo-prod-k8s',
-    namespace: 'databases',
-    cpu_usage_m: 450,
-    memory_usage_mb: 3200,
-    storage_gb: 50,
-    monthly_cost: 64.50,
-    created_at: '2026-08-10 10:15',
-    values_yaml: `primary:\n  extendedConfiguration: |\n    max_connections = 250\n    shared_buffers = 2GB\n  resources:\n    requests:\n      cpu: 1000m\n      memory: 4Gi\n  persistence:\n    size: 50Gi`
-  },
-  {
-    id: 'db-2',
-    name: 'redis-session-cache',
-    engine_type: 'redis',
-    version: '7.2',
-    status: 'running',
-    cluster_name: 'aws-eks-us-east',
-    namespace: 'cache',
-    cpu_usage_m: 120,
-    memory_usage_mb: 1400,
-    storage_gb: 15,
-    monthly_cost: 28.10,
-    created_at: '2026-08-12 14:30',
-    values_yaml: `master:\n  configuration: |\n    maxmemory-policy allkeys-lru\n  resources:\n    requests:\n      cpu: 500m\n      memory: 2Gi\n  persistence:\n    size: 15Gi`
-  },
-  {
-    id: 'db-3',
-    name: 'clickhouse-analytics-v1',
-    engine_type: 'clickhouse',
-    version: '24.1',
-    status: 'running',
-    cluster_name: 'lenovo-prod-k8s',
-    namespace: 'analytics',
-    cpu_usage_m: 1850,
-    memory_usage_mb: 7800,
-    storage_gb: 250,
-    monthly_cost: 182.00,
-    created_at: '2026-08-14 09:00',
-    values_yaml: `clickhouse:\n  profiles:\n    default/max_threads: "8"\n  resources:\n    requests:\n      cpu: 4000m\n      memory: 16Gi\n  persistence:\n    size: 250Gi`
-  }
-];
+export const INITIAL_DEPLOYED_DBS: DeployedDatabase[] = [];
 
 export const CLOUD_CREDENTIALS: CloudCredential[] = [];
 

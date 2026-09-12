@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 export const MonitoringPage: React.FC = () => {
-  const [selectedDbId, setSelectedDbId] = useState(INITIAL_DEPLOYED_DBS[0].id);
+  const [selectedDbId, setSelectedDbId] = useState(INITIAL_DEPLOYED_DBS[0]?.id || '');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
   // 3 Search Modes: 'menu' | 'filters' | 'name_db' | 'name_cluster'
@@ -38,7 +38,7 @@ export const MonitoringPage: React.FC = () => {
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const selectedDb = INITIAL_DEPLOYED_DBS.find((db) => db.id === selectedDbId) || INITIAL_DEPLOYED_DBS[0];
+  const selectedDb = INITIAL_DEPLOYED_DBS.find((db) => db.id === selectedDbId) || INITIAL_DEPLOYED_DBS[0] || null;
   const metrics = METRICS_SAMPLE;
 
   // Click outside listener to close dropdown
