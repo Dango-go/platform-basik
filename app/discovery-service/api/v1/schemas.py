@@ -8,7 +8,7 @@ from datetime import datetime
 class DiscoveryRequest(BaseModel):
     user_id: int = Field(1, description="User ID")
     alias: str = Field(..., description="Connected cloud provider alias")
-    provider_type: Optional[str] = Field(..., description="Cloud provider type: aws, gcp, digitalocean")
+    provider_type: Optional[str] = Field(None, description="Cloud provider type: aws, gcp, digitalocean")
     region: Optional[str] = Field(None, description="Region for scanning")
 
 
@@ -23,7 +23,7 @@ class ClusterResponse(BaseModel):
     k8s_version: Optional[str] = None
     status: str
     endpoint: Optional[str] = None
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

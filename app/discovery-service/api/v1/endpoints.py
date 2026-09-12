@@ -19,6 +19,8 @@ async def discover_clusters(
         return clusters #-> dict with data for each cluster
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Discovery failed: {str(e)}")
 
 
 @router.get("/clusters/{user_id}", response_model=List[ClusterResponse])

@@ -7,9 +7,11 @@ from botocore.exceptions import ClientError
 
 class AWSClusterScanner(BaseClusterScanner):
     async def scan_clusters(self, credentials: Dict[str, Any], region: str = None) -> List[Dict[str, Any]]:
-        access_key = credentials.get("aws_access_key_id")
-        secret_key = credentials.get("aws_secret_access_key")
-        target_region = region or credentials.get("aws_region", "us-east-1")
+        access_key = credentials.get("aws_access_key_id") or credentials.get("access_key_id") or credentials.get("access_key")
+        secret_key = credentials.get("aws_secret_access_key") or credentials.get("secret_access_key") or credentials.get("secret_key")
+
+        cred_region = credentials.get("aws_region") or credentials.get("region")
+        target_region = (region if region and str(region).strip() else None) or (cred_region if cred_region and str(cred_region).strip() else None) or "us-east-1"
 
         session = aioboto3.Session(
             aws_access_key_id=access_key,
@@ -35,7 +37,7 @@ class AWSClusterScanner(BaseClusterScanner):
                         "endpoint": c_data.get("endpoint"),
                         "raw": clean_raw
                     })
-        except ClientError as e:
-            raise RuntimeError(f"AWS EKS discovery error: {str(e)}")
+        except Exception as e:
+            raise RuntimeError(f"AWS EKS discovery error in region '{target_region}': {str(e)}")
 
         return clusters_data
