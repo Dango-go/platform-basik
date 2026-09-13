@@ -117,3 +117,5 @@ Payload: { "release_name": "my-postgres-db", "file_path": "values.yaml", "conten
 Ендпоінт: PUT /api/v1/provisioning/{id}/config (або безпосередньо POST /api/v1/helm/apply)
 Payload: { "cluster_id": "...", "namespace": "databases", "values_yaml": "..." }
 Що робить: Для вже розгорнутого екземпляра викликає helm upgrade, прикладаючи новий values.yaml без перестворення StatefulSet.
+
+

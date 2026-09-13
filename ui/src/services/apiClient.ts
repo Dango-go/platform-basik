@@ -173,6 +173,42 @@ class ApiClient {
     return await res.json();
   }
 
+  async getHelmFile(releaseName: string, filePath: string): Promise<string> {
+    const token = localStorage.getItem('access_token');
+    const res = await fetch(`/api/v1/helm/file?release_name=${encodeURIComponent(releaseName)}&file_path=${encodeURIComponent(filePath)}`, {
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Failed to fetch file (${res.status})`);
+    }
+    const data = await res.json();
+    return data.content || '';
+  }
+
+  async saveHelmFile(releaseName: string, filePath: string, content: string): Promise<any> {
+    const token = localStorage.getItem('access_token');
+    const res = await fetch('/api/v1/helm/file', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        release_name: releaseName,
+        file_path: filePath,
+        content: content
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Failed to save file (${res.status})`);
+    }
+    return await res.json();
+  }
+
   async applyHelmRelease(payload: { cluster_name: string; release_name: string; chart_name: string; namespace?: string; target_values_file?: string }): Promise<any> {
     const token = localStorage.getItem('access_token');
     const res = await fetch('/api/v1/helm/apply', {

@@ -217,8 +217,18 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
     setNewCustomFileName('');
   };
 
-  const handleSelectHelmFile = (filePath: string) => {
+  const handleSelectHelmFile = async (filePath: string) => {
     setSelectedHelmFile(filePath);
+    try {
+      const realContent = await apiClient.getHelmFile(dbName, filePath);
+      if (realContent) {
+        setYamlContent(realContent);
+        return;
+      }
+    } catch (err) {
+      console.warn('Backend file not found, falling back to local template:', err);
+    }
+
     const chartFiles = HELM_CHART_FILES[selectedEngine.engine_type] || HELM_CHART_FILES['postgresql'];
     const allFiles = [...chartFiles, ...userCustomFiles];
     const found = allFiles.find((f) => f.path === filePath);
@@ -227,9 +237,15 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
     }
   };
 
-  const handleSaveChart = () => {
-    setSaveSuccessMsg(true);
-    setTimeout(() => setSaveSuccessMsg(false), 3000);
+  const handleSaveChart = async () => {
+    try {
+      await apiClient.saveHelmFile(dbName, selectedHelmFile || 'values.yaml', yamlContent);
+      setSaveSuccessMsg(true);
+      setTimeout(() => setSaveSuccessMsg(false), 3000);
+    } catch (err: any) {
+      setHelmActionStatus(`⚠️ Save error: ${err.message || 'Failed to save file'}`);
+      setTimeout(() => setHelmActionStatus(''), 5000);
+    }
   };
 
   const handleExecuteHelmAction = async (action: 'install' | 'upgrade') => {
@@ -248,6 +264,16 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
           chart_version: helmChartVersionInput.trim() || '15.5.2',
           release_name: dbName
         });
+
+        // Automatically fetch real unpacked file from backend after pulling
+        try {
+          const fetchedContent = await apiClient.getHelmFile(dbName, selectedHelmFile || 'values.yaml');
+          if (fetchedContent) {
+            setYamlContent(fetchedContent);
+          }
+        } catch (e) {
+          console.warn('Could not auto-fetch pulled chart file:', e);
+        }
       } else {
         await apiClient.applyHelmRelease({
           cluster_name: selectedCluster || 'default-prod',
@@ -689,14 +715,23 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
                 </div>
 
                 {/* Install Chart Action Button */}
-                <div className="flex items-center gap-2 pt-2 sm:pt-0 shrink-0">
+                <div className="flex items-center gap-2 pt-2 sm:pt-0 shrink-0 relative group">
                   <button
                     onClick={() => handleExecuteHelmAction('install')}
                     disabled={isExecutingHelmAction}
-                    className="bg-brand-blue hover:bg-brand-blue/90 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-md shadow-brand-blue/30 flex items-center gap-1.5 transition-all"
+                    title="Re-downloading a chart with the same name and version will completely overwrite all existing files and reset previous custom changes."
+                    className="bg-brand-blue hover:bg-brand-blue/90 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-md shadow-brand-blue/30 flex items-center gap-1.5 transition-all cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5 fill-white" /> Install Chart
                   </button>
+
+                  {/* Hover Tooltip Warning */}
+                  <div className="absolute right-0 bottom-full mb-2.5 hidden group-hover:block w-72 p-2.5 bg-slate-900/95 border border-amber-500/40 text-slate-200 text-[11px] rounded-xl shadow-2xl backdrop-blur-md z-30 pointer-events-none transition-all animate-fadeIn leading-relaxed">
+                    <div className="font-bold text-amber-400 mb-1 flex items-center gap-1">
+                      <span>⚠️ Overwrite Warning</span>
+                    </div>
+                    Re-downloading a chart with the same name and version will completely overwrite all existing files and reset previous custom changes.
+                  </div>
                 </div>
               </div>
 
