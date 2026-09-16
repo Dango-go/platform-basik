@@ -19,16 +19,19 @@ class KubeconfigBuilder:
         user_name: str = "cluster-admin",
         namespace: str = "default"
     ) -> str: 
+        cluster_dict: Dict[str, Any] = {"server": api_server_url}
+        if ca_cert_data and ca_cert_data.strip():
+            cluster_dict["certificate-authority-data"] = ca_cert_data.strip()
+        else:
+            cluster_dict["insecure-skip-tls-verify"] = True
+
         config: Dict[str, Any] = {
             "apiVersion": "v1",
             "kind": "Config",
             "clusters": [
                 {
                     "name": cluster_name,
-                    "cluster": {
-                        "server": api_server_url,
-                        "certificate-authority-data": ca_cert_data
-                    }
+                    "cluster": cluster_dict
                 }
             ],
             "users": [
