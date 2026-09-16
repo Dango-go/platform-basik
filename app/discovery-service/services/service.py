@@ -3,7 +3,7 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from models.db_models import ClusterEntity
-from api.v1.schemas import DiscoveryRequest
+from api.v1.schemas import DiscoveryRequest, TokenCreateRequest
 from providers.aws_scanner import AWSClusterScanner
 from providers.gcp_scanner import GCPClusterScanner
 from providers.digitalocean_scanner import DigitalOceanClusterScanner
@@ -116,3 +116,45 @@ class ClusterScannerService:
             select(ClusterEntity).where(ClusterEntity.user_id == user_id)
         )
         return result.scalars().all()
+
+    
+    async def create_access_token(self,  request: TokenCreateRequest):
+
+        # type of cloud
+        official_provider_type = await self.fetch_provider_type(request.alias, request.user_id)
+        provider_type = (official_provider_type or "").strip().lower()
+        if not provider_type:
+            raise ValueError(f"No valid provider found for alias '{request.alias}'. Please re-add credentials.")
+
+        # creds from cloud
+        creds = await self.fetch_credentials_from_provider_service(request.alias)
+        if not creds:
+            raise ValueError(f"No valid credentials found for alias '{request.alias}'. Please re-add credentials.")
+
+        creater = self.scanners.get(provider_type)
+        token_create = await creater.creation_token(cloud_creds=creds, cluster_name=request.cluster_name)
+
+
+        existing = await self.db.execute(
+            select(ClusterEntity).where(
+                ClusterEntity.user_id == request.user_id,
+                ClusterEntity.cluster_name == request.cluster_name
+            )
+        )
+        entity = existing.scalars().first()
+        if entity:
+            entity.token = token_create
+            await self.db.commit()
+            await self.db.refresh(entity)
+
+        return token_create
+
+
+
+
+
+            
+
+
+            
+        

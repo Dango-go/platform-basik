@@ -27,3 +27,9 @@ class ClusterResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TokenCreateRequest(BaseModel):
+    user_id: int = Field(1, description="User ID")
+    alias: str = Field(..., description="Connected cloud provider alias") # need to generate temp access IAM-token (aws eks get-token).
+    cluster_name: str = Field(..., description="Cluster name")

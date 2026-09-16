@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import db_session
-from api.v1.schemas import DiscoveryRequest, ClusterResponse, TokenCreateResponse
-from services.scanner import ClusterScannerService
+from api.v1.schemas import DiscoveryRequest, TokenCreateRequest, ClusterResponse
+from services.service import ClusterScannerService
 from typing import List
 
 router = APIRouter(prefix="/api/v1/discovery", tags=["discovery"])
@@ -31,9 +31,12 @@ async def get_user_clusters(
     scanner = ClusterScannerService(db=db)
     return await scanner.get_clusters_by_user(user_id)
 
-@router.post("clusters/create_token/{cluster_name}", response_model=List[TokenCreateResponse])
+@router.post("clusters/create_token/{cluster_name}")
 async def create_token_for_cluster(
+    request: TokenCreateRequest,
     db: AsyncSession = Depends(db_session),
-    
 ):
-    pass
+    token_creator = ClusterScannerService(db=db)
+    token = await token_creator.create_access_token(user_id=request.user_id, alias=request.alias, cluster_name=request.cluster_name)
+
+    return {"token": token}
