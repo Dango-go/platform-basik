@@ -11,7 +11,6 @@ from services.external_clients.helm_client import HelmDeployerClient
 from services.external_clients.operator_client import OperatorServiceClient
 from models.db_models import DatabaseInstanceDB
 from services.external_clients.cluster_client import ClusterServiceClient
-from services.external_clients.vault_client import VaultServiceClient
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +28,6 @@ class ProvisioningService:
         self.helm_client = HelmDeployerClient()
         self.operator_client = OperatorServiceClient()
         self.cluster_client = ClusterServiceClient()
-        self.vault_client = VaultServiceClient()
 
     async def get_all_databases(self) -> List[DatabaseInstanceDB]:
         """1. GET /api/v1/provisioning — List active databases."""
@@ -85,8 +83,8 @@ class ProvisioningService:
             disk=disk
         )
 
-        # FETCH DECRYPTED K8S CREDENTIALS FROM VAULT-SERVICE BY cluster_id
-        cluster_creds = await self.vault_client.get_k8s_credentials(db_instance.cluster_id)
+        # FETCH K8S CREDENTIALS FROM CLUSTER-SERVICE BY cluster_id
+        cluster_creds = await self.cluster_client.get_cluster_credentials(db_instance.cluster_id)
 
         # CALL HELM-DEPLOYER WITH UPDATED VALUES.YAML AND DECRYPTED CREDENTIALS
         try:
@@ -130,7 +128,7 @@ class ProvisioningService:
         # Set status to Upgrading
         await self.repo.update_status(db_id, LifecycleStatus.UPGRADING)
 
-        cluster_creds = await self.vault_client.get_k8s_credentials(db_instance.cluster_id)
+        cluster_creds = await self.cluster_client.get_cluster_credentials(db_instance.cluster_id)
 
 
         try:

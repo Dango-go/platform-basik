@@ -1,7 +1,6 @@
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.services.service_client import ServiceClient  
 from app.services.cloud_validator import ValidationFactory
 from app.repository.provider_repository import ProviderRepository
 
@@ -9,10 +8,9 @@ logger = logging.getLogger(__name__)
 
 
 class provider_usecase:
-    def __init__ (self, db_session: AsyncSession, json_data: Dict[str, Any], vault_client: ServiceClient):
+    def __init__ (self, db_session: AsyncSession, json_data: Dict[str, Any], vault_client: Any = None):
         self.db_session = db_session
         self.data = json_data
-        self.vault_client = vault_client
 
         self.user_id: int = int(self.data.get("user_id") or 1)
         self.alias: str = str(self.data.get("alias") or "")
@@ -48,17 +46,12 @@ class provider_usecase:
             logger.error(f"Cloud validation error for '{self.alias}': {e}", exc_info=True)
             return False, f"Cloud validation error: {str(e)}"
 
-        # Request to store credentials in vault-service
-        saver = await self.vault_client.store_creds(self.data)
-        if not saver:
-            logger.error(f"Failed to store credentials in vault-service for alias '{self.alias}'")
-            return False, "Failed to store credentials in vault service"
-
-        # Save or update in provider database
+        # Save or update in provider database directly
         try:
             if existing_provider:
                 existing_provider.provider_type = self.provider_type
                 existing_provider.credentials_status = "active"
+                existing_provider.credentials = self.credentials
                 await self.db_session.commit()
                 await self.db_session.refresh(existing_provider)
                 return True, "Credentials updated successfully"
@@ -68,7 +61,8 @@ class provider_usecase:
                     user_id = self.user_id,
                     alias = self.alias,
                     provider_type = self.provider_type,
-                    credentials_status = "active"
+                    credentials_status = "active",
+                    credentials = self.credentials
                 )
 
                 if not provider:
@@ -80,14 +74,20 @@ class provider_usecase:
             return False, f"Database error: {str(e)}"
 
         
-    # get provider credentials from vault-service by alias for another services
+    # get provider credentials directly from DB by alias
     async def get_provider_credentials(self) -> Optional[Dict[str, Any]]:
-        if not self.data:
+        if not self.alias:
             return None
         
         try:
-            credentials = await self.vault_client.get_creds(alias = self.alias)
-            return credentials
+            provider = await ProviderRepository.check(
+                db = self.db_session,
+                user_id = self.user_id,
+                alias = self.alias
+            )
+            if provider and provider.credentials:
+                return provider.credentials
+            return None
 
         except Exception as e:
             logger.error(f"Error getting credentials for '{self.alias}': {e}")
@@ -121,15 +121,7 @@ class provider_usecase:
                 user_id = self.user_id,
                 alias = self.alias
             )
-            if not deleted:
-                return False
-
-            # Delete from vault-service
-            deleted_from_vault = await self.vault_client.delete_creds(alias = self.alias)
-            if not deleted_from_vault:
-                return False
-
-            return True
+            return deleted
 
         except Exception as e:
             logger.error(f"Error deleting provider '{self.alias}': {e}")

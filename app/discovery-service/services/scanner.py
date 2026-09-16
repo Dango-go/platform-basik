@@ -35,9 +35,9 @@ class ClusterScannerService:
                 pass
         return None
 
-    # def for get creds from vault service 
-    async def fetch_credentials_from_vault(self, alias: str) -> Dict[str, Any]:
-        url = f"{settings.VAULT_SERVICE_URL}/api/v1/cloud-sa-creds/{alias}"
+    # def for get creds directly from provider service
+    async def fetch_credentials_from_provider_service(self, alias: str) -> Dict[str, Any]:
+        url = f"{settings.PROVIDER_SERVICE_URL}/api/v1/provider/credentials/{alias}"
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.get(url, timeout=5.0)
@@ -58,10 +58,10 @@ class ClusterScannerService:
         if not scanner:
             raise ValueError(f"Unsupported provider: {provider_type}")
 
-        # get credentials from vault service
-        creds = await self.fetch_credentials_from_vault(request.alias)
+        # get credentials directly from provider service
+        creds = await self.fetch_credentials_from_provider_service(request.alias)
         if not creds:
-            raise ValueError(f"No valid credentials found for alias '{request.alias}' in Vault. Please re-add credentials.")
+            raise ValueError(f"No valid credentials found for alias '{request.alias}'. Please re-add credentials.")
 
         # SCANNING clusters with creds and region
         try:

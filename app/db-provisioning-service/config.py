@@ -17,7 +17,6 @@ class Settings(BaseSettings):
     )
     HELM_DEPLOYER_URL: str = os.getenv("HELM_DEPLOYER_URL", "http://helm-deployer:8001")
     OPERATOR_SERVICE_URL: str = os.getenv("OPERATOR_SERVICE_URL", "http://operator-service:8001")
-    VAULT_SERVICE_URL: str = os.getenv("VAULT_SERVICE_URL", "http://vault-service:8001")
     DB_ECHO: bool = False
 
     class Config:

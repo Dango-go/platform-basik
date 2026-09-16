@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from app.core.db import Base
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, JSON
 
 
 
@@ -11,4 +11,6 @@ class Provider_DB(Base):
     alias = Column(String, nullable=False)
     provider_type = Column(String, nullable=False)
     credentials_status = Column(String, nullable=False)
+    credentials = Column(JSON, nullable=True)
+
     

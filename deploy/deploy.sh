@@ -44,7 +44,6 @@ CREATE DATABASE catalog_db;
 CREATE DATABASE provider_db;
 CREATE DATABASE provisioning_db;
 CREATE DATABASE discovery_db;
-CREATE DATABASE vault_db;
 CREATE DATABASE info_db;
 CREATE DATABASE cost_db;
 
@@ -53,7 +52,6 @@ CREATE USER catalog WITH ENCRYPTED PASSWORD 'catalog';
 CREATE USER provider WITH ENCRYPTED PASSWORD 'provider';
 CREATE USER provisioning WITH ENCRYPTED PASSWORD 'provisioning';
 CREATE USER discovery WITH ENCRYPTED PASSWORD 'discovery';
-CREATE USER vault WITH ENCRYPTED PASSWORD 'vault';  
 CREATE USER info WITH ENCRYPTED PASSWORD 'info';
 CREATE USER cost WITH ENCRYPTED PASSWORD 'cost';
 
@@ -63,7 +61,6 @@ GRANT ALL PRIVILEGES ON DATABASE catalog_db TO catalog;
 GRANT ALL PRIVILEGES ON DATABASE provider_db TO provider;
 GRANT ALL PRIVILEGES ON DATABASE provisioning_db TO provisioning;
 GRANT ALL PRIVILEGES ON DATABASE discovery_db TO discovery;
-GRANT ALL PRIVILEGES ON DATABASE vault_db TO vault;
 GRANT ALL PRIVILEGES ON DATABASE info_db TO info;
 GRANT ALL PRIVILEGES ON DATABASE cost_db TO cost;
 
@@ -86,10 +83,6 @@ GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO provisioning;
 \c discovery_db
 GRANT ALL ON SCHEMA public TO discovery;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO discovery;
-
-\c vault_db
-GRANT ALL ON SCHEMA public TO vault;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO vault;
 
 \c info_db
 GRANT ALL ON SCHEMA public TO info;
@@ -132,28 +125,7 @@ services:
       vault-client:
         condition: service_started
 
-  vault-service:
-    image: ${DOCKERHUB_USERNAME}/vault-service:latest
-    container_name: idp-vault-service
-    restart: unless-stopped
-    ports:
-      - "8000:8001"
-    environment:
-      - PORT=8001
-      - DATABASE_URL=postgresql+asyncpg://admin:vault@postgres:5432/vault_db
-      - VAULT_MASTER_KEY=${VAULT_MASTER_KEY:-idp_transit_master_encryption_key_2026}
-    depends_on:
-      postgres:
-        condition: service_started
-      vault-client:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-    networks:
-      - idp-network
+
 
   auth-service:
     image: ${DOCKERHUB_USERNAME}/auth-service:latest
@@ -316,31 +288,31 @@ services:
     networks:
       - idp-network
 
-  vault-client:
-    image: hashicorp/vault:1.13.3
-    container_name: idp-vault-client
-    restart: unless-stopped
-    ports:
-      - "8200:8200"
-    volumes:
-      - /mnt/data/vault_data:/vault/main_file
-      - ./vault/vault.hcl:/vault/vault.hcl
-    command: "server -config=/vault/vault.hcl"
-    cap_add:
-      - IPC_LOCK
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8200/v1/sys/health"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-    networks:
-      - idp-network
+  #vault-client:
+    #image: hashicorp/vault:1.13.3
+    #container_name: idp-vault-client
+    #restart: unless-stopped
+    #ports:
+      #- "8200:8200"
+    #volumes:
+      #- /mnt/data/vault_data:/vault/main_file
+      #- ./vault/vault.hcl:/vault/vault.hcl
+    #command: "server -config=/vault/vault.hcl"
+    #cap_add:
+      #- IPC_LOCK
+    #healthcheck:
+      #test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8200/v1/sys/health"]
+      #interval: 5s
+      #timeout: 3s
+      #retries: 10
+    #networks:
+      #- idp-network
 
 volumes:
   postgres_data:
     driver: local
-  vault_data:
-    driver: local
+  #vault_data:
+    #driver: local
 
 networks:
   idp-network:
@@ -350,70 +322,68 @@ EOF
 
 
 echo "🚀 Start Docker Compose..."
+docker compose pull
+
 docker compose up -d
 
 
-echo "⏳ Waiting for Vault to start on http://127.0.0.1:8200..."
-until curl -s http://127.0.0.1:8200/v1/sys/health > /dev/null; do
-    sleep 1
-done
+#echo "⏳ Waiting for Vault to start on http://127.0.0.1:8200..."
+#until curl -s http://127.0.0.1:8200/v1/sys/health > /dev/null; do
+#    sleep 1
+#done
 
-echo "🔍 Checking if Vault is initialized..."
+#echo "🔍 Checking if Vault is initialized..."
 # check init on /v1/sys/init
-INIT_RESPONSE=$(curl -s http://127.0.0.1:8200/v1/sys/init)
-IS_INIT=$(echo "$INIT_RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin).get('initialized', False))")
+#INIT_RESPONSE=$(curl -s http://127.0.0.1:8200/v1/sys/init)
+#IS_INIT=$(echo "$INIT_RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin).get('initialized', False))")
 
 # init vault and save keys
-if [ "$IS_INIT" = "False" ]; then
-    echo "⚙️ Initializing Vault..."
-    INIT_RES=$(curl -s -X POST http://127.0.0.1:8200/v1/sys/init \
-      -H "Content-Type: application/json" \
-      -d '{"secret_shares": 1, "secret_threshold": 1}')
+#if [ "$IS_INIT" = "False" ]; then
+    #echo "⚙️ Initializing Vault..."
+    #INIT_RES=$(curl -s -X POST http://127.0.0.1:8200/v1/sys/init \
+      #-H "Content-Type: application/json" \
+      #-d '{"secret_shares": 1, "secret_threshold": 1}')
     
-    echo "$INIT_RES" > /mnt/data/vault_data/init-keys.json
+    #echo "$INIT_RES" > /mnt/data/vault_data/init-keys.json
 
-    UNSEAL_KEY=$(echo "$INIT_RES" | python3 -c "import sys, json; print(json.load(sys.stdin)['keys_base64'][0])")
-    ROOT_TOKEN=$(echo "$INIT_RES" | python3 -c "import sys, json; print(json.load(sys.stdin)['root_token'])")
+    #UNSEAL_KEY=$(echo "$INIT_RES" | python3 -c "import sys, json; print(json.load(sys.stdin)['keys_base64'][0])")
+    #ROOT_TOKEN=$(echo "$INIT_RES" | python3 -c "import sys, json; print(json.load(sys.stdin)['root_token'])")
 
     # unseal vault
-    echo "🔓 Unsealing Vault..."
-    curl -s -X POST http://127.0.0.1:8200/v1/sys/unseal \
-      -H "Content-Type: application/json" \
-      -d "{\"key\": \"$UNSEAL_KEY\"}" > /dev/null
+    #echo "🔓 Unsealing Vault..."
+    #curl -s -X POST http://127.0.0.1:8200/v1/sys/unseal \
+      #-H "Content-Type: application/json" \
+      #-d "{\"key\": \"$UNSEAL_KEY\"}" > /dev/null
 
-    echo "🔑 Enabling Transit secrets engine..."
-    curl -s -X POST http://127.0.0.1:8200/v1/sys/mounts/transit \
-      -H "Content-Type: application/json" \
-      -H "X-Vault-Token: $ROOT_TOKEN" \
-      -d '{"type": "transit"}' > /dev/null
+    #echo "🔑 Enabling Transit secrets engine..."
+    #curl -s -X POST http://127.0.0.1:8200/v1/sys/mounts/transit \
+      #-H "Content-Type: application/json" \
+      #-H "X-Vault-Token: $ROOT_TOKEN" \
+      #-d '{"type": "transit"}' > /dev/null
 
-    echo "📦 Creating 'cloud-keys' encryption key..."
-    curl -s -X POST http://127.0.0.1:8200/v1/transit/keys/cloud-keys \
-      -H "Content-Type: application/json" \
-      -H "X-Vault-Token: $ROOT_TOKEN" \
-      -d '{}' > /dev/null
+   # echo "📦 Creating 'cloud-keys' encryption key..."
+    #curl -s -X POST http://127.0.0.1:8200/v1/transit/keys/cloud-keys \
+      #-H "Content-Type: application/json" \
+      #-H "X-Vault-Token: $ROOT_TOKEN" \
+      #-d '{}' > /dev/null
 
   # custom token for vault service
-    echo "🔑 Creating custom token for services..."
-    curl -s -X POST http://127.0.0.1:8200/v1/auth/token/create \
-      -H "Content-Type: application/json" \
-      -H "X-Vault-Token: $ROOT_TOKEN" \
-      -d '{"id": "personal-hvactoken-051", "policies": ["root"]}' > /dev/null
+    #echo "🔑 Creating custom token for services..."
+    #curl -s -X POST http://127.0.0.1:8200/v1/auth/token/create \
+     # -H "Content-Type: application/json" \
+     # -H "X-Vault-Token: $ROOT_TOKEN" \
+     # -d '{"id": "personal-hvactoken-051", "policies": ["root"]}' > /dev/null
 
-    echo "✅ Vault successfully initialized and configured!"
-else
-    echo "ℹ️ Vault is already initialized. Unsealing..."
-    if [ -f "/mnt/data/vault_data/init-keys.json" ]; then
-        UNSEAL_KEY=$(python3 -c "import json; data = json.load(open('/mnt/data/vault_data/init-keys.json')); print(data['keys_base64'][0])")
-        curl -s -X POST http://127.0.0.1:8200/v1/sys/unseal \
-          -H "Content-Type: application/json" \
-          -d "{\"key\": \"$UNSEAL_KEY\"}" > /dev/null
-        echo "✅ Vault unsealed successfully!"
-    fi
-fi
+   # echo "✅ Vault successfully initialized and configured!"
+#else
+    #echo "ℹ️ Vault is already initialized. Unsealing..."
+    #if [ -f "/mnt/data/vault_data/init-keys.json" ]; then
+        #UNSEAL_KEY=$(python3 -c "import json; data = json.load(open('/mnt/data/vault_data/init-keys.json')); print(data['keys_base64'][0])")
+        #curl -s -X POST http://127.0.0.1:8200/v1/sys/unseal \
+          #-H "Content-Type: application/json" \
+          #-d "{\"key\": \"$UNSEAL_KEY\"}" > /dev/null
+        #echo "✅ Vault unsealed successfully!"
+    #fi
+#fi
 
 echo "✅ System is fully deployed and initialized!"
-
-
-
-echo "✅ System is deploying and initializing..."

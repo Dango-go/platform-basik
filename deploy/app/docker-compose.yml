@@ -22,34 +22,6 @@ services:
       retries: 5
     networks:
       - idp-network
-    depends_on:
-      vault-client:
-        condition: service_started
-
-
-
-  vault-service:
-    image: ${DOCKERHUB_USERNAME}/vault-service:latest
-    container_name: idp-vault-service
-    restart: unless-stopped
-    ports:
-      - "8000:8001"
-    environment:
-      - PORT=8001
-      - DATABASE_URL=postgresql+asyncpg://admin:vault@postgres:5432/vault_storage
-      - VAULT_MASTER_KEY=${VAULT_MASTER_KEY:-idp_transit_master_encryption_key_2026}
-    depends_on:
-      postgres:
-        condition: service_started
-      vault-client:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-    networks:
-      - idp-network
 
   auth-service:
     image: ${DOCKERHUB_USERNAME}/auth-service:latest
@@ -59,10 +31,6 @@ services:
       - "8001:8001"
     depends_on:
       postgres:
-        condition: service_started
-      vault-client:
-        condition: service_started
-      vault-service:
         condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
@@ -80,10 +48,6 @@ services:
       - "8002:8001"
     depends_on:
       postgres:
-        condition: service_started
-      vault-client:
-        condition: service_started
-      vault-service:
         condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
@@ -116,10 +80,6 @@ services:
       - "8004:8001"
     depends_on:
       postgres:
-        condition: service_started
-      vault-client:
-        condition: service_started
-      vault-service:
         condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
@@ -186,10 +146,6 @@ services:
     depends_on:
       postgres:
         condition: service_started
-      vault-client:
-        condition: service_started
-      vault-service:
-        condition: service_started
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
@@ -215,31 +171,9 @@ services:
     networks:
       - idp-network
 
-  vault-client:
-    image: hashicorp/vault:1.13.3
-    container_name: idp-vault-client
-    restart: unless-stopped
-    command: "server -config=/vault/config/vault.hcl"
-    entrypoint: ["/bin/sh", "/vault/entrypoint.sh"]
-    ports:
-      - "8200:8200"
-    volumes:
-      - /mnt/data/vault_data:/vault/main_file
-      - ./vault/entrypoint.sh:/vault/entrypoint.sh
-      - ./vault/vault.hcl:/vault/config/vault.hcl
-    cap_add:
-      - IPC_LOCK
-    networks:
-      - idp-network
-
-
 volumes:
   postgres_data:
     driver: local
-  vault_data:
-    driver: local
-
-
 
 networks:
   idp-network:

@@ -2,21 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.api.v1.schemas import ProviderRequest
 from app.core.db import db_session
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.services.provider_usecase import provider_usecase
-from app.services.service_client import ServiceClient
-import os
-
-
 from app.repository.provider_repository import ProviderRepository
 
 
 router = APIRouter(prefix="/api/v1/provider", tags=["provider"])
-
-def get_vault_env() -> ServiceClient:
-    return ServiceClient(
-        url = os.getenv("VAULT_SERVICE_URL", "http://vault-service:8001"),
-        apikey = os.getenv("VAULT_API_KEY", "default_api_key")
-    )
 
 
 
@@ -28,8 +17,8 @@ async def health_check() -> dict[str, str]:
 @router.post("/")
 @router.post("/provider")
 @router.post("/credentials")
-async def check_validate(json_data: ProviderRequest, db_session: AsyncSession = Depends(db_session), vault_client: ServiceClient = Depends(get_vault_env)):
-    resulter = provider_usecase(db_session=db_session, json_data=json_data.model_dump(), vault_client=vault_client)
+async def check_validate(json_data: ProviderRequest, db_session: AsyncSession = Depends(db_session)):
+    resulter = provider_usecase(db_session=db_session, json_data=json_data.model_dump())
 
     action_add, detail_msg = await resulter.add_provider_creds()
 
@@ -56,7 +45,7 @@ async def list_user_credentials(
         for p in providers
     ]
 
-# request from discovery-service to get provider_type
+# request from discovery-service to get provider_type and credentials
 @router.get("/credentials/{alias}")
 async def get_provider_credential_info(
     alias: str,
@@ -71,18 +60,18 @@ async def get_provider_credential_info(
         "user_id": provider.user_id,
         "alias": provider.alias,
         "provider_type": provider.provider_type,
-        "credentials_status": provider.credentials_status
+        "credentials_status": provider.credentials_status,
+        "credentials": provider.credentials or {}
     }
 
 @router.delete("/credentials/{alias}")
 async def delete_credential(
     alias: str,
     user_id: int = 1,
-    db_session: AsyncSession = Depends(db_session),
-    vault_client: ServiceClient = Depends(get_vault_env)
+    db_session: AsyncSession = Depends(db_session)
 ):
     json_data = {"user_id": user_id, "alias": alias}
-    resulter = provider_usecase(db_session=db_session, json_data=json_data, vault_client=vault_client)
+    resulter = provider_usecase(db_session=db_session, json_data=json_data)
     deleted = await resulter.delete_provider()
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Credential '{alias}' not found or failed to delete")
