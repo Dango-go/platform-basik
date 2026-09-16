@@ -28,7 +28,9 @@ import {
   Lock,
   X,
   FileText,
-  Tag
+  Tag,
+  AlertTriangle,
+  AlertCircle
 } from 'lucide-react';
 
 interface CreateDatabaseWizardPageProps {
@@ -163,9 +165,11 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
   // 2 INSTALLATION MODES: 'helm' (Helm values.yaml) or 'crd' (Operator Service CRD Manifest)
   const [installMode, setInstallMode] = useState<'helm' | 'crd'>('helm');
 
-  // Selected File inside Helm Chart & Load state
+  // Selected File inside Helm Chart & Load/Installed state
   const [selectedHelmFile, setSelectedHelmFile] = useState<string>('');
   const [isChartLoaded, setIsChartLoaded] = useState<boolean>(false);
+  const [isChartInstalled, setIsChartInstalled] = useState<boolean>(false);
+  const [deployErrorMsg, setDeployErrorMsg] = useState<string | null>(null);
 
   const generateRandomPassword = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=';
@@ -265,6 +269,7 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
         });
 
         setIsChartLoaded(true);
+        setIsChartInstalled(true);
         const targetFile = selectedHelmFile || 'values.yaml';
         setSelectedHelmFile(targetFile);
 
@@ -341,6 +346,9 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
       setDbName(`my-${found.engine_type}-db`);
       setHelmChartNameInput(`bitnami/${found.engine_type}`);
       setHelmChartVersionInput(found.versions[0] || '15.5.2');
+      setIsChartInstalled(false);
+      setIsChartLoaded(false);
+      setYamlContent('');
       if (DEFAULT_CRD_MANIFESTS[found.engine_type]) {
         setCrdManifestContent(DEFAULT_CRD_MANIFESTS[found.engine_type]);
       }
@@ -349,6 +357,7 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
 
   const handleDeploy = async () => {
     setIsDeploying(true);
+    setDeployErrorMsg(null);
     setHelmActionStatus('');
     try {
       let cpuM = (parseInt(customCpu, 10) || 2) * 1000;
@@ -362,14 +371,14 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
           resource_name: dbName,
           target_namespace: 'databases',
           content: crdManifestContent
-        }).catch((e) => console.warn('Operator manifest trigger warning:', e));
+        });
       } else {
         await apiClient.applyHelmRelease({
           cluster_name: targetClusterName,
           release_name: dbName,
           chart_name: selectedEngine.engine_type,
           namespace: 'databases'
-        }).catch((e) => console.warn('Helm release trigger warning:', e));
+        });
       }
 
       await apiClient.deployDatabase({
@@ -387,7 +396,9 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
 
       onSuccess();
     } catch (err: any) {
-      alert(`Deployment failed: ${err.message || 'Error occurred during provisioning'}`);
+      const errMsg = err?.message || 'Error occurred during provisioning deployment';
+      setDeployErrorMsg(errMsg);
+      throw err;
     } finally {
       setIsDeploying(false);
     }
@@ -712,7 +723,10 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
                     <input
                       type="text"
                       value={helmChartVersionInput}
-                      onChange={(e) => setHelmChartVersionInput(e.target.value)}
+                      onChange={(e) => {
+                        setHelmChartVersionInput(e.target.value);
+                        setIsChartInstalled(false);
+                      }}
                       placeholder="e.g., 15.5.2"
                       className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs font-mono rounded-lg px-3.5 py-2 focus:outline-none focus:ring-1 focus:ring-brand-sky font-semibold"
                     />
@@ -721,14 +735,25 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
 
                 {/* Install Chart Action Button */}
                 <div className="flex items-center gap-2 pt-2 sm:pt-0 shrink-0 relative group">
-                  <button
-                    onClick={() => handleExecuteHelmAction('install')}
-                    disabled={isExecutingHelmAction}
-                    title="Re-downloading a chart with the same name and version will completely overwrite all existing files and reset previous custom changes."
-                    className="bg-brand-blue hover:bg-brand-blue/90 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-md shadow-brand-blue/30 flex items-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    <Download className="w-3.5 h-3.5 fill-white" /> Install Chart
-                  </button>
+                  {isChartInstalled ? (
+                    <button
+                      onClick={() => handleExecuteHelmAction('install')}
+                      disabled={isExecutingHelmAction}
+                      title="Re-downloading a chart with the same name and version will completely overwrite all existing files and reset previous custom changes."
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-md shadow-emerald-600/30 flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-white fill-emerald-600" /> Chart Installed
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleExecuteHelmAction('install')}
+                      disabled={isExecutingHelmAction}
+                      title="Re-downloading a chart with the same name and version will completely overwrite all existing files and reset previous custom changes."
+                      className="bg-brand-blue hover:bg-brand-blue/90 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-md shadow-brand-blue/30 flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5 fill-white" /> Install Chart
+                    </button>
+                  )}
 
                   {/* Hover Tooltip Warning */}
                   <div className="absolute right-0 bottom-full mb-2.5 hidden group-hover:block w-72 p-2.5 bg-slate-900/95 border border-amber-500/40 text-slate-200 text-[11px] rounded-xl shadow-2xl backdrop-blur-md z-30 pointer-events-none transition-all animate-fadeIn leading-relaxed">
@@ -764,17 +789,10 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
                     onChange={(e) => handleSelectHelmFile(e.target.value)}
                     className="bg-transparent text-slate-200 text-xs font-mono font-semibold focus:outline-none cursor-pointer"
                   >
-                    {!isChartLoaded && userCustomFiles.length === 0 ? (
-                      <option value="" className="bg-bg-card text-slate-500 font-normal">-- No Chart Loaded --</option>
+                    {userCustomFiles.length === 0 ? (
+                      <option value="" className="bg-bg-card text-slate-500 font-normal">-- No Custom Files (Click Add Custom File) --</option>
                     ) : (
-                      <>
-                        <option value="" className="bg-bg-card text-slate-400">-- Select File from Helm Chart --</option>
-                        {(HELM_CHART_FILES[selectedEngine.engine_type] || HELM_CHART_FILES['postgresql']).map((file) => (
-                          <option key={file.path} value={file.path} className="bg-bg-card text-white">
-                            📄 {file.name}
-                          </option>
-                        ))}
-                      </>
+                      <option value="" className="bg-bg-card text-slate-400">-- Select Custom File --</option>
                     )}
                     {userCustomFiles.map((file) => (
                       <option key={file.path} value={file.path} className="bg-bg-card text-brand-sky font-bold">
@@ -978,6 +996,22 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
                 ></textarea>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Deployment Error Alert Banner */}
+        {deployErrorMsg && (
+          <div className="p-4 bg-rose-950/90 border border-rose-500/50 text-rose-200 text-xs font-mono rounded-xl flex items-start justify-between gap-3 shadow-xl animate-fadeIn">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="block text-rose-300 font-bold mb-0.5">Deployment Failure:</strong>
+                <span className="leading-relaxed">{deployErrorMsg}</span>
+              </div>
+            </div>
+            <button onClick={() => setDeployErrorMsg(null)} className="text-rose-400 hover:text-white transition-colors">
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
 

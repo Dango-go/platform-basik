@@ -124,7 +124,7 @@ class HelmService:
         try:
             result = await self.helm_runner.upgrade_install(
                 release_name=release_name,
-                chart_path=chart_path,
+                chart_path=str(chart_path),
                 kubeconfig_path=str(kubeconfig_path),
                 namespace=namespace,
                 values_file=target_values_file

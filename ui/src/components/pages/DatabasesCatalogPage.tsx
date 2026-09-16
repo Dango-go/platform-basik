@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CATALOG_ITEMS, INITIAL_DEPLOYED_DBS } from '../../services/mockData';
 import { DeployedDatabase, CategoryType } from '../../types';
+import { apiClient } from '../../services/apiClient';
 import { DatabaseManagementCatalogPage } from './DatabaseManagementCatalogPage';
 import { DatabaseEngineOverviewPage } from './DatabaseEngineOverviewPage';
 import { 
@@ -13,7 +14,8 @@ import {
   ArrowLeft,
   Wrench,
   Layers,
-  Terminal
+  Terminal,
+  RefreshCw
 } from 'lucide-react';
 
 interface DatabasesCatalogPageProps {
@@ -27,6 +29,28 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({
 }) => {
   const [selectedDb, setSelectedDb] = useState<DeployedDatabase | null>(null);
   const [activeDbTab, setActiveDbTab] = useState<'config' | 'monitoring' | 'budget'>('config');
+
+  // Deployed active databases list state & refresh loader
+  const [deployedDbs, setDeployedDbs] = useState<DeployedDatabase[]>(INITIAL_DEPLOYED_DBS);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+
+  const fetchDeployedDbs = async () => {
+    setIsRefreshing(true);
+    try {
+      const data = await apiClient.getDeployedDatabases();
+      if (data && data.length > 0) {
+        setDeployedDbs(data);
+      }
+    } catch (e) {
+      console.warn('Failed to refresh deployed databases:', e);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 400);
+    }
+  };
+
+  useEffect(() => {
+    fetchDeployedDbs();
+  }, []);
 
   // Selected item for Engine Overview (Catalog Card Click)
   const [selectedEngineOverviewItem, setSelectedEngineOverviewItem] = useState<any>(null);
@@ -191,18 +215,30 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({
 
       {/* 2. Deployed Active Databases List Section */}
       <section className="space-y-4 pt-6 border-t border-accent-darkBorder">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h3 className="text-lg font-bold text-white">Active Deployed Database Instances</h3>
             <p className="text-xs text-slate-400">Inspect status, configuration, metrics, and monthly budget for your active instances</p>
           </div>
-          <button
-            onClick={() => onNavigateCreate()}
-            className="bg-brand-blue hover:bg-brand-blue/90 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md shadow-brand-blue/20 flex items-center gap-1.5 transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Deploy New Database</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchDeployedDbs}
+              disabled={isRefreshing}
+              className="bg-bg-main hover:bg-accent-darkHover text-slate-200 border border-accent-darkBorder font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md flex items-center gap-1.5 transition-all"
+              title="Refresh / Update deployed database list from backend"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-brand-sky ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>Update List</span>
+            </button>
+
+            <button
+              onClick={() => onNavigateCreate()}
+              className="bg-brand-blue hover:bg-brand-blue/90 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md shadow-brand-blue/20 flex items-center gap-1.5 transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Deploy New Database</span>
+            </button>
+          </div>
         </div>
 
         {/* Selected DB Details View or List Table */}
@@ -340,14 +376,14 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-accent-darkBorder/60 text-sm">
-                {INITIAL_DEPLOYED_DBS.length === 0 ? (
+                {deployedDbs.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="p-8 text-center text-slate-400">
                       No deployed database instances found.
                     </td>
                   </tr>
                 ) : (
-                  INITIAL_DEPLOYED_DBS.map((db) => (
+                  deployedDbs.map((db) => (
                     <tr 
                       key={db.id} 
                       onClick={() => handleOpenFastManagement(db)}
