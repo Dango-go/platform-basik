@@ -16,7 +16,7 @@ class KubeconfigBuilder:
         ca_cert_data: str, 
         api_server_url: str, 
         token: str,
-        user_name: str,
+        user_name: str = "cluster-admin",
         namespace: str = "default"
     ) -> str: 
         config: Dict[str, Any] = {
@@ -60,7 +60,7 @@ class KubeconfigBuilder:
         ca_cert_data: str, 
         api_server_url: str, 
         token: str,
-        user_name: str,
+        user_name: str = "cluster-admin",
         namespace: str = "default"
         ): 
             # CREATING FILE PATH FOR KUBECONFIG
@@ -68,6 +68,7 @@ class KubeconfigBuilder:
 
             # CREATING KUBECONFIG CONTENT
             yaml_content = self.generating_kubeconfig(
+                user_name = user_name,
                 cluster_name = cluster_name,
                 api_server_url =  api_server_url,
                 ca_cert_data = ca_cert_data,

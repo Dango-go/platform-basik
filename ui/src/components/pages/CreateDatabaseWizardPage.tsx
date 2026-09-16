@@ -163,8 +163,9 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
   // 2 INSTALLATION MODES: 'helm' (Helm values.yaml) or 'crd' (Operator Service CRD Manifest)
   const [installMode, setInstallMode] = useState<'helm' | 'crd'>('helm');
 
-  // Selected File inside Helm Chart
-  const [selectedHelmFile, setSelectedHelmFile] = useState<string>('values.yaml');
+  // Selected File inside Helm Chart & Load state
+  const [selectedHelmFile, setSelectedHelmFile] = useState<string>('');
+  const [isChartLoaded, setIsChartLoaded] = useState<boolean>(false);
 
   const generateRandomPassword = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=';
@@ -179,10 +180,8 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
   const [dbPassword, setDbPassword] = useState<string>(generateRandomPassword());
   const [showPassword, setShowPassword] = useState<boolean>(false);
 
-  // YAML editor content for Helm (Mode 1)
-  const [yamlContent, setYamlContent] = useState<string>(
-    `primary:\n  extendedConfiguration: |\n    max_connections = 250\n    shared_buffers = 2GB\n  resources:\n    requests:\n      cpu: 1000m\n      memory: 4Gi\n  persistence:\n    size: 50Gi`
-  );
+  // YAML editor content for Helm (Mode 1) — Empty by default until chart is pulled
+  const [yamlContent, setYamlContent] = useState<string>('');
   // Modal & User custom YAML files state
   const [showAddCustomFileModal, setShowAddCustomFileModal] = useState<boolean>(false);
   const [newCustomFileName, setNewCustomFileName] = useState<string>('my-custom-values.yaml');
@@ -265,9 +264,13 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
           release_name: dbName
         });
 
+        setIsChartLoaded(true);
+        const targetFile = selectedHelmFile || 'values.yaml';
+        setSelectedHelmFile(targetFile);
+
         // Automatically fetch real unpacked file from backend after pulling
         try {
-          const fetchedContent = await apiClient.getHelmFile(dbName, selectedHelmFile || 'values.yaml');
+          const fetchedContent = await apiClient.getHelmFile(dbName, targetFile);
           if (fetchedContent) {
             setYamlContent(fetchedContent);
           }
@@ -496,7 +499,9 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
                   placeholder="e.g., my-app-db"
                   className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky font-semibold"
                 />
-                <span className="text-[11px] text-slate-500 mt-1 block">Unique Helm release / CRD metadata name in K8s namespace</span>
+                <span className="text-[11px] text-slate-400 mt-1.5 block leading-relaxed">
+                  Changing the instance name deploys a new unique Helm release with its own isolated configuration and resources.
+                </span>
               </div>
 
               {/* FIELD 2: Database Engine Name (Select) */}
@@ -747,7 +752,7 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
             <div className="flex flex-wrap items-center justify-between gap-3">
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
                 <FileCode2 className="w-4 h-4 text-brand-sky" />
-                Helm Chart Editor ({selectedHelmFile || 'values.yaml'})
+                Helm Chart Editor {selectedHelmFile ? `(${selectedHelmFile})` : ''}
               </label>
 
               <div className="flex items-center gap-2 flex-wrap">
@@ -759,12 +764,18 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
                     onChange={(e) => handleSelectHelmFile(e.target.value)}
                     className="bg-transparent text-slate-200 text-xs font-mono font-semibold focus:outline-none cursor-pointer"
                   >
-                    <option value="" className="bg-bg-card text-slate-400">-- Select File from Helm Chart --</option>
-                    {(HELM_CHART_FILES[selectedEngine.engine_type] || HELM_CHART_FILES['postgresql']).map((file) => (
-                      <option key={file.path} value={file.path} className="bg-bg-card text-white">
-                        📄 {file.name}
-                      </option>
-                    ))}
+                    {!isChartLoaded && userCustomFiles.length === 0 ? (
+                      <option value="" className="bg-bg-card text-slate-500 font-normal">-- No Chart Loaded --</option>
+                    ) : (
+                      <>
+                        <option value="" className="bg-bg-card text-slate-400">-- Select File from Helm Chart --</option>
+                        {(HELM_CHART_FILES[selectedEngine.engine_type] || HELM_CHART_FILES['postgresql']).map((file) => (
+                          <option key={file.path} value={file.path} className="bg-bg-card text-white">
+                            📄 {file.name}
+                          </option>
+                        ))}
+                      </>
+                    )}
                     {userCustomFiles.map((file) => (
                       <option key={file.path} value={file.path} className="bg-bg-card text-brand-sky font-bold">
                         ⚡ {file.name} (Custom)
@@ -809,6 +820,11 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
             <textarea
               value={yamlContent}
               onChange={(e) => setYamlContent(e.target.value)}
+              placeholder={
+                !isChartLoaded
+                  ? "Terminal is empty. Click 'Install Chart' above to pull and inspect Helm chart configuration files..."
+                  : "Type or edit YAML configuration values here..."
+              }
               onKeyDown={(e) => {
                 const target = e.currentTarget;
                 if (e.key === ' ' && target.selectionStart !== null && target.selectionEnd !== null && target.selectionStart !== target.selectionEnd) {
@@ -823,7 +839,7 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
                 }
               }}
               rows={12}
-              className="w-full bg-brand-dark text-sky-300 font-mono text-xs p-4 rounded-xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-sky leading-relaxed selection:bg-brand-sky/50 selection:text-white font-semibold"
+              className="w-full bg-brand-dark text-sky-300 font-mono text-xs p-4 rounded-xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-sky leading-relaxed selection:bg-brand-sky/50 selection:text-white font-semibold placeholder:text-slate-600 placeholder:italic"
             ></textarea>
           </div>
         )}

@@ -119,3 +119,61 @@ Payload: { "cluster_id": "...", "namespace": "databases", "values_yaml": "..." }
 Що робить: Для вже розгорнутого екземпляра викликає helm upgrade, прикладаючи новий values.yaml без перестворення StatefulSet.
 
 
+Nginx + Let's Encrypt (Certbot) 
+certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12d & wait $${!}; done;'"
+
+
+
+services:
+  frontend:
+    build: .
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    # інші налаштування...
+
+
+# конфігурація в нджинксу який у фронтенд контейнері
+server {
+    listen 80;
+    server_name yourdomain.com;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name yourdomain.com;
+
+    ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
+
+    # Роздача статики фронтенду
+    location / {
+        root /usr/share/nginx/html;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Проксування запитів до бекенду у внутрішній мережі Docker
+    location /api/ {
+        proxy_pass http://backend-service-name:port/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
