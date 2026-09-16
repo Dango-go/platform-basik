@@ -18,14 +18,11 @@ jobs:
 
     strategy:
       matrix:
-        service: [auth, vault, provider, provisioner, helm, operator, info, cost, discovery, ui]
+        service: [auth, provider, provisioner, helm, operator, info, cost, discovery, ui]
         include:
           - service: auth
             directory: app/auth-service
             image_name: auth-service
-          - service: vault
-            directory: app/vault-service
-            image_name: vault-service
           - service: provider
             directory: app/provider-service
             image_name: provider-service
