@@ -130,18 +130,26 @@ class ApiClient {
       do: 'DigitalOcean',
       onprem: 'On-Premise'
     };
+    const clusterId = c.id || `cluster-${c.cluster_name || c.name}`;
+    const clusterName = c.cluster_name || c.name || 'k8s-cluster';
+    const savedToken = localStorage.getItem(`k8s_token_${clusterId}`) || localStorage.getItem(`k8s_token_${clusterName}`);
+
     return {
-      id: c.id || `cluster-${c.cluster_name || c.name}`,
-      name: c.cluster_name || c.name || 'k8s-cluster',
+      id: clusterId,
+      name: clusterName,
       provider: providerMap[c.provider_type?.toLowerCase()] || 'GCP GKE',
       region: c.region || 'global',
       nodes_count: c.nodes_count || 3,
       status: (c.status === 'active' || c.status === 'running') ? 'active' : 'degraded',
       api_url: c.endpoint || c.api_url || 'https://kubernetes.default.svc',
       ca_cert_data: c.ca_cert_data || '',
-      token: c.token || '',
+      token: savedToken || c.token || '',
       user_name: c.user_name || 'cluster-admin'
     };
+  }
+
+  saveClusterToken(clusterIdentifier: string, token: string): void {
+    localStorage.setItem(`k8s_token_${clusterIdentifier}`, token);
   }
 
   async getMetricsForDb(dbId: string): Promise<DatabaseMetrics> {

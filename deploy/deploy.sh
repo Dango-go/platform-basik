@@ -6,13 +6,13 @@ set -e
 #sudo mount /dev/xvdh /mnt
 
 echo "📁 Creating directories..."
-sudo mkdir -p /mnt/data/vault_data
+#sudo mkdir -p /mnt/data/vault_data
 sudo mkdir -p /mnt/main-data/postgres_data
-mkdir -p vault
+#mkdir -p vault
 mkdir -p init-scripts
 
-echo "📝 Generating vault.hcl..."
-sudo mkdir -p /mnt/data/vault_data
+#echo "📝 Generating vault.hcl..."
+#sudo mkdir -p /mnt/data/vault_data
 sudo mkdir -p /mnt/main-data/postgres_data
 
 touch .env
@@ -21,19 +21,19 @@ export DOCKERHUB_USERNAME=""
 EOF
 
 
-sudo chmod -R 777 /mnt/data/vault_data
+#sudo chmod -R 777 /mnt/data/vault_data
 
-cat << 'EOF' > vault/vault.hcl
-storage "file" {
-  path = "/vault/main_file"
-}
-listener "tcp" {
-  address     = "0.0.0.0:8200"
-  tls_disable = 1
-}
-ui = true
-disable_mlock = true
-EOF
+#cat << 'EOF' > vault/vault.hcl
+#storage "file" {
+  #path = "/vault/main_file"
+#}
+#listener "tcp" {
+  #address     = "0.0.0.0:8200"
+  #tls_disable = 1
+#}
+#ui = true
+#disable_mlock = true
+#EOF
 
 
 echo "Creating init script for Database..."
@@ -121,9 +121,7 @@ services:
       retries: 5
     networks:
       - idp-network
-    depends_on:
-      vault-client:
-        condition: service_started
+
 
 
 
@@ -135,10 +133,6 @@ services:
       - "8001:8001"
     depends_on:
       postgres:
-        condition: service_started
-      vault-client:
-        condition: service_started
-      vault-service:
         condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
@@ -156,10 +150,6 @@ services:
       - "8002:8001"
     depends_on:
       postgres:
-        condition: service_started
-      vault-client:
-        condition: service_started
-      vault-service:
         condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
@@ -193,10 +183,6 @@ services:
       - DATABASE_URL=postgresql+asyncpg://cost:cost@postgres:5432/cost_db
     depends_on:
       postgres:
-        condition: service_started
-      vault-client:
-        condition: service_started
-      vault-service:
         condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
@@ -262,10 +248,6 @@ services:
     depends_on:
       postgres:
         condition: service_started
-      vault-client:
-        condition: service_started
-      vault-service:
-        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
@@ -325,6 +307,14 @@ echo "🚀 Start Docker Compose..."
 docker compose pull
 
 docker compose up -d
+
+sleep 5
+
+docker compose ps
+
+sleep 5
+
+docker compose ps
 
 
 #echo "⏳ Waiting for Vault to start on http://127.0.0.1:8200..."

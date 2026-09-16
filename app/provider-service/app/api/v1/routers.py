@@ -3,6 +3,7 @@ from app.api.v1.schemas import ProviderRequest
 from app.core.db import db_session
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.repository.provider_repository import ProviderRepository
+from app.services.provider_usecase import provider_usecase
 
 
 router = APIRouter(prefix="/api/v1/provider", tags=["provider"])

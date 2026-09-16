@@ -15,7 +15,11 @@ import {
   Upload,
   AlertTriangle,
   RefreshCw,
-  Search
+  Search,
+  KeyRound,
+  ShieldCheck,
+  Copy,
+  Lock
 } from 'lucide-react';
 
 export const CloudPage: React.FC = () => {
@@ -34,6 +38,33 @@ export const CloudPage: React.FC = () => {
   // Sync / Update state
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatusMsg, setSyncStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // ServiceAccount Token Modal state
+  const [selectedTokenCluster, setSelectedTokenCluster] = useState<K8sCluster | null>(null);
+  const [saTokenInput, setSaTokenInput] = useState<string>('');
+  const [copiedManifest, setCopiedManifest] = useState<boolean>(false);
+  const [tokenSaveSuccess, setTokenSaveSuccess] = useState<boolean>(false);
+
+  const handleSaveClusterToken = () => {
+    if (!selectedTokenCluster) return;
+    const cleanToken = saTokenInput.trim();
+    apiClient.saveClusterToken(selectedTokenCluster.id, cleanToken);
+    apiClient.saveClusterToken(selectedTokenCluster.name, cleanToken);
+
+    setClustersList((prev) =>
+      prev.map((cls) =>
+        cls.id === selectedTokenCluster.id || cls.name === selectedTokenCluster.name
+          ? { ...cls, token: cleanToken }
+          : cls
+      )
+    );
+
+    setTokenSaveSuccess(true);
+    setTimeout(() => {
+      setTokenSaveSuccess(false);
+      setSelectedTokenCluster(null);
+    }, 1200);
+  };
 
   // Load existing credentials & clusters on mount
   useEffect(() => {
@@ -573,14 +604,25 @@ export const CloudPage: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
             {filteredClusters.map((cls) => (
-              <div key={cls.id} className="p-5 bg-bg-main border border-accent-darkBorder rounded-2xl space-y-3 shadow-md hover:border-brand-sky transition-all">
+              <div key={cls.id} className="p-5 bg-bg-main border border-accent-darkBorder rounded-2xl space-y-3 shadow-md hover:border-brand-sky transition-all relative group">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-brand-blue/20 text-brand-sky border border-brand-sky/30">
                     {cls.provider}
                   </span>
-                  <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-                    ● Running
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {cls.token ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                        <ShieldCheck className="w-3 h-3" /> Token Ready
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-500/30">
+                        <AlertTriangle className="w-3 h-3" /> Needs Token
+                      </span>
+                    )}
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                      ● Running
+                    </span>
+                  </div>
                 </div>
 
                 <div>
@@ -592,7 +634,22 @@ export const CloudPage: React.FC = () => {
 
                 <div className="pt-3 border-t border-accent-darkBorder/60 flex items-center justify-between text-xs text-slate-400 font-medium">
                   <span>Nodes: <strong className="text-white">{cls.nodes_count} Worker Nodes</strong></span>
-                  <span className="font-mono text-[11px] text-slate-500 truncate max-w-[120px]">{cls.api_url}</span>
+                  <span className="font-mono text-[11px] text-slate-500 truncate max-w-[110px]">{cls.api_url}</span>
+                </div>
+
+                {/* CREATE SERVICE ACCOUNT TOKEN ACTION BUTTON */}
+                <div className="pt-2 border-t border-accent-darkBorder/40 flex items-center justify-between">
+                  <button
+                    onClick={() => {
+                      setSelectedTokenCluster(cls);
+                      setSaTokenInput(cls.token || '');
+                      setCopiedManifest(false);
+                    }}
+                    className="w-full bg-brand-blue/15 hover:bg-brand-blue text-brand-sky hover:text-white font-bold text-xs py-2 rounded-xl border border-brand-sky/30 hover:border-brand-sky transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <KeyRound className="w-3.5 h-3.5" />
+                    <span>Create SA Token</span>
+                  </button>
                 </div>
               </div>
             ))}
@@ -955,6 +1012,139 @@ export const CloudPage: React.FC = () => {
               >
                 {isSyncing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                 <span>{isSyncing ? 'Scanning...' : 'Start Cluster Scan'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SERVICEACCOUNT TOKEN CREATION MODAL */}
+      {selectedTokenCluster && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-bg-card rounded-3xl border border-accent-darkBorder w-full max-w-2xl p-6 shadow-2xl space-y-5 relative text-slate-100 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-accent-darkBorder pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-brand-blue/20 flex items-center justify-center border border-brand-sky/30">
+                  <KeyRound className="w-5 h-5 text-brand-sky" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-lg flex items-center gap-2">
+                    ServiceAccount Token Setup
+                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-brand-blue/20 text-brand-sky border border-brand-sky/30">
+                      {selectedTokenCluster.name}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">Generate a persistent ServiceAccount Bearer Token for automated database deployments</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedTokenCluster(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-accent-darkHover transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* STEP 1: K8S MANIFEST */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-brand-sky text-black text-[11px] font-extrabold flex items-center justify-center">1</span>
+                  Apply K8s ServiceAccount & Secret Manifest
+                </label>
+                <button
+                  onClick={() => {
+                    const manifest = `apiVersion: v1\nkind: ServiceAccount\nmetadata:\n  name: idp-deployer-sa\n  namespace: kube-system\n---\napiVersion: v1\nkind: Secret\nmetadata:\n  name: idp-deployer-sa-token\n  namespace: kube-system\n  annotations:\n    kubernetes.io/service-account.name: idp-deployer-sa\ntype: kubernetes.io/service-account-token\n---\napiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRoleBinding\nmetadata:\n  name: idp-deployer-binding\nsubjects:\n- kind: ServiceAccount\n  name: idp-deployer-sa\n  namespace: kube-system\nroleRef:\n  kind: ClusterRole\n  name: cluster-admin\n  apiGroup: rbac.authorization.k8s.io`;
+                    navigator.clipboard.writeText(manifest);
+                    setCopiedManifest(true);
+                    setTimeout(() => setCopiedManifest(false), 2000);
+                  }}
+                  className="text-xs font-bold px-3 py-1.5 rounded-xl bg-brand-blue/20 hover:bg-brand-blue text-brand-sky hover:text-white border border-brand-sky/30 transition-all flex items-center gap-1.5"
+                >
+                  {copiedManifest ? <CheckCircle className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedManifest ? 'Copied Manifest!' : 'Copy K8s Manifest'}</span>
+                </button>
+              </div>
+              <pre className="bg-bg-main border border-accent-darkBorder/80 rounded-2xl p-3.5 text-[11px] font-mono text-emerald-400 overflow-x-auto select-all leading-relaxed">
+{`apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: idp-deployer-sa
+  namespace: kube-system
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: idp-deployer-sa-token
+  namespace: kube-system
+  annotations:
+    kubernetes.io/service-account.name: idp-deployer-sa
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: idp-deployer-binding
+subjects:
+- kind: ServiceAccount
+  name: idp-deployer-sa
+  namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io`}
+              </pre>
+            </div>
+
+            {/* STEP 2: EXTRACT COMMAND */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-brand-sky text-black text-[11px] font-extrabold flex items-center justify-center">2</span>
+                Run command to extract JWT Token
+              </label>
+              <div className="bg-bg-main border border-accent-darkBorder p-2.5 rounded-xl font-mono text-[11px] text-slate-300 select-all flex items-center justify-between">
+                <span>kubectl get secret idp-deployer-sa-token -n kube-system -o jsonpath='&#123;.data.token&#125;' | base64 -d</span>
+              </div>
+            </div>
+
+            {/* STEP 3: PASTE & SAVE TOKEN */}
+            <div className="space-y-2 pt-2 border-t border-accent-darkBorder">
+              <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-5 h-5 rounded-full bg-brand-sky text-black text-[11px] font-extrabold flex items-center justify-center">3</span>
+                Paste & Save Token for Cluster
+              </label>
+              <textarea
+                rows={3}
+                value={saTokenInput}
+                onChange={(e) => setSaTokenInput(e.target.value)}
+                placeholder="Paste the extracted JWT Bearer Token string here (e.g., eyJhbGciOiJSUzI1NiIs...)"
+                className="w-full bg-bg-main border border-accent-darkBorder text-white text-xs font-mono rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-brand-sky"
+              />
+            </div>
+
+            {tokenSaveSuccess && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs text-emerald-400 font-semibold flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                <span>ServiceAccount Token saved successfully for cluster {selectedTokenCluster.name}!</span>
+              </div>
+            )}
+
+            <div className="pt-3 border-t border-accent-darkBorder flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedTokenCluster(null)}
+                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveClusterToken}
+                disabled={!saTokenInput.trim()}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-emerald-600/30 flex items-center gap-2 transition-all disabled:opacity-50"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Save Cluster Token</span>
               </button>
             </div>
           </div>
