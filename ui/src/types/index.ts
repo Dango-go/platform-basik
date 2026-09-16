@@ -54,6 +54,9 @@ export interface K8sCluster {
   nodes_count: number;
   status: 'active' | 'degraded';
   api_url: string;
+  ca_cert_data?: string;
+  token?: string;
+  user_name?: string;
 }
 
 export interface DatabaseMetrics {

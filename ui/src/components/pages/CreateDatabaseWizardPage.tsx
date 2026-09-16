@@ -283,10 +283,15 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
           console.warn('Could not auto-fetch pulled chart file:', e);
         }
       } else {
+        const curCluster = clustersList.find((cls) => cls.name === selectedCluster || cls.id === selectedCluster);
         await apiClient.applyHelmRelease({
           cluster_name: selectedCluster || 'default-prod',
           release_name: dbName,
           chart_name: selectedEngine.engine_type,
+          api_server_url: curCluster?.api_url,
+          ca_cert_data: curCluster?.ca_cert_data,
+          token: curCluster?.token,
+          user_name: curCluster?.user_name,
           namespace: 'databases'
         });
       }
@@ -373,10 +378,15 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
           content: crdManifestContent
         });
       } else {
+        const curCluster = clustersList.find((cls) => cls.name === targetClusterName || cls.id === targetClusterName);
         await apiClient.applyHelmRelease({
           cluster_name: targetClusterName,
           release_name: dbName,
           chart_name: selectedEngine.engine_type,
+          api_server_url: curCluster?.api_url,
+          ca_cert_data: curCluster?.ca_cert_data,
+          token: curCluster?.token,
+          user_name: curCluster?.user_name,
           namespace: 'databases'
         });
       }

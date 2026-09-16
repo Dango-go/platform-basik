@@ -137,7 +137,10 @@ class ApiClient {
       region: c.region || 'global',
       nodes_count: c.nodes_count || 3,
       status: (c.status === 'active' || c.status === 'running') ? 'active' : 'degraded',
-      api_url: c.endpoint || c.api_url || 'https://k8s.cloud.provider'
+      api_url: c.endpoint || c.api_url || 'https://kubernetes.default.svc',
+      ca_cert_data: c.ca_cert_data || '',
+      token: c.token || '',
+      user_name: c.user_name || 'cluster-admin'
     };
   }
 
@@ -209,7 +212,17 @@ class ApiClient {
     return await res.json();
   }
 
-  async applyHelmRelease(payload: { cluster_name: string; release_name: string; chart_name: string; namespace?: string; target_values_file?: string }): Promise<any> {
+  async applyHelmRelease(payload: {
+    cluster_name: string;
+    release_name: string;
+    chart_name: string;
+    api_server_url?: string;
+    ca_cert_data?: string;
+    token?: string;
+    user_name?: string;
+    namespace?: string;
+    target_values_file?: string;
+  }): Promise<any> {
     const token = localStorage.getItem('access_token');
     const res = await fetch('/api/v1/helm/apply', {
       method: 'POST',
@@ -221,10 +234,10 @@ class ApiClient {
         cluster_name: payload.cluster_name,
         release_name: payload.release_name,
         chart_name: payload.chart_name,
-        api_server_url: 'https://kubernetes.default.svc',
-        ca_cert_data: '',
-        token: '',
-        user_name: 'cluster-admin',
+        api_server_url: payload.api_server_url || 'https://kubernetes.default.svc',
+        ca_cert_data: payload.ca_cert_data || '',
+        token: payload.token || '',
+        user_name: payload.user_name || 'cluster-admin',
         namespace: payload.namespace || 'databases',
         target_values_file: payload.target_values_file
       })
