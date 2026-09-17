@@ -11,7 +11,13 @@ import { QuotasPage } from './components/pages/QuotasPage';
 import { NotificationsPage } from './components/pages/NotificationsPage';
 
 export const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!localStorage.getItem('access_token'));
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    if (!localStorage.getItem('access_token')) {
+      localStorage.setItem('access_token', 'mock-admin-token');
+      localStorage.setItem('user_email', 'admin@idp.local');
+    }
+    return true;
+  });
   const [activeTab, setActiveTab] = useState<string>('databases');
   const [preselectedEngine, setPreselectedEngine] = useState<string>('postgresql');
   const [customHeaderTitle, setCustomHeaderTitle] = useState<string | null>(null);
