@@ -152,6 +152,42 @@ class ApiClient {
     localStorage.setItem(`k8s_token_${clusterIdentifier}`, token);
   }
 
+  async createClusterToken(data: {
+    user_id?: number;
+    alias: string;
+    cluster_name: string;
+    api_server_url: string;
+    ca_cert_data?: string;
+  }): Promise<string> {
+    const token = localStorage.getItem('access_token');
+    const res = await fetch(`/api/v1/discovery/clusters/create_token/${encodeURIComponent(data.cluster_name)}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        user_id: data.user_id || 1,
+        alias: data.alias,
+        cluster_name: data.cluster_name,
+        api_server_url: data.api_server_url,
+        ca_cert_data: data.ca_cert_data || ''
+      })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || 'Failed to generate cluster token from backend');
+    }
+
+    const result = await res.json();
+    const generatedToken = result.token || '';
+    if (generatedToken) {
+      this.saveClusterToken(data.cluster_name, generatedToken);
+    }
+    return generatedToken;
+  }
+
   async getMetricsForDb(dbId: string): Promise<DatabaseMetrics> {
     return Promise.resolve({ ...METRICS_SAMPLE, db_id: dbId });
   }

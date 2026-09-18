@@ -31,12 +31,12 @@ async def get_user_clusters(
     scanner = ClusterScannerService(db=db)
     return await scanner.get_clusters_by_user(user_id)
 
-@router.post("clusters/create_token/{cluster_name}")
+@router.post("/clusters/create_token/{cluster_name}")
 async def create_token_for_cluster(
     request: TokenCreateRequest,
     db: AsyncSession = Depends(db_session),
 ):
     token_creator = ClusterScannerService(db=db)
-    token = await token_creator.create_access_token(user_id=request.user_id, alias=request.alias, cluster_name=request.cluster_name)
+    token = await token_creator.create_access_token(request=request)
 
     return {"token": token}

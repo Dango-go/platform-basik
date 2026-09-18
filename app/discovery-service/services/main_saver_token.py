@@ -1,4 +1,3 @@
-from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
 import base64
 
@@ -8,7 +7,6 @@ class Saving_cluster_token:
 
     @staticmethod
     async def save(
-        db: AsyncSession,
         temp_token: str,  
         api_server_url: str, 
     ):

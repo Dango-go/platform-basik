@@ -117,7 +117,7 @@ class ClusterScannerService:
         )
         return result.scalars().all()
 
-    
+    # create token (for headers request from helm / kubectl) to get access creating resources in clusters 
     async def create_access_token(self,  request: TokenCreateRequest):
 
         # type of cloud
