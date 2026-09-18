@@ -119,6 +119,7 @@ class HelmService:
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Failed to fetch cluster details from discovery-service: {str(e)}")
 
+        cluster_name = cluster_name or cluster_data.get("cluster_name") or ""
         api_server_url = api_server_url or cluster_data.get("endpoint") or ""
         ca_cert_data = ca_cert_data or cluster_data.get("ca_cert") or ""
         token = token or cluster_data.get("token") or ""
@@ -158,6 +159,8 @@ class HelmService:
         finally:
             if kubeconfig_path.exists():
                 try:
+                    print(f"[DEBUG KUBECONFIG]:\n{open(kubeconfig_path).read()}")
+
                     kubeconfig_path.unlink()
                 except Exception as e:
                     print(f"Error occurred while unlinking kubeconfig: {e}")
