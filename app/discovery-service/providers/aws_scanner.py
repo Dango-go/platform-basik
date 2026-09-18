@@ -68,6 +68,7 @@ class AWSClusterScanner(BaseClusterScanner):
                         "version": c_data.get("version"),
                         "status": c_data.get("status", "ACTIVE").lower(),
                         "endpoint": c_data.get("endpoint"),
+                        "ca_cert": c_data.get("certificateAuthority", {}).get("data"),
                         "raw": clean_raw
                     })
         except Exception as e:
