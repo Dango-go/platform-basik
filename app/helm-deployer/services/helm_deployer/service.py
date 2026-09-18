@@ -153,9 +153,11 @@ class HelmService:
                 chart_path=str(chart_path),
                 kubeconfig_path=str(kubeconfig_path),
                 namespace=namespace,
-                values_file=target_values_file
+                values_file=target_values_file,
+                wait=False
             )
             return result
+
         finally:
             if kubeconfig_path.exists():
                 try:

@@ -60,9 +60,10 @@ class HelmRunner:
         kubeconfig_path: str,
         namespace: str = "default",
         values_file: Optional[str] = None,
-        wait: bool = True,
+        wait: bool = False,
         timeout: int = 300
     ) -> str:
+
 
         cmd = [
             self.helm_bin,
