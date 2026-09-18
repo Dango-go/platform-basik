@@ -52,3 +52,20 @@ async def create_token_for_cluster(
     token = await token_creator.create_access_token(request=request)
 
     return {"token": token}
+
+
+@router.post("/clusters/{cluster_name}/authorize-access")
+async def authorize_cluster_access_endpoint(
+    cluster_name: str,
+    alias: str = None,
+    user_id: int = 1,
+    db: AsyncSession = Depends(db_session),
+):
+    scanner_service = ClusterScannerService(db=db)
+    try:
+        result = await scanner_service.authorize_cluster_access(cluster_name=cluster_name, alias=alias, user_id=user_id)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Access Entry authorization failed: {str(e)}")

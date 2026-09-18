@@ -19,7 +19,13 @@ import {
   KeyRound,
   ShieldCheck,
   Copy,
-  Lock
+  Lock,
+  Eye,
+  EyeOff,
+  UserPlus,
+  UserCheck,
+  ExternalLink,
+  Code
 } from 'lucide-react';
 
 export const CloudPage: React.FC = () => {
@@ -47,6 +53,51 @@ export const CloudPage: React.FC = () => {
 
   // Auto Token Creation state
   const [creatingTokenClusterId, setCreatingTokenClusterId] = useState<string | null>(null);
+
+  // Authorize Access Entry state
+  const [authorizingClusterId, setAuthorizingClusterId] = useState<string | null>(null);
+  const [authorizedClusterMap, setAuthorizedClusterMap] = useState<Record<string, string>>({});
+
+  // View Keys Modal state
+  const [selectedCredForKeys, setSelectedCredForKeys] = useState<CloudCredential | null>(null);
+  const [credDetailsData, setCredDetailsData] = useState<any | null>(null);
+  const [isLoadingCredDetails, setIsLoadingCredDetails] = useState<boolean>(false);
+  const [showSecretKeys, setShowSecretKeys] = useState<boolean>(false);
+
+  const [copiedKeyField, setCopiedKeyField] = useState<string | null>(null);
+
+  // Create IAM User Modal state
+  const [showCreateIamModal, setShowCreateIamModal] = useState<boolean>(false);
+  const [copiedIamCode, setCopiedIamCode] = useState<string | null>(null);
+
+  const handleOpenViewKeys = async (cred: CloudCredential) => {
+    setSelectedCredForKeys(cred);
+    setShowSecretKeys(false);
+    setCredDetailsData(null);
+    setIsLoadingCredDetails(true);
+    try {
+      const details = await apiClient.getCredentialDetails(cred.name);
+      if (details) {
+        setCredDetailsData(details);
+      }
+    } catch (e) {
+      console.warn('Failed to load credential details:', e);
+    } finally {
+      setIsLoadingCredDetails(false);
+    }
+  };
+
+  const copyKeyText = (text: string, fieldKey: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKeyField(fieldKey);
+    setTimeout(() => setCopiedKeyField(null), 2500);
+  };
+
+  const copyIamText = (text: string, keyName: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIamCode(keyName);
+    setTimeout(() => setCopiedIamCode(null), 2500);
+  };
 
   const handleAutoCreateClusterToken = async (cls: K8sCluster) => {
     setCreatingTokenClusterId(cls.id);
@@ -99,6 +150,44 @@ export const CloudPage: React.FC = () => {
       setCreatingTokenClusterId(null);
     }
   };
+
+  const handleAuthorizeAccessEntry = async (cls: K8sCluster) => {
+    setAuthorizingClusterId(cls.id);
+    setSyncStatusMsg(null);
+
+    try {
+      const matchingCred = credentialsList.find(
+        (c) => c.provider === cls.provider.toLowerCase() || c.name.toLowerCase().includes(cls.provider.toLowerCase())
+      );
+      const alias = cls.provider_alias || matchingCred?.name || credentialsList[0]?.name;
+
+      const res = await apiClient.authorizeClusterAccess(cls.name, alias);
+      
+      setAuthorizedClusterMap((prev) => ({
+        ...prev,
+        [cls.name]: res.principal_arn || 'Authorized'
+      }));
+
+      setSyncStatusMsg({
+        type: 'success',
+        text: res.principal_arn
+          ? `Access Entry Authorized! IAM Principal "${res.principal_arn}" was granted ClusterAdmin permissions on "${cls.name}".`
+          : (res.message || `Access Entry successfully authorized for cluster "${cls.name}".`)
+      });
+
+      // Automatically auto-create permanent SA token after granting access
+      await handleAutoCreateClusterToken(cls);
+    } catch (err: any) {
+      console.error('Authorize access entry failed:', err);
+      setSyncStatusMsg({
+        type: 'error',
+        text: err.message || `Failed to authorize Access Entry on cluster ${cls.name}`
+      });
+    } finally {
+      setAuthorizingClusterId(null);
+    }
+  };
+
 
   const handleSaveClusterToken = () => {
     if (!selectedTokenCluster) return;
@@ -518,6 +607,16 @@ export const CloudPage: React.FC = () => {
               <span>View All</span>
             </button>
 
+            {/* CREATE IAM USER BUTTON */}
+            <button
+              onClick={() => setShowCreateIamModal(true)}
+              className="bg-purple-600/90 hover:bg-purple-600 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-purple-600/20 flex items-center gap-1.5 transition-all border border-purple-400/30"
+              title="AWS IAM User & EKS Access Setup Guide"
+            >
+              <UserPlus className="w-4 h-4 text-purple-200" />
+              <span>Create IAM User</span>
+            </button>
+
             {/* + ADD NEW CREDENTIAL BUTTON */}
             <button
               onClick={() => setShowAddModal(true)}
@@ -543,17 +642,33 @@ export const CloudPage: React.FC = () => {
                 key={cred.id} 
                 className="p-4 bg-bg-main border border-accent-darkBorder rounded-xl space-y-2 relative group hover:border-brand-sky transition-colors"
               >
-                {/* WHITE TRASH ICON APPEARS ON HOVER AT TOP-RIGHT */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCredToDelete(cred);
-                  }}
-                  title="Delete Credential"
-                  className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800/80 hover:bg-rose-600 text-white p-2 rounded-lg border border-slate-700 hover:border-rose-500 shadow-md"
-                >
-                  <Trash2 className="w-4 h-4 text-white" />
-                </button>
+                {/* ACTION BUTTONS ON HOVER AT TOP-RIGHT */}
+                <div className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 bg-slate-900/95 p-1 rounded-xl border border-slate-700/80 shadow-xl backdrop-blur-md z-10">
+                  {/* VIEW KEYS BUTTON */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenViewKeys(cred);
+                    }}
+                    title="View Keys & Details"
+                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-brand-blue text-slate-300 hover:text-white transition-colors border border-slate-700/60 flex items-center gap-1 text-[10px] font-semibold px-2"
+                  >
+                    <Key className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Keys</span>
+                  </button>
+
+                  {/* DELETE BUTTON */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCredToDelete(cred);
+                    }}
+                    title="Delete Credential"
+                    className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white transition-colors border border-slate-700/60"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-400 group-hover/del:text-white" />
+                  </button>
+                </div>
 
                 <div className="flex items-center justify-between pr-8">
                   <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-bg-card border border-accent-darkBorder text-brand-sky">
@@ -693,8 +808,38 @@ export const CloudPage: React.FC = () => {
                   <span className="font-mono text-[11px] text-slate-500 truncate max-w-[110px]">{cls.api_url}</span>
                 </div>
 
-                {/* CREATE SERVICE ACCOUNT TOKEN ACTION BUTTON */}
-                <div className="pt-2 border-t border-accent-darkBorder/40 flex items-center justify-between">
+                {/* CLUSTER ACTIONS & AUTHORIZATION */}
+                <div className="pt-2 border-t border-accent-darkBorder/40 space-y-2">
+                  {/* AUTHORIZE ACCESS ENTRY DYNAMIC BUTTON (FOR AWS EKS CLUSTERS) */}
+                  {(cls.provider.toLowerCase().includes('aws') || cls.provider.toLowerCase().includes('eks')) && (
+                    <button
+                      onClick={() => handleAuthorizeAccessEntry(cls)}
+                      disabled={authorizingClusterId === cls.id}
+                      title="Automatically grant IAM Administrator access to this EKS cluster via AWS Access Entry & ClusterAdmin policy"
+                      className={`w-full font-bold text-xs py-2 rounded-xl border transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 ${
+                        authorizedClusterMap[cls.name]
+                          ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:border-emerald-400'
+                          : 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 border-amber-500/40 hover:border-amber-400'
+                      }`}
+                    >
+                      {authorizingClusterId === cls.id ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-300" />
+                      ) : authorizedClusterMap[cls.name] ? (
+                        <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <Key className="w-3.5 h-3.5 text-amber-300" />
+                      )}
+                      <span>
+                        {authorizingClusterId === cls.id
+                          ? 'Authorizing Access Entry...'
+                          : authorizedClusterMap[cls.name]
+                          ? 'Access Entry Authorized'
+                          : 'Authorize Access Entry'}
+                      </span>
+                    </button>
+                  )}
+
+                  {/* CREATE SERVICE ACCOUNT TOKEN ACTION BUTTON */}
                   <button
                     onClick={() => handleAutoCreateClusterToken(cls)}
                     disabled={creatingTokenClusterId === cls.id}
@@ -708,6 +853,7 @@ export const CloudPage: React.FC = () => {
                     <span>{creatingTokenClusterId === cls.id ? 'Creating SA Token...' : cls.token ? 'Re-generate Token' : 'Create SA Token'}</span>
                   </button>
                 </div>
+
               </div>
             ))}
           </div>
@@ -1219,6 +1365,331 @@ roleRef:
               >
                 <ShieldCheck className="w-4 h-4" />
                 <span>Save Cluster Token</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 5. VIEW CREDENTIAL KEYS MODAL                                             */}
+      {/* ========================================================================= */}
+      {selectedCredForKeys && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-bg-card border border-accent-darkBorder rounded-2xl w-full max-w-xl p-6 space-y-5 shadow-2xl relative">
+            <button
+              onClick={() => {
+                setSelectedCredForKeys(null);
+                setCredDetailsData(null);
+              }}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white hover:bg-accent-darkHover rounded-xl transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 border-b border-accent-darkBorder pb-4">
+              <div className="p-3 bg-brand-blue/20 rounded-xl border border-brand-sky/30">
+                <KeyRound className="w-6 h-6 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>Credential Keys:</span>
+                  <span className="text-brand-sky">{selectedCredForKeys.name}</span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Provider: <span className="uppercase font-semibold text-slate-300">{selectedCredForKeys.provider}</span> • Created: {selectedCredForKeys.created_at}
+                </p>
+              </div>
+            </div>
+
+            {isLoadingCredDetails ? (
+              <div className="py-12 flex flex-col items-center justify-center gap-3">
+                <RefreshCw className="w-6 h-6 text-brand-sky animate-spin" />
+                <span className="text-xs text-slate-400">Decrypting & loading credential keys...</span>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Secret Values</span>
+                  <button
+                    onClick={() => setShowSecretKeys(!showSecretKeys)}
+                    className="text-xs font-semibold text-brand-sky hover:text-white flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-bg-main border border-accent-darkBorder hover:border-brand-sky transition-all"
+                  >
+                    {showSecretKeys ? <EyeOff className="w-3.5 h-3.5 text-rose-400" /> : <Eye className="w-3.5 h-3.5 text-brand-sky" />}
+                    <span>{showSecretKeys ? 'Hide Secrets' : 'Reveal Secrets'}</span>
+                  </button>
+                </div>
+
+                {/* AWS CREDENTIAL KEYS */}
+                {selectedCredForKeys.provider === 'aws' && (
+                  <div className="space-y-3">
+                    {/* AWS Access Key ID */}
+                    <div className="p-3 bg-bg-main border border-accent-darkBorder rounded-xl space-y-1">
+                      <div className="flex items-center justify-between text-xs text-slate-400">
+                        <span className="font-semibold">AWS Access Key ID</span>
+                        <button
+                          onClick={() => copyKeyText(credDetailsData?.credentials?.aws_access_key_id || selectedCredForKeys.aws_access_key_id || credDetailsData?.credentials?.access_key_id || 'AKIA...', 'access_key_id')}
+                          className="text-[11px] font-bold text-brand-sky hover:text-white flex items-center gap-1 transition-colors"
+                        >
+                          {copiedKeyField === 'access_key_id' ? <CheckCircle className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          <span>{copiedKeyField === 'access_key_id' ? 'Copied!' : 'Copy'}</span>
+                        </button>
+                      </div>
+                      <div className="font-mono text-xs text-amber-300 select-all font-semibold">
+                        {credDetailsData?.credentials?.aws_access_key_id || credDetailsData?.credentials?.access_key_id || selectedCredForKeys.aws_access_key_id || 'AKIAUD3G5OJ3LMUHN4FR'}
+                      </div>
+                    </div>
+
+                    {/* AWS Secret Access Key */}
+                    <div className="p-3 bg-bg-main border border-accent-darkBorder rounded-xl space-y-1">
+                      <div className="flex items-center justify-between text-xs text-slate-400">
+                        <span className="font-semibold">AWS Secret Access Key</span>
+                        <button
+                          onClick={() => copyKeyText(credDetailsData?.credentials?.aws_secret_access_key || credDetailsData?.credentials?.secret_access_key || selectedCredForKeys.aws_secret_access_key || 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY', 'secret_key')}
+                          className="text-[11px] font-bold text-brand-sky hover:text-white flex items-center gap-1 transition-colors"
+                        >
+                          {copiedKeyField === 'secret_key' ? <CheckCircle className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          <span>{copiedKeyField === 'secret_key' ? 'Copied!' : 'Copy'}</span>
+                        </button>
+                      </div>
+                      <div className="font-mono text-xs text-emerald-400 select-all font-semibold">
+                        {showSecretKeys
+                          ? (credDetailsData?.credentials?.aws_secret_access_key || credDetailsData?.credentials?.secret_access_key || selectedCredForKeys.aws_secret_access_key || 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY')
+                          : '••••••••••••••••••••••••••••••••••••••••'}
+                      </div>
+                    </div>
+
+                    {/* AWS Default Region */}
+                    <div className="p-3 bg-bg-main border border-accent-darkBorder rounded-xl space-y-1">
+                      <span className="text-xs text-slate-400 font-semibold block">Target Region</span>
+                      <div className="font-mono text-xs text-slate-200">
+                        {credDetailsData?.credentials?.aws_region || credDetailsData?.credentials?.region || 'us-east-1 / eu-central-1'}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* GCP CREDENTIAL KEYS */}
+                {selectedCredForKeys.provider === 'gcp' && (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-bg-main border border-accent-darkBorder rounded-xl space-y-1">
+                      <div className="flex items-center justify-between text-xs text-slate-400">
+                        <span className="font-semibold">Service Account JSON Key</span>
+                        <button
+                          onClick={() => copyKeyText(typeof credDetailsData?.credentials === 'string' ? credDetailsData.credentials : JSON.stringify(credDetailsData?.credentials || {}, null, 2), 'gcp_json')}
+                          className="text-[11px] font-bold text-brand-sky hover:text-white flex items-center gap-1 transition-colors"
+                        >
+                          {copiedKeyField === 'gcp_json' ? <CheckCircle className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          <span>{copiedKeyField === 'gcp_json' ? 'Copied!' : 'Copy JSON'}</span>
+                        </button>
+                      </div>
+                      <pre className="font-mono text-[11px] text-emerald-400 select-all max-h-48 overflow-y-auto bg-bg-card p-2 rounded-lg border border-accent-darkBorder/60">
+                        {showSecretKeys
+                          ? (typeof credDetailsData?.credentials === 'string' ? credDetailsData.credentials : JSON.stringify(credDetailsData?.credentials || { type: "service_account", project_id: "my-gcp-project" }, null, 2))
+                          : '{\n  "type": "service_account",\n  "project_id": "••••••••",\n  "private_key": "••••••••••••••••••••••••••••••••"\n}'}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+
+                {/* AZURE CREDENTIAL KEYS */}
+                {selectedCredForKeys.provider === 'azure' && (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-bg-main border border-accent-darkBorder rounded-xl space-y-1">
+                      <div className="flex items-center justify-between text-xs text-slate-400">
+                        <span className="font-semibold">Client Secret</span>
+                        <button
+                          onClick={() => copyKeyText(credDetailsData?.credentials?.client_secret || '••••', 'azure_secret')}
+                          className="text-[11px] font-bold text-brand-sky hover:text-white flex items-center gap-1 transition-colors"
+                        >
+                          {copiedKeyField === 'azure_secret' ? <CheckCircle className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          <span>{copiedKeyField === 'azure_secret' ? 'Copied!' : 'Copy'}</span>
+                        </button>
+                      </div>
+                      <div className="font-mono text-xs text-emerald-400 select-all font-semibold">
+                        {showSecretKeys ? (credDetailsData?.credentials?.client_secret || 'my-azure-secret-value') : '••••••••••••••••••••••••••••••••'}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* DIGITALOCEAN CREDENTIAL KEYS */}
+                {selectedCredForKeys.provider === 'digitalocean' && (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-bg-main border border-accent-darkBorder rounded-xl space-y-1">
+                      <div className="flex items-center justify-between text-xs text-slate-400">
+                        <span className="font-semibold">Personal Access Token (PAT)</span>
+                        <button
+                          onClick={() => copyKeyText(credDetailsData?.credentials?.token || 'dop_v1_••••', 'do_pat')}
+                          className="text-[11px] font-bold text-brand-sky hover:text-white flex items-center gap-1 transition-colors"
+                        >
+                          {copiedKeyField === 'do_pat' ? <CheckCircle className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          <span>{copiedKeyField === 'do_pat' ? 'Copied!' : 'Copy'}</span>
+                        </button>
+                      </div>
+                      <div className="font-mono text-xs text-emerald-400 select-all font-semibold">
+                        {showSecretKeys ? (credDetailsData?.credentials?.token || 'dop_v1_example_token') : 'dop_v1_••••••••••••••••••••••••••••••••'}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="pt-4 border-t border-accent-darkBorder flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCredForKeys(null);
+                  setCredDetailsData(null);
+                }}
+                className="bg-brand-blue hover:bg-brand-blue/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-lg transition-all"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 6. CREATE AWS IAM USER & EKS ACCESS GUIDE MODAL                           */}
+      {/* ========================================================================= */}
+      {showCreateIamModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-bg-card border border-accent-darkBorder rounded-2xl w-full max-w-2xl p-6 space-y-5 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setShowCreateIamModal(false)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white hover:bg-accent-darkHover rounded-xl transition-all"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 border-b border-accent-darkBorder pb-4">
+              <div className="p-3 bg-purple-500/20 rounded-xl border border-purple-500/30">
+                <UserPlus className="w-6 h-6 text-purple-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>Create AWS IAM User for Kubernetes & IDP</span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Quick guide & copyable commands to create an IAM User with full permissions for EKS & Database Deployment
+                </p>
+              </div>
+            </div>
+
+            {/* STEP 1: CREATE IAM USER WITH ADMIN ACCESS */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-purple-500 text-white text-[11px] font-extrabold flex items-center justify-center">1</span>
+                  Create IAM User & Generate Access Keys (AWS CLI)
+                </label>
+                <button
+                  onClick={() => copyIamText(`aws iam create-user --user-name idp-k8s-admin\naws iam attach-user-policy --user-name idp-k8s-admin --policy-arn arn:aws:iam::aws:policy/AdministratorAccess\naws iam create-access-key --user-name idp-k8s-admin`, 'step1')}
+                  className="text-xs font-bold text-purple-400 hover:text-white flex items-center gap-1 transition-colors px-2 py-1 bg-purple-950/50 rounded-lg border border-purple-500/30"
+                >
+                  {copiedIamCode === 'step1' ? <CheckCircle className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedIamCode === 'step1' ? 'Copied Commands!' : 'Copy Script'}</span>
+                </button>
+              </div>
+              <pre className="bg-bg-main border border-accent-darkBorder rounded-xl p-3 text-[11px] font-mono text-emerald-400 overflow-x-auto select-all leading-relaxed">
+{`# 1. Create IAM User
+aws iam create-user --user-name idp-k8s-admin
+
+# 2. Attach AdministratorAccess policy
+aws iam attach-user-policy --user-name idp-k8s-admin --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
+
+# 3. Create Access Key & Secret Key for IDP Platform
+aws iam create-access-key --user-name idp-k8s-admin`}
+              </pre>
+            </div>
+
+            {/* STEP 2: GRANT EKS CLUSTER-ADMIN ACCESS ENTRY */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-purple-500 text-white text-[11px] font-extrabold flex items-center justify-center">2</span>
+                  Authorize User in EKS Cluster (Required for Helm & DB Deployment)
+                </label>
+                <button
+                  onClick={() => copyIamText(`aws eks create-access-entry --cluster-name test-cluster-1 --principal-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):user/idp-k8s-admin --type STANDARD\naws eks associate-access-policy --cluster-name test-cluster-1 --principal-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):user/idp-k8s-admin --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy --access-scope type=cluster`, 'step2')}
+                  className="text-xs font-bold text-purple-400 hover:text-white flex items-center gap-1 transition-colors px-2 py-1 bg-purple-950/50 rounded-lg border border-purple-500/30"
+                >
+                  {copiedIamCode === 'step2' ? <CheckCircle className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedIamCode === 'step2' ? 'Copied Commands!' : 'Copy Script'}</span>
+                </button>
+              </div>
+              <pre className="bg-bg-main border border-accent-darkBorder rounded-xl p-3 text-[11px] font-mono text-cyan-300 overflow-x-auto select-all leading-relaxed">
+{`# 1. Create Access Entry for EKS (replace test-cluster-1 if needed)
+aws eks create-access-entry \\
+  --cluster-name test-cluster-1 \\
+  --principal-arn $(aws iam get-user --user-name idp-k8s-admin --query 'User.Arn' --output text) \\
+  --type STANDARD
+
+# 2. Assign ClusterAdminPolicy so Helm can deploy databases
+aws eks associate-access-policy \\
+  --cluster-name test-cluster-1 \\
+  --principal-arn $(aws iam get-user --user-name idp-k8s-admin --query 'User.Arn' --output text) \\
+  --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \\
+  --access-scope type=cluster`}
+              </pre>
+            </div>
+
+            {/* STEP 3: TERRAFORM SNIPPET */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-purple-500 text-white text-[11px] font-extrabold flex items-center justify-center">3</span>
+                  Alternative: Terraform Configuration
+                </label>
+                <button
+                  onClick={() => copyIamText(`resource "aws_eks_access_entry" "idp_user" {\n  cluster_name  = "test-cluster-1"\n  principal_arn = "arn:aws:iam::<ACCOUNT_ID>:user/idp-k8s-admin"\n  type          = "STANDARD"\n}\n\nresource "aws_eks_access_policy_association" "idp_admin" {\n  cluster_name  = "test-cluster-1"\n  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"\n  principal_arn = "arn:aws:iam::<ACCOUNT_ID>:user/idp-k8s-admin"\n  access_scope {\n    type = "cluster"\n  }\n}`, 'tf')}
+                  className="text-xs font-bold text-purple-400 hover:text-white flex items-center gap-1 transition-colors px-2 py-1 bg-purple-950/50 rounded-lg border border-purple-500/30"
+                >
+                  {copiedIamCode === 'tf' ? <CheckCircle className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedIamCode === 'tf' ? 'Copied TF!' : 'Copy TF'}</span>
+                </button>
+              </div>
+              <pre className="bg-bg-main border border-accent-darkBorder rounded-xl p-3 text-[11px] font-mono text-amber-300 overflow-x-auto select-all leading-relaxed">
+{`resource "aws_eks_access_entry" "idp_user" {
+  cluster_name  = "test-cluster-1"
+  principal_arn = "arn:aws:iam::<ACCOUNT_ID>:user/idp-k8s-admin"
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "idp_admin" {
+  cluster_name  = "test-cluster-1"
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  principal_arn = "arn:aws:iam::<ACCOUNT_ID>:user/idp-k8s-admin"
+  access_scope {
+    type = "cluster"
+  }
+}`}
+              </pre>
+            </div>
+
+            <div className="pt-4 border-t border-accent-darkBorder flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateIamModal(false);
+                  setShowAddModal(true);
+                  setNewCredProvider('aws');
+                }}
+                className="bg-brand-blue hover:bg-brand-blue/90 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-brand-blue/30 flex items-center gap-1.5 transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Generated Keys to Platform</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowCreateIamModal(false)}
+                className="text-xs font-semibold px-4 py-2.5 rounded-xl border border-accent-darkBorder text-slate-400 hover:text-white hover:bg-accent-darkHover transition-all"
+              >
+                Close
               </button>
             </div>
           </div>

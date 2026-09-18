@@ -162,12 +162,33 @@ class ClusterScannerService:
 
         return token
 
+    async def authorize_cluster_access(self, cluster_name: str, alias: Optional[str] = None, user_id: int = 1) -> Dict[str, Any]:
+        existing = await self.db.execute(
+            select(ClusterEntity).where(
+                ClusterEntity.user_id == user_id,
+                ClusterEntity.cluster_name == cluster_name
+            )
+        )
+        entity = existing.scalars().first()
+        target_alias = alias or (entity.provider_alias if entity else None)
+        if not target_alias:
+            raise ValueError(f"Provider credential alias not found for cluster '{cluster_name}'")
 
+        official_provider_type = await self.fetch_provider_type(target_alias, user_id)
+        provider_type = (official_provider_type or (entity.provider_type if entity else "")).lower()
 
+        if provider_type not in ["aws", "amazon"]:
+            return {
+                "status": "success",
+                "message": f"Cluster '{cluster_name}' on {provider_type} does not require AWS Access Entry authorization.",
+                "cluster_name": cluster_name
+            }
 
+        creds = await self.fetch_credentials_from_provider_service(target_alias)
+        if not creds:
+            raise ValueError(f"No valid credentials found for alias '{target_alias}'. Please check credentials in Vault.")
 
-            
-
-
-            
-        
+        aws_scanner: AWSClusterScanner = self.scanners.get("aws")
+        region = entity.region if entity else None
+        res = await aws_scanner.authorize_access_entry(credentials=creds, cluster_name=cluster_name, region=region)
+        return res

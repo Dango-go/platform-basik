@@ -72,6 +72,23 @@ class ApiClient {
     return Promise.resolve(this.credentials);
   }
 
+  async getCredentialDetails(alias: string): Promise<any> {
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch(`/api/v1/provider/credentials/${alias}`, {
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.warn(`Failed to fetch credential details for ${alias}:`, e);
+    }
+    return null;
+  }
+
   async getClusters(): Promise<K8sCluster[]> {
     return this.getUserClusters(1);
   }
@@ -187,6 +204,25 @@ class ApiClient {
       this.saveClusterToken(data.cluster_name, generatedToken);
     }
     return generatedToken;
+  }
+
+  async authorizeClusterAccess(clusterName: string, alias?: string, userId: number = 1): Promise<{ status: string; principal_arn?: string; message?: string }> {
+    const token = localStorage.getItem('access_token');
+    const url = `/api/v1/discovery/clusters/${encodeURIComponent(clusterName)}/authorize-access?user_id=${userId}${alias ? `&alias=${encodeURIComponent(alias)}` : ''}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || 'Failed to authorize EKS access entry');
+    }
+
+    return await res.json();
   }
 
   async getMetricsForDb(dbId: string): Promise<DatabaseMetrics> {
