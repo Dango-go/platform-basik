@@ -23,6 +23,8 @@ class Saving_cluster_token:
             namespace = "kube-system"
             base_url = api_server_url.rstrip("/")
 
+            print(f"[SAVER_TOKEN] Connecting to {base_url} using temp_token (len={len(temp_token)})")
+
             # 1. Create ServiceAccount (ignore 409 if already exists)
             sa_url = f"{base_url}/api/v1/namespaces/{namespace}/serviceaccounts"
             sa_body = {
@@ -30,7 +32,8 @@ class Saving_cluster_token:
                 "kind": "ServiceAccount",
                 "metadata": {"name": sa_name, "namespace": namespace}
             }
-            await client.post(sa_url, json=sa_body, headers=headers)
+            resp_sa = await client.post(sa_url, json=sa_body, headers=headers)
+            print(f"[SAVER_TOKEN] Create SA response: code={resp_sa.status_code}, text={resp_sa.text[:200]}")
 
             # 2. Create ClusterRoleBinding (ignore 409 if already exists)
             crb_url = f"{base_url}/apis/rbac.authorization.k8s.io/v1/clusterrolebindings"
@@ -49,7 +52,8 @@ class Saving_cluster_token:
                     "apiGroup": "rbac.authorization.k8s.io"
                 }
             }
-            await client.post(crb_url, json=crb_body, headers=headers)
+            resp_crb = await client.post(crb_url, json=crb_body, headers=headers)
+            print(f"[SAVER_TOKEN] Create CRB response: code={resp_crb.status_code}, text={resp_crb.text[:200]}")
 
             # 3. Try K8s TokenRequest API (valid for 10 years)
             token_request_url = f"{base_url}/api/v1/namespaces/{namespace}/serviceaccounts/{sa_name}/token"
@@ -61,10 +65,12 @@ class Saving_cluster_token:
                 }
             }
             tr_resp = await client.post(token_request_url, json=token_request_body, headers=headers)
+            print(f"[SAVER_TOKEN] TokenRequest response: code={tr_resp.status_code}, text={tr_resp.text[:200]}")
             if tr_resp.status_code == 201:
                 tr_data = tr_resp.json()
                 jwt_token = tr_data.get("status", {}).get("token")
                 if jwt_token:
+                    print(f"[SAVER_TOKEN] Successfully created TokenRequest JWT token (len={len(jwt_token)})")
                     return jwt_token
 
             # 4. Fallback: Create Secret (Token)
@@ -79,17 +85,22 @@ class Saving_cluster_token:
                 },
                 "type": "kubernetes.io/service-account-token"
             }
-            await client.post(secret_url, json=secret_body, headers=headers)
+            resp_sec = await client.post(secret_url, json=secret_body, headers=headers)
+            print(f"[SAVER_TOKEN] Create Secret response: code={resp_sec.status_code}, text={resp_sec.text[:200]}")
 
             # Poll for secret token generation
             get_secret_url = f"{base_url}/api/v1/namespaces/{namespace}/secrets/{secret_name}"
-            for _ in range(5):
+            for attempt in range(5):
                 await asyncio.sleep(1)
                 resp = await client.get(get_secret_url, headers=headers)
+                print(f"[SAVER_TOKEN] Poll Secret attempt {attempt+1}: code={resp.status_code}")
                 if resp.status_code == 200:
                     data = resp.json()
                     raw_b64_token = data.get("data", {}).get("token")
                     if raw_b64_token:
-                        return base64.b64decode(raw_b64_token).decode("utf-8")
+                        decoded = base64.b64decode(raw_b64_token).decode("utf-8")
+                        print(f"[SAVER_TOKEN] Successfully fetched Secret JWT token (len={len(decoded)})")
+                        return decoded
          
+        print("[SAVER_TOKEN] Warning: Fallback to temp_token")
         return temp_token
