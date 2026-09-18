@@ -50,6 +50,7 @@ export interface K8sCluster {
   id: string;
   name: string;
   provider: 'AWS EKS' | 'Azure AKS' | 'GCP GKE' | 'DigitalOcean' | 'On-Premise';
+  provider_alias?: string;
   region: string;
   nodes_count: number;
   status: 'active' | 'degraded';

@@ -56,7 +56,7 @@ export const CloudPage: React.FC = () => {
       const matchingCred = credentialsList.find(
         (c) => c.provider === cls.provider.toLowerCase() || c.name.toLowerCase().includes(cls.provider.toLowerCase())
       );
-      const alias = matchingCred?.name || cls.name;
+      const alias = cls.provider_alias || matchingCred?.name || credentialsList[0]?.name || cls.name;
 
       const generatedToken = await apiClient.createClusterToken({
         user_id: 1,

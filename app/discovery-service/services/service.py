@@ -125,6 +125,7 @@ class ClusterScannerService:
         # type of cloud
         official_provider_type = await self.fetch_provider_type(request.alias, request.user_id)
         provider_type = (official_provider_type or "").strip().lower()
+        
         if not provider_type:
             raise ValueError(f"No valid provider found for alias '{request.alias}'. Please re-add credentials.")
 

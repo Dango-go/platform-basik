@@ -138,11 +138,12 @@ class ApiClient {
       id: clusterId,
       name: clusterName,
       provider: providerMap[c.provider_type?.toLowerCase()] || 'GCP GKE',
+      provider_alias: c.provider_alias || c.alias || '',
       region: c.region || 'global',
       nodes_count: c.nodes_count || 3,
       status: (c.status === 'active' || c.status === 'running') ? 'active' : 'degraded',
       api_url: c.endpoint || c.api_url || 'https://kubernetes.default.svc',
-      ca_cert_data: c.ca_cert_data || '',
+      ca_cert_data: c.ca_cert_data || c.ca_cert || '',
       token: savedToken || c.token || '',
       user_name: c.user_name || 'cluster-admin'
     };
