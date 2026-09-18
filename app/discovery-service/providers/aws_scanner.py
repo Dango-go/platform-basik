@@ -31,7 +31,7 @@ def generate_eks_token(cluster_name: str, access_key: str, secret_key: str, regi
     }
     signed_url = signer.generate_presigned_url(
         request_dict=request_params,
-        expires_in=60,
+        expires_in=900,
         operation_name='GetCallerIdentity'
     )
     base64_url = base64.urlsafe_b64encode(signed_url.encode('utf-8')).decode('utf-8').rstrip('=')
