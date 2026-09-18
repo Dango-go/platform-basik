@@ -23,6 +23,8 @@ class ClusterResponse(BaseModel):
     k8s_version: Optional[str] = None
     status: str
     endpoint: Optional[str] = None
+    ca_cert: Optional[str] = None
+    token: Optional[str] = None
     created_at: Optional[datetime] = None
 
     class Config:

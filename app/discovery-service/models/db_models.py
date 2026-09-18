@@ -17,5 +17,7 @@ class ClusterEntity(Base):
     k8s_version = Column(String, nullable=True)
     status = Column(String, nullable=False, default="active")
     endpoint = Column(String, nullable=True)
+    ca_cert = Column(String, nullable=True)
+    token = Column(String, nullable=True)
     raw_data = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

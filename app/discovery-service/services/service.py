@@ -88,6 +88,7 @@ class ClusterScannerService:
                 entity.k8s_version = c.get("version")
                 entity.status = c.get("status", "active")
                 entity.endpoint = c.get("endpoint")
+                entity.ca_cert = c.get("ca_cert")
                 entity.raw_data = clean_raw
             else:
                 entity = ClusterEntity(
@@ -99,6 +100,7 @@ class ClusterScannerService:
                     k8s_version=c.get("version"),
                     status=c.get("status", "active"),
                     endpoint=c.get("endpoint"),
+                    ca_cert=c.get("ca_cert"),
                     raw_data=clean_raw
                 )
                 self.db.add(entity)
