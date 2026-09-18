@@ -7,6 +7,9 @@ from services.helm_deployer.chart_manager import ChartManager
 from services.helm_deployer.validator import HelmValidator
 from services.helm_deployer.kubeconfig_builder import KubeconfigBuilder
 from services.helm_deployer.runner import HelmRunner
+import httpx
+import os
+from fastapi import HTTPException
 
 
 
@@ -93,9 +96,9 @@ class HelmService:
         cluster_name: str,
         release_name: str,
         chart_name: str,
-        api_server_url: str,
-        ca_cert_data: str,
-        token: str,
+        api_server_url: Optional[str] = None,
+        ca_cert_data: Optional[str] = None,
+        token: Optional[str] = None,
         user_name: str = "cluster-admin",
         namespace: str = "default",
         target_values_file: Optional[str] = None
@@ -103,22 +106,44 @@ class HelmService:
         self.validator.validate_release_name(release_name)
         self.validator.validate_namespace(namespace)
 
+        DISCOVERY_SERVICE_URL = os.getenv("DISCOVERY_SERVICE_URL", "http://discovery-service:8001")
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            try:
+                response = await client.get(f"{DISCOVERY_SERVICE_URL}/api/v1/discovery/cluster/{cluster_name}")
+                if response.status_code == 404:
+                    raise HTTPException(status_code=404, detail=f"Cluster '{cluster_name}' not found in discovery-service")
+                response.raise_for_status()
+                cluster_data = response.json()
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to fetch cluster details from discovery-service: {str(e)}")
+
+        api_server_url = api_server_url or cluster_data.get("endpoint") or ""
+        ca_cert_data = ca_cert_data or cluster_data.get("ca_cert") or ""
+        token = token or cluster_data.get("token") or ""
+
+        if not token:
+            raise HTTPException(
+                status_code=400,
+                detail=f"No access token found for cluster '{cluster_name}'. Please click 'Create SA Token' first."
+            )
+
         chart_path = self.chart_manager.base_temp_dir / release_name / chart_name
         if not chart_path.exists():
             chart_path = self.chart_manager.base_temp_dir / release_name
 
         self.validator.validate_chart_directory(str(chart_path))
 
-        
         """Creating kubeconfig path and generating content in kubeconfig file. After uprgrade chart - delete kubeconfig file"""
         kubeconfig_path = await self.kubeconfig_builder.fast_creating(
-        cluster_name=cluster_name,
-        release_name=release_name,
-        ca_cert_data=ca_cert_data,
-        api_server_url=api_server_url,
-        token=token,
-        user_name=user_name,
-        namespace=namespace
+            cluster_name=cluster_name,
+            release_name=release_name,
+            ca_cert_data=ca_cert_data,
+            api_server_url=api_server_url,
+            token=token,
+            user_name=user_name,
+            namespace=namespace
         )
 
         try:

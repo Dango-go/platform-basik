@@ -119,6 +119,12 @@ class ClusterScannerService:
         )
         return result.scalars().all()
 
+    async def get_cluster_by_name(self, cluster_name: str) -> Optional[ClusterEntity]:
+        result = await self.db.execute(
+            select(ClusterEntity).where(ClusterEntity.cluster_name == cluster_name)
+        )
+        return result.scalars().first()
+
     # create token (for headers request from helm / kubectl) to get access creating resources in clusters 
     async def create_access_token(self,  request: TokenCreateRequest):
 

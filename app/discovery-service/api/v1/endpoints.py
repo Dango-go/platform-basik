@@ -31,6 +31,18 @@ async def get_user_clusters(
     scanner = ClusterScannerService(db=db)
     return await scanner.get_clusters_by_user(user_id)
 
+
+@router.get("/cluster/{cluster_name}", response_model=ClusterResponse)
+async def get_cluster_by_name(
+    cluster_name: str,
+    db: AsyncSession = Depends(db_session)
+):
+    scanner = ClusterScannerService(db=db)
+    cluster = await scanner.get_cluster_by_name(cluster_name)
+    if not cluster:
+        raise HTTPException(status_code=404, detail=f"Cluster '{cluster_name}' not found")
+    return cluster
+
 @router.post("/clusters/create_token/{cluster_name}")
 async def create_token_for_cluster(
     request: TokenCreateRequest,
