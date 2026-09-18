@@ -11,20 +11,15 @@ from botocore.signers import RequestSigner
 
 def generate_eks_token(cluster_name: str, access_key: str, secret_key: str, region: str, session_token: str = None) -> str:
     """Generate AWS EKS Bearer token via STS GetCallerIdentity presigned URL."""
-    credentials = Credentials(
-        access_key=access_key,
-        secret_key=secret_key,
-        token=session_token
-    )
     session = get_session()
-    signer = RequestSigner(
-        service_id='sts',
+    client = session.create_client(
+        'sts',
         region_name=region,
-        signing_name='sts',
-        signature_version='v4',
-        credentials=credentials,
-        event_emitter=session.get_component('event_emitter')
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        aws_session_token=session_token
     )
+    signer = client._request_signer
     request_params = {
         'method': 'GET',
         'url': f'https://sts.{region}.amazonaws.com/?Action=GetCallerIdentity&Version=2011-06-15',
@@ -34,7 +29,6 @@ def generate_eks_token(cluster_name: str, access_key: str, secret_key: str, regi
         },
         'context': {}
     }
-    # cryptographic signing
     signed_url = signer.generate_presigned_url(
         request_dict=request_params,
         expires_in=60,
