@@ -6,12 +6,11 @@ import base64
 
 class Saving_cluster_token: 
 
+    @staticmethod
     async def save(
         db: AsyncSession,
-        temp_token: str, 
-        cluster_name: str, 
+        temp_token: str,  
         api_server_url: str, 
-        ca_cert: str
     ):
         headers = {
             "Authorization": f"Bearer {temp_token}",
@@ -73,13 +72,14 @@ class Saving_cluster_token:
             # save generated constant token
             get_secret_url = f"{base_url}/api/v1/namespaces/{namespace}/secrets/{secret_name}"
             resp = await client.get(get_secret_url, headers=headers)
+            
+            token = temp_token
+
             if resp.status_code == 200:
                 data = resp.json()
                 raw_b64_token = data.get("data", {}).get("token")
                 if raw_b64_token:
-     
-                    return base64.b64decode(raw_b64_token).decode("utf-8")
+                    token = base64.b64decode(raw_b64_token).decode("utf-8")
+                    return token
          
-        return temp_token
-
-save_cluster_token = Saving_cluster_token()
+        return token
