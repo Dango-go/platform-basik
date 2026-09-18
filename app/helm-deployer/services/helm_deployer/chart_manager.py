@@ -47,20 +47,24 @@ class ChartManager:
 
     # READ AND RETURN content of file  
     async def read_chart_file(self, release_name: str, file_path: str) -> str:
-
         target_file = self.base_temp_dir / release_name / file_path
         if not target_file.exists():
-            raise FileNotFoundError(f"File {file_path} from release {release_name} not found.")
+            # Check inside any subdirectories (e.g. /tmp/helm_charts/release/postgresql/values.yaml)
+            matches = list((self.base_temp_dir / release_name).glob(f"**/{file_path}"))
+            if matches:
+                target_file = matches[0]
+            else:
+                raise FileNotFoundError(f"File {file_path} from release {release_name} not found.")
         
         return target_file.read_text(encoding="utf-8")
 
     # SAVE   
     async def save_chart_file(self, release_name: str, file_path: str, content: str) -> str:
- 
         target_file = self.base_temp_dir / release_name / file_path
         if not target_file.parent.exists():
             target_file.parent.mkdir(parents=True, exist_ok=True)
 
         target_file.write_text(content, encoding="utf-8")
         return str(target_file)
+
  

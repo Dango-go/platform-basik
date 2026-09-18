@@ -34,7 +34,7 @@ class HelmDeployerClient:
             }
         }
         
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=300.0) as client:
             try:
                 response = await client.post(f"{self.base_url}/api/v1/helm/apply", json=payload)
                 response.raise_for_status()
@@ -42,6 +42,7 @@ class HelmDeployerClient:
             except httpx.HTTPError as exc:
                 logger.error("Failed to execute helm apply via helm-deployer: %s", str(exc))
                 raise RuntimeError(f"Helm deployer communication error: {str(exc)}")
+
 
     async def template_chart(
         self,
