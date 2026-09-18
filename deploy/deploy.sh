@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-#sudo mkfs.ext4
-# mdkir /mnt
+#sudo mkfs.ext4 /dev/xvdh
+# mkdir /mnt
 #sudo mount /dev/xvdh /mnt
 
 echo "📁 Creating directories..."

@@ -7,7 +7,7 @@ from api.v1.schemas import DiscoveryRequest, TokenCreateRequest
 from providers.aws_scanner import AWSClusterScanner
 from providers.gcp_scanner import GCPClusterScanner
 from providers.digitalocean_scanner import DigitalOceanClusterScanner
-from main_saver_token import save_cluster_token 
+from main_saver_token import Saving_cluster_token
 import httpx
 from config import settings
 
@@ -131,10 +131,11 @@ class ClusterScannerService:
         if not creds:
             raise ValueError(f"No valid credentials found for alias '{request.alias}'. Please re-add credentials.")
 
+        # create temp token
         creater = self.scanners.get(provider_type)
         temp_token_create = await creater.creation_token(cloud_creds=creds, cluster_name=request.cluster_name)
 
-        token = await save_cluster_token.save(temp_token=temp_token_create, cluster_name=request.cluster_name, api_server_url=request.api_server_url, ca_cert=request.ca_cert_data) 
+        token = await Saving_cluster_token.save(temp_token=temp_token_create, cluster_name=request.cluster_name, api_server_url=request.api_server_url, ca_cert=request.ca_cert_data) 
 
         # save token to cluster
         existing = await self.db.execute(

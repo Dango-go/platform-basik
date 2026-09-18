@@ -34,6 +34,7 @@ def generate_eks_token(cluster_name: str, access_key: str, secret_key: str, regi
         },
         'context': {}
     }
+    # cryptographic signing
     signed_url = signer.generate_presigned_url(
         request_dict=request_params,
         expires_in=60,
@@ -81,7 +82,7 @@ class AWSClusterScanner(BaseClusterScanner):
         return clusters_data
 
 
-    async def creation_token(self, provider_type: str, cloud_creds: dict, cluster_name: str) -> str:
+    async def creation_token(self, cloud_creds: dict, cluster_name: str) -> str:
         access_key = cloud_creds.get("aws_access_key_id") or cloud_creds.get("access_key_id") or cloud_creds.get("access_key")
         secret_key = cloud_creds.get("aws_secret_access_key") or cloud_creds.get("secret_access_key") or cloud_creds.get("secret_key")
         region = cloud_creds.get("aws_region") or cloud_creds.get("region") or "us-east-1"
@@ -90,7 +91,7 @@ class AWSClusterScanner(BaseClusterScanner):
         if not access_key or not secret_key:
             raise ValueError("AWS Access Key and Secret Key required for token creating.")
 
- 
+
         token = generate_eks_token(
             cluster_name=cluster_name,
             access_key=access_key,

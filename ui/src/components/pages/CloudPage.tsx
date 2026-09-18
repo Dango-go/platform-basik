@@ -112,6 +112,7 @@ export const CloudPage: React.FC = () => {
 
   // Deletion Modal State
   const [credToDelete, setCredToDelete] = useState<CloudCredential | null>(null);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState<string>('');
 
   // Discovery / Sync Modal State
   const [showSyncModal, setShowSyncModal] = useState(false);
@@ -292,7 +293,7 @@ export const CloudPage: React.FC = () => {
   };
 
   const confirmDeleteCredential = async () => {
-    if (credToDelete) {
+    if (credToDelete && deleteConfirmInput.trim() === credToDelete.name) {
       try {
         await apiClient.deleteCloudCredentials(credToDelete.name);
       } catch (e) {
@@ -300,6 +301,7 @@ export const CloudPage: React.FC = () => {
       }
       setCredentialsList(credentialsList.filter((c) => c.id !== credToDelete.id));
       setCredToDelete(null);
+      setDeleteConfirmInput('');
     }
   };
 
@@ -898,7 +900,7 @@ export const CloudPage: React.FC = () => {
 
       {/* CONFIRMATION DELETION MODAL */}
       {credToDelete && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-bg-card rounded-3xl border border-rose-500/40 w-full max-w-md p-6 shadow-2xl space-y-5 relative text-slate-100">
             <div className="flex items-center gap-3 text-rose-400">
               <div className="w-10 h-10 rounded-full bg-rose-500/20 flex items-center justify-center border border-rose-500/30">
@@ -906,20 +908,36 @@ export const CloudPage: React.FC = () => {
               </div>
               <div>
                 <h4 className="font-bold text-white text-base">Delete Cloud Credential</h4>
-                <p className="text-xs text-slate-400">This action cannot be undone</p>
+                <p className="text-xs text-slate-400">This action is permanent and cannot be undone</p>
               </div>
             </div>
 
-            <div className="p-4 bg-bg-main rounded-xl border border-accent-darkBorder space-y-1 text-xs">
-              <p className="text-slate-300 font-medium">Are you sure you want to remove:</p>
-              <p className="font-bold text-white text-sm">{credToDelete.name}</p>
+            <div className="p-4 bg-bg-main rounded-xl border border-accent-darkBorder space-y-1.5 text-xs">
+              <p className="text-slate-300 font-medium">You are about to remove credential alias:</p>
+              <p className="font-bold text-rose-400 text-sm font-mono select-all">{credToDelete.name}</p>
               <p className="text-[11px] text-slate-400 uppercase">Provider: {credToDelete.provider}</p>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-slate-300">
+                To confirm deletion, type <span className="font-bold text-white font-mono">{credToDelete.name}</span> below:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmInput}
+                onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                placeholder={`Type "${credToDelete.name}" to confirm`}
+                className="w-full bg-bg-main border border-rose-500/30 text-white text-xs font-mono rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-rose-500/80"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-accent-darkBorder">
               <button
                 type="button"
-                onClick={() => setCredToDelete(null)}
+                onClick={() => {
+                  setCredToDelete(null);
+                  setDeleteConfirmInput('');
+                }}
                 className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
               >
                 Cancel
@@ -927,7 +945,8 @@ export const CloudPage: React.FC = () => {
               <button
                 type="button"
                 onClick={confirmDeleteCredential}
-                className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-rose-600/30 transition-all"
+                disabled={deleteConfirmInput.trim() !== credToDelete.name}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-rose-600/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Delete Credential
               </button>
