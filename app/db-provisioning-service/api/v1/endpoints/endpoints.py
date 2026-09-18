@@ -6,6 +6,7 @@ from core.database import get_db
 from api.v1.endpoints.schemas import (
     DatabaseItemResponse,
     DatabasePassportResponse,
+    CreateDatabaseRequest,
     ScaleRequest,
     ConfigRequest,
     StatusResponse
@@ -37,6 +38,39 @@ async def list_databases(db: AsyncSession = Depends(get_db)):
         )
         for item in instances
     ]
+
+
+# 1.1 POST /api/v1/provisioning
+@router.post("", response_model=DatabaseItemResponse)
+async def create_database(request: CreateDatabaseRequest, db: AsyncSession = Depends(get_db)):
+    service = ProvisioningService(db)
+    created = await service.repo.create_instance(
+        name=request.name,
+        engine_type=request.engine_type,
+        version=request.version,
+        cluster_name=request.cluster_name or "default-prod",
+        cluster_id=request.cluster_id or "cluster-1",
+        namespace=request.namespace or "databases",
+        cpu=request.cpu or 1.0,
+        ram=request.ram or 2.0,
+        disk=request.disk or 20.0,
+        values_yaml=request.values_yaml
+    )
+    return DatabaseItemResponse(
+        id=created.id,
+        name=created.name,
+        engine_type=created.engine_type,
+        version=created.version,
+        cluster_name=created.cluster_name,
+        namespace=created.namespace,
+        status=created.status,
+        cpu=created.cpu,
+        ram=created.ram,
+        disk=created.disk,
+        monthly_cost=created.cpu * 15.0 + created.ram * 4.0 + created.disk * 0.15,
+        created_at=created.created_at
+    )
+
 
 
 # 2. GET /api/v1/provisioning/{id}

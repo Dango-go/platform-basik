@@ -18,6 +18,20 @@ class DatabaseItemResponse(BaseModel):
     created_at: datetime
 
 
+class CreateDatabaseRequest(BaseModel):
+    name: str
+    engine_type: str
+    version: str
+    cluster_name: Optional[str] = "default-prod"
+    cluster_id: Optional[str] = "cluster-1"
+    namespace: Optional[str] = "databases"
+    cpu: Optional[float] = 1.0
+    ram: Optional[float] = 2.0
+    disk: Optional[float] = 20.0
+    values_yaml: Optional[str] = None
+
+
+
 # GET /api/v1/databases/{id}
 class DatabasePassportResponse(BaseModel):
     id: str

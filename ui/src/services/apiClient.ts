@@ -12,6 +12,14 @@ class ApiClient {
   }
 
   async getDeployedDatabases(): Promise<DeployedDatabase[]> {
+    let localSaved: DeployedDatabase[] = [];
+    try {
+      const stored = localStorage.getItem('deployed_databases');
+      if (stored) {
+        localSaved = JSON.parse(stored);
+      }
+    } catch (_) {}
+
     try {
       const token = localStorage.getItem('access_token');
       const res = await fetch('/api/v1/provisioning', {
@@ -20,7 +28,7 @@ class ApiClient {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
-          return data.map((item: any) => ({
+          const backendDbs: DeployedDatabase[] = data.map((item: any) => ({
             id: String(item.id),
             name: item.name,
             engine_type: item.engine_type,
@@ -32,16 +40,33 @@ class ApiClient {
             memory_usage_mb: Math.round((item.ram || 2) * 1024),
             storage_gb: item.disk || 20,
             monthly_cost: item.monthly_cost || 0,
-            created_at: typeof item.created_at === 'string' ? item.created_at : new Date().toISOString().substring(0, 16),
+            created_at: typeof item.created_at === 'string' ? item.created_at.substring(0, 16) : new Date().toISOString().substring(0, 16),
             values_yaml: item.values_yaml || ''
           }));
+
+          const merged = [...backendDbs];
+          localSaved.forEach((local) => {
+            if (!merged.some((b) => b.name === local.name || b.id === local.id)) {
+              merged.push(local);
+            }
+          });
+          this.deployedDbs = merged.length > 0 ? merged : [...INITIAL_DEPLOYED_DBS];
+          localStorage.setItem('deployed_databases', JSON.stringify(this.deployedDbs));
+          return this.deployedDbs;
         }
       }
     } catch (e) {
       console.warn('Failed to fetch deployed databases from db-provisioning-service:', e);
     }
+
+    if (localSaved.length > 0) {
+      this.deployedDbs = localSaved;
+      return localSaved;
+    }
+
     return Promise.resolve(this.deployedDbs);
   }
+
 
   async getCredentials(): Promise<CloudCredential[]> {
     try {
@@ -236,9 +261,45 @@ class ApiClient {
       status: 'running',
       created_at: new Date().toISOString().replace('T', ' ').substring(0, 16)
     };
-    this.deployedDbs.unshift(created);
-    return Promise.resolve(created);
+
+    // 1. Try persisting to db-provisioning-service backend
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch('/api/v1/provisioning', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          name: newDb.name,
+          engine_type: newDb.engine_type,
+          version: newDb.version,
+          cluster_name: newDb.cluster_name,
+          namespace: newDb.namespace || 'databases',
+          cpu: (newDb.cpu_usage_m || 1000) / 1000,
+          ram: (newDb.memory_usage_mb || 2048) / 1024,
+          disk: newDb.storage_gb || 20,
+          values_yaml: newDb.values_yaml || ''
+        })
+      });
+      if (res.ok) {
+        const item = await res.json();
+        created.id = String(item.id);
+      }
+    } catch (err) {
+      console.warn('Failed to save database in provisioning service DB:', err);
+    }
+
+    // 2. Persist in memory & local storage so it never disappears on refresh
+    this.deployedDbs = [created, ...this.deployedDbs.filter((d) => d.name !== created.name)];
+    try {
+      localStorage.setItem('deployed_databases', JSON.stringify(this.deployedDbs));
+    } catch (_) {}
+
+    return created;
   }
+
 
   async pullHelmChart(payload: { chart_repo_url: string; chart_name: string; chart_version: string; release_name: string }): Promise<any> {
     const token = localStorage.getItem('access_token');
