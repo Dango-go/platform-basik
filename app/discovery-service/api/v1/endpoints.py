@@ -43,6 +43,8 @@ async def get_cluster_by_name(
         raise HTTPException(status_code=404, detail=f"Cluster '{cluster_name}' not found")
     return cluster
 
+
+# Create k8s access token for target cluster via AWS STS GetCallerIdentity presigned URL
 @router.post("/clusters/create_token/{cluster_name}")
 async def create_token_for_cluster(
     request: TokenCreateRequest,

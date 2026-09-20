@@ -128,19 +128,19 @@ class ClusterScannerService:
     # create token (for headers request from helm / kubectl) to get access creating resources in clusters 
     async def create_access_token(self,  request: TokenCreateRequest):
 
-        # type of cloud
+        # get type of cloud
         official_provider_type = await self.fetch_provider_type(request.alias, request.user_id)
         provider_type = (official_provider_type or "").strip().lower()
         
         if not provider_type:
             raise ValueError(f"No valid provider found for alias '{request.alias}'. Please re-add credentials.")
 
-        # creds from cloud
+        # get creds from cloud
         creds = await self.fetch_credentials_from_provider_service(request.alias)
         if not creds:
             raise ValueError(f"No valid credentials found for alias '{request.alias}'. Please re-add credentials.")
 
-        # create temp token
+        # create temp eks bearer access token 
         creater = self.scanners.get(provider_type)
         temp_token_create = await creater.creation_token(cloud_creds=creds, cluster_name=request.cluster_name)
 

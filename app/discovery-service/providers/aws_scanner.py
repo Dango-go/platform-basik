@@ -22,18 +22,20 @@ def generate_eks_token(cluster_name: str, access_key: str, secret_key: str, regi
     signer = client._request_signer
     request_params = {
         'method': 'GET',
-        'url': f'https://sts.{region}.amazonaws.com/?Action=GetCallerIdentity&Version=2011-06-15',
+        'url': f'https://sts.{region}.amazonaws.com/?Action=GetCallerIdentity&Version=2011-06-15',  # REST API of server AWS STS
         'body': {},
         'headers': {
             'x-k8s-aws-id': cluster_name
         },
         'context': {}
     }
-    signed_url = signer.generate_presigned_url(
+    signed_url = signer.generate_presigned_url( # signed by aws_secret_access_key (HMAC-SHA256)
         request_dict=request_params,
         expires_in=900,
         operation_name='GetCallerIdentity'
     )
+
+    # convert string to base64 for valid token in request header
     base64_url = base64.urlsafe_b64encode(signed_url.encode('utf-8')).decode('utf-8').rstrip('=')
     return f"k8s-aws-v1.{base64_url}"
 
@@ -124,8 +126,8 @@ class AWSClusterScanner(BaseClusterScanner):
         if ":sts::" in principal_arn and ":assumed-role/" in principal_arn:
             parts = principal_arn.split(":assumed-role/")
             if len(parts) == 2:
-                account = parts[0].split(":")[-1]
-                role_name = parts[1].split("/")[0]
+                account = parts[0].split(":")[-1] # account id
+                role_name = parts[1].split("/")[0] # role_name
                 principal_arn = f"arn:aws:iam::{account}:role/{role_name}"
 
         async with session.client("eks") as eks_client:
@@ -143,6 +145,7 @@ class AWSClusterScanner(BaseClusterScanner):
             except Exception:
                 pass
 
+            # create access entry for IAM user in target cluster
             try:
                 await eks_client.create_access_entry(
                     clusterName=cluster_name,
@@ -154,10 +157,11 @@ class AWSClusterScanner(BaseClusterScanner):
                 if "ResourceInUseException" not in err_msg and "already exists" not in err_msg.lower() and "already in use" not in err_msg.lower():
                     raise RuntimeError(f"Failed to create EKS Access Entry: {err_msg}")
 
+            # associate access policy for iam user
             try:
                 await eks_client.associate_access_policy(
                     clusterName=cluster_name,
-                    principalArn=principal_arn,
+                    principalArn=principal_arn, # iam user arn 
                     policyArn="arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy",
                     accessScope={"type": "cluster"}
                 )

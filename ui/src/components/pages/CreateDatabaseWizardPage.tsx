@@ -166,8 +166,9 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
   const [installMode, setInstallMode] = useState<'helm' | 'crd'>('helm');
 
   // Selected File inside Helm Chart & Load/Installed state
-  const [selectedHelmFile, setSelectedHelmFile] = useState<string>('');
+  const [selectedHelmFile, setSelectedHelmFile] = useState<string>('values.yaml');
   const [isChartLoaded, setIsChartLoaded] = useState<boolean>(false);
+
   const [isChartInstalled, setIsChartInstalled] = useState<boolean>(false);
   const [deployErrorMsg, setDeployErrorMsg] = useState<string | null>(null);
 
@@ -787,30 +788,29 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
             <div className="flex flex-wrap items-center justify-between gap-3">
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
                 <FileCode2 className="w-4 h-4 text-brand-sky" />
-                Helm Chart Editor {selectedHelmFile ? `(${selectedHelmFile})` : ''}
+                Helm Chart Editor ({selectedHelmFile || 'values.yaml'})
               </label>
 
               <div className="flex items-center gap-2 flex-wrap">
                 {/* SELECT FILE FROM HELM CHART DROPDOWN */}
-                <div className="flex items-center gap-1.5 bg-bg-main border border-accent-darkBorder rounded-lg px-2 py-1">
+                <div className="flex items-center gap-1.5 bg-bg-main border border-accent-darkBorder rounded-lg px-2.5 py-1">
                   <FolderTree className="w-3.5 h-3.5 text-brand-sky" />
                   <select
-                    value={selectedHelmFile}
+                    value={selectedHelmFile || 'values.yaml'}
                     onChange={(e) => handleSelectHelmFile(e.target.value)}
                     className="bg-transparent text-slate-200 text-xs font-mono font-semibold focus:outline-none cursor-pointer"
                   >
-                    {userCustomFiles.length === 0 ? (
-                      <option value="" className="bg-bg-card text-slate-500 font-normal">-- No Custom Files (Click Add Custom File) --</option>
-                    ) : (
-                      <option value="" className="bg-bg-card text-slate-400">-- Select Custom File --</option>
-                    )}
+                    <option value="values.yaml" className="bg-bg-card text-brand-sky font-bold">
+                      📄 values.yaml
+                    </option>
                     {userCustomFiles.map((file) => (
-                      <option key={file.path} value={file.path} className="bg-bg-card text-brand-sky font-bold">
+                      <option key={file.path} value={file.path} className="bg-bg-card text-emerald-400 font-bold">
                         ⚡ {file.name} (Custom)
                       </option>
                     ))}
                   </select>
                 </div>
+
 
                 {/* ADD CUSTOM FILE BUTTON & SAVE / UPGRADE ACTIONS */}
                 <div className="flex items-center gap-1.5 flex-wrap">

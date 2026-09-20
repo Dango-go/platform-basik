@@ -2,12 +2,13 @@ import httpx
 import base64
 import asyncio
 
-# REST API 
+# REST API. Create constant token for cluster using temp token  
+
 
 class Saving_cluster_token: 
 
     @staticmethod
-    async def save(
+    async def create_token_and_save(
         temp_token: str,  
         api_server_url: str, 
     ):
