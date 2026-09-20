@@ -144,8 +144,8 @@ class ClusterScannerService:
         creater = self.scanners.get(provider_type)
         temp_token_create = await creater.creation_token(cloud_creds=creds, cluster_name=request.cluster_name)
 
-
-        token = await Saving_cluster_token.save(temp_token=temp_token_create,  api_server_url=request.api_server_url) 
+        # create constant token
+        token = await Saving_cluster_token.create_token_and_save(temp_token=temp_token_create,  api_server_url=request.api_server_url) 
 
         # save token to cluster
         existing = await self.db.execute(
