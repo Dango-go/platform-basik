@@ -37,3 +37,9 @@ class TokenCreateRequest(BaseModel):
     cluster_name: str = Field(..., description="Cluster name")
     api_server_url: str = Field(..., description="API server url")
     ca_cert_data: str = Field(..., description="CA cert data")
+
+
+class AuthorizeAccessRequest(BaseModel):
+    alias: str = Field(..., description="Cloud credential alias on platform")
+    user_id: Optional[int] = Field(1, description="User ID")
+

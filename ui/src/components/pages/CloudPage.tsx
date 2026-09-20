@@ -57,6 +57,8 @@ export const CloudPage: React.FC = () => {
   // Authorize Access Entry state
   const [authorizingClusterId, setAuthorizingClusterId] = useState<string | null>(null);
   const [authorizedClusterMap, setAuthorizedClusterMap] = useState<Record<string, string>>({});
+  const [selectedClusterForAuth, setSelectedClusterForAuth] = useState<K8sCluster | null>(null);
+  const [selectedCredAliasForAuth, setSelectedCredAliasForAuth] = useState<string>('');
 
   // View Keys Modal state
   const [selectedCredForKeys, setSelectedCredForKeys] = useState<CloudCredential | null>(null);
@@ -90,7 +92,7 @@ export const CloudPage: React.FC = () => {
   const copyKeyText = (text: string, fieldKey: string) => {
     navigator.clipboard.writeText(text);
     setCopiedKeyField(fieldKey);
-    setTimeout(() => setCopiedKeyField(null), 2500);
+    setTimeout(() => setCopiedKeyField(null), 2000);
   };
 
   const copyIamText = (text: string, keyName: string) => {
@@ -151,28 +153,36 @@ export const CloudPage: React.FC = () => {
     }
   };
 
-  const handleAuthorizeAccessEntry = async (cls: K8sCluster) => {
+  const handleOpenAuthModal = (cls: K8sCluster) => {
+    setSelectedClusterForAuth(cls);
+    const matching = credentialsList.find(
+      (c) => c.provider === cls.provider.toLowerCase() || c.name.toLowerCase().includes(cls.provider.toLowerCase())
+    );
+    setSelectedCredAliasForAuth(cls.provider_alias || matching?.name || credentialsList[0]?.name || '');
+  };
+
+  const handleConfirmAuthorizeAccess = async () => {
+    if (!selectedClusterForAuth || !selectedCredAliasForAuth) return;
+    const cls = selectedClusterForAuth;
+    const chosenAlias = selectedCredAliasForAuth;
+    setSelectedClusterForAuth(null);
+
     setAuthorizingClusterId(cls.id);
     setSyncStatusMsg(null);
 
     try {
-      const matchingCred = credentialsList.find(
-        (c) => c.provider === cls.provider.toLowerCase() || c.name.toLowerCase().includes(cls.provider.toLowerCase())
-      );
-      const alias = cls.provider_alias || matchingCred?.name || credentialsList[0]?.name;
-
-      const res = await apiClient.authorizeClusterAccess(cls.name, alias);
+      const res = await apiClient.authorizeClusterAccess(cls.name, chosenAlias);
       
       setAuthorizedClusterMap((prev) => ({
         ...prev,
-        [cls.name]: res.principal_arn || 'Authorized'
+        [cls.name]: res.principal_arn || chosenAlias
       }));
 
       setSyncStatusMsg({
         type: 'success',
         text: res.principal_arn
-          ? `Access Entry Authorized! IAM Principal "${res.principal_arn}" was granted ClusterAdmin permissions on "${cls.name}".`
-          : (res.message || `Access Entry successfully authorized for cluster "${cls.name}".`)
+          ? `Access Entry Authorized! IAM Principal "${res.principal_arn}" (Credential: ${chosenAlias}) was granted ClusterAdmin permissions on "${cls.name}".`
+          : (res.message || `Access Entry successfully authorized for cluster "${cls.name}" using credential "${chosenAlias}".`)
       });
 
       // Automatically auto-create permanent SA token after granting access
@@ -187,6 +197,7 @@ export const CloudPage: React.FC = () => {
       setAuthorizingClusterId(null);
     }
   };
+
 
 
   const handleSaveClusterToken = () => {
@@ -623,7 +634,7 @@ export const CloudPage: React.FC = () => {
               className="bg-brand-blue hover:bg-brand-blue/90 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-brand-blue/30 flex items-center gap-1.5 transition-all"
             >
               <Plus className="w-4 h-4" />
-              <span>+ Add New Credential</span>
+              <span>+ Add New Credentials (from created IAM user in cloud)</span>
             </button>
           </div>
         </div>
@@ -633,9 +644,10 @@ export const CloudPage: React.FC = () => {
           <div className="p-8 text-center text-slate-400 text-xs">
             {selectedProviderFilter === 'none'
               ? 'No credentials displayed. Click "View All" or select a Cloud Provider above.'
-              : 'No credentials found for this provider. Click "+ Add New Credential" to add one.'}
+              : 'No credentials found for this provider. Click "+ Add New Credentials (from created IAM user in cloud)" to add one.'}
           </div>
         ) : (
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredCredentials.map((cred) => (
               <div 
@@ -813,9 +825,9 @@ export const CloudPage: React.FC = () => {
                   {/* AUTHORIZE ACCESS ENTRY DYNAMIC BUTTON (FOR AWS EKS CLUSTERS) */}
                   {(cls.provider.toLowerCase().includes('aws') || cls.provider.toLowerCase().includes('eks')) && (
                     <button
-                      onClick={() => handleAuthorizeAccessEntry(cls)}
+                      onClick={() => handleOpenAuthModal(cls)}
                       disabled={authorizingClusterId === cls.id}
-                      title="Automatically grant IAM Administrator access to this EKS cluster via AWS Access Entry & ClusterAdmin policy"
+                      title="Select Cloud Credential and grant IAM Administrator access to this EKS cluster via AWS Access Entry & ClusterAdmin policy"
                       className={`w-full font-bold text-xs py-2 rounded-xl border transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 ${
                         authorizedClusterMap[cls.name]
                           ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:border-emerald-400'
@@ -839,20 +851,34 @@ export const CloudPage: React.FC = () => {
                     </button>
                   )}
 
-                  {/* CREATE SERVICE ACCOUNT TOKEN ACTION BUTTON */}
+
+                  {/* GENERATE SERVICE ACCOUNT TOKEN ACTION BUTTON */}
                   <button
                     onClick={() => handleAutoCreateClusterToken(cls)}
-                    disabled={creatingTokenClusterId === cls.id}
-                    className="w-full bg-brand-blue/15 hover:bg-brand-blue text-brand-sky hover:text-white font-bold text-xs py-2 rounded-xl border border-brand-sky/30 hover:border-brand-sky transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                    disabled={creatingTokenClusterId === cls.id || !!cls.token}
+                    className={`w-full font-bold text-xs py-2 rounded-xl border transition-all flex items-center justify-center gap-1.5 shadow-sm ${
+                      cls.token
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 cursor-default opacity-90'
+                        : 'bg-brand-blue/15 hover:bg-brand-blue text-brand-sky hover:text-white border-brand-sky/30 hover:border-brand-sky disabled:opacity-50'
+                    }`}
                   >
                     {creatingTokenClusterId === cls.id ? (
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : cls.token ? (
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
                     ) : (
                       <KeyRound className="w-3.5 h-3.5" />
                     )}
-                    <span>{creatingTokenClusterId === cls.id ? 'Creating SA Token...' : cls.token ? 'Re-generate Token' : 'Create SA Token'}</span>
+                    <span>
+                      {creatingTokenClusterId === cls.id
+                        ? 'Generating Token...'
+                        : cls.token
+                        ? 'Generated Token'
+                        : 'Generate Token'}
+                    </span>
                   </button>
                 </div>
+
 
               </div>
             ))}
@@ -1696,6 +1722,106 @@ resource "aws_eks_access_policy_association" "idp_admin" {
         </div>
       )}
 
+      {/* AUTHORIZE ACCESS ENTRY CREDENTIAL SELECTOR MODAL */}
+      {selectedClusterForAuth && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-bg-card rounded-3xl border border-accent-darkBorder w-full max-w-lg p-6 shadow-2xl space-y-6 relative text-slate-100">
+            <div className="flex items-center justify-between border-b border-accent-darkBorder pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 flex items-center justify-center border border-amber-500/30">
+                  <ShieldCheck className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-lg">Authorize EKS Access Entry</h3>
+                  <p className="text-xs text-slate-400">
+                    Cluster: <strong className="text-white">{selectedClusterForAuth.name}</strong> ({selectedClusterForAuth.region})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedClusterForAuth(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-accent-darkHover transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Select which connected <strong>Cloud Credential (IAM User)</strong> should be granted <span className="text-amber-400 font-semibold">ClusterAdmin</span> permissions in this EKS cluster.
+              </p>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                  Select Cloud Credential (Alias)
+                </label>
+
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {credentialsList.map((cred) => {
+                    const isSelected = selectedCredAliasForAuth === cred.name;
+                    return (
+                      <div
+                        key={cred.id}
+                        onClick={() => setSelectedCredAliasForAuth(cred.name)}
+                        className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                          isSelected
+                            ? 'bg-amber-500/15 border-amber-500/60 ring-1 ring-amber-500/40 text-white'
+                            : 'bg-bg-main border-accent-darkBorder/80 hover:border-slate-500 text-slate-300 hover:bg-accent-darkHover'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                            isSelected ? 'border-amber-400 bg-amber-400' : 'border-slate-500'
+                          }`}>
+                            {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-slate-950" />}
+                          </div>
+                          <div>
+                            <span className="font-bold text-sm block text-white">{cred.name}</span>
+                            <span className="text-[11px] text-slate-400 uppercase font-mono">Provider: {cred.provider}</span>
+                          </div>
+                        </div>
+
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">
+                          Active
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="p-3 bg-bg-main rounded-xl border border-accent-darkBorder/60 text-[11px] text-slate-400 font-mono">
+                Payload JSON: <code className="text-amber-300">{JSON.stringify({ alias: selectedCredAliasForAuth, user_id: 1 })}</code>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-accent-darkBorder flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedClusterForAuth(null)}
+                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAuthorizeAccess}
+                disabled={!selectedCredAliasForAuth || authorizingClusterId === selectedClusterForAuth.id}
+                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-amber-500/25 flex items-center gap-2 transition-all disabled:opacity-50"
+              >
+                {authorizingClusterId === selectedClusterForAuth.id ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <ShieldCheck className="w-4 h-4" />
+                )}
+                <span>{authorizingClusterId === selectedClusterForAuth.id ? 'Authorizing...' : 'Authorize Selected Credential'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
+

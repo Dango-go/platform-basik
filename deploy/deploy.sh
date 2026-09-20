@@ -1,28 +1,28 @@
 #!/bin/bash
 set -e
 
-#sudo mkfs.ext4 /dev/xvdh
-# mkdir /mnt
-#sudo mount /dev/xvdh /mnt
+
+sudo mkdir -p /mnt
+if ! mountpoint -q /mnt; then
+    sudo mount /dev/xvdh /mnt
+fi
 
 echo "📁 Creating directories..."
-#sudo mkdir -p /mnt/data/vault_data
 sudo mkdir -p /mnt/main-data/postgres_data
-#mkdir -p vault
+sudo chmod -R 777 /mnt/main-data/postgres_data
+ 
 mkdir -p init-scripts
-
-#echo "📝 Generating vault.hcl..."
-#sudo mkdir -p /mnt/data/vault_data
-sudo mkdir -p /mnt/main-data/postgres_data
 
 touch .env
 cat << 'EOF' > .env
-export DOCKERHUB_USERNAME=""
+DOCKERHUB_USERNAME=""
 EOF
 
 
 #sudo chmod -R 777 /mnt/data/vault_data
 
+
+#echo "📝 Generating vault.hcl..."
 #cat << 'EOF' > vault/vault.hcl
 #storage "file" {
   #path = "/vault/main_file"
@@ -92,7 +92,6 @@ GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO info;
 GRANT ALL ON SCHEMA public TO cost;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO cost;
 EOF
-
 
 
 
@@ -308,11 +307,8 @@ docker compose pull
 
 docker compose up -d
 
-sleep 5
 
-docker compose ps
-
-sleep 5
+sleep 6
 
 docker compose ps
 

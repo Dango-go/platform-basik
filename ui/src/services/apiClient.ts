@@ -231,15 +231,19 @@ class ApiClient {
     return generatedToken;
   }
 
-  async authorizeClusterAccess(clusterName: string, alias?: string, userId: number = 1): Promise<{ status: string; principal_arn?: string; message?: string }> {
+  async authorizeClusterAccess(clusterName: string, alias: string, userId: number = 1): Promise<{ status: string; principal_arn?: string; message?: string }> {
     const token = localStorage.getItem('access_token');
-    const url = `/api/v1/discovery/clusters/${encodeURIComponent(clusterName)}/authorize-access?user_id=${userId}${alias ? `&alias=${encodeURIComponent(alias)}` : ''}`;
+    const url = `/api/v1/discovery/clusters/${encodeURIComponent(clusterName)}/authorize-access`;
     const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      }
+      },
+      body: JSON.stringify({
+        alias: alias,
+        user_id: userId
+      })
     });
 
     if (!res.ok) {
@@ -249,6 +253,7 @@ class ApiClient {
 
     return await res.json();
   }
+
 
   async getMetricsForDb(dbId: string): Promise<DatabaseMetrics> {
     return Promise.resolve({ ...METRICS_SAMPLE, db_id: dbId });

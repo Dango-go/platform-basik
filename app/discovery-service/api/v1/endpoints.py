@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import db_session
-from api.v1.schemas import DiscoveryRequest, TokenCreateRequest, ClusterResponse
+from api.v1.schemas import DiscoveryRequest, TokenCreateRequest, ClusterResponse, AuthorizeAccessRequest
 from services.service import ClusterScannerService
 from typing import List
 
@@ -57,13 +57,16 @@ async def create_token_for_cluster(
 @router.post("/clusters/{cluster_name}/authorize-access")
 async def authorize_cluster_access_endpoint(
     cluster_name: str,
-    alias: str = None,
-    user_id: int = 1,
+    request: AuthorizeAccessRequest,
     db: AsyncSession = Depends(db_session),
 ):
     scanner_service = ClusterScannerService(db=db)
     try:
-        result = await scanner_service.authorize_cluster_access(cluster_name=cluster_name, alias=alias, user_id=user_id)
+        result = await scanner_service.authorize_cluster_access(
+            cluster_name=cluster_name,
+            alias=request.alias,
+            user_id=request.user_id or 1
+        )
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
