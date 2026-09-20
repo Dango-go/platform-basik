@@ -56,7 +56,8 @@ class Saving_cluster_token:
             resp_crb = await client.post(crb_url, json=crb_body, headers=headers)
             print(f"[SAVER_TOKEN] Create CRB response: code={resp_crb.status_code}, text={resp_crb.text[:200]}")
 
-            # 3. Try K8s TokenRequest API (valid for 10 years)
+            
+            # Endpoint to create tokenRequest  
             token_request_url = f"{base_url}/api/v1/namespaces/{namespace}/serviceaccounts/{sa_name}/token"
             token_request_body = {
                 "apiVersion": "authentication.k8s.io/v1",
@@ -65,8 +66,11 @@ class Saving_cluster_token:
                     "expirationSeconds": 315360000  # 10 years
                 }
             }
+
             tr_resp = await client.post(token_request_url, json=token_request_body, headers=headers)
+            
             print(f"[SAVER_TOKEN] TokenRequest response: code={tr_resp.status_code}, text={tr_resp.text[:200]}")
+            
             if tr_resp.status_code == 201:
                 tr_data = tr_resp.json()
                 jwt_token = tr_data.get("status", {}).get("token")
@@ -74,7 +78,7 @@ class Saving_cluster_token:
                     print(f"[SAVER_TOKEN] Successfully created TokenRequest JWT token (len={len(jwt_token)})")
                     return jwt_token
 
-            # 4. Fallback: Create Secret (Token)
+            # 4. If TokenRequest API Fallback: Create Secret (Token)
             secret_url = f"{base_url}/api/v1/namespaces/{namespace}/secrets"
             secret_body = {
                 "apiVersion": "v1",
@@ -82,7 +86,7 @@ class Saving_cluster_token:
                 "metadata": {
                     "name": secret_name,
                     "namespace": namespace,
-                    "annotations": {"kubernetes.io/service-account-token": sa_name}
+                    "annotations": {"kubernetes.io/service-account-token": sa_name} 
                 },
                 "type": "kubernetes.io/service-account-token"
             }
@@ -93,7 +97,7 @@ class Saving_cluster_token:
             get_secret_url = f"{base_url}/api/v1/namespaces/{namespace}/secrets/{secret_name}"
             for attempt in range(5):
                 await asyncio.sleep(1)
-                resp = await client.get(get_secret_url, headers=headers)
+                resp = await client.get(get_secret_url, headers=headers) # temp token to get access to new token from secrets
                 print(f"[SAVER_TOKEN] Poll Secret attempt {attempt+1}: code={resp.status_code}")
                 if resp.status_code == 200:
                     data = resp.json()
