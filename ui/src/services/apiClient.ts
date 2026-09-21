@@ -163,6 +163,22 @@ class ApiClient {
     return [];
   }
 
+  async deleteCluster(clusterName: string, userId: number = 1): Promise<boolean> {
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch(`/api/v1/discovery/cluster/${encodeURIComponent(clusterName)}?user_id=${userId}`, {
+        method: 'DELETE',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+      return res.ok;
+    } catch (e) {
+      console.warn(`Failed to delete cluster ${clusterName}:`, e);
+      return false;
+    }
+  }
+
   private mapClusterResponse(c: any): K8sCluster {
     const providerMap: Record<string, any> = {
       gcp: 'GCP GKE',

@@ -227,17 +227,7 @@ export const CloudPage: React.FC = () => {
     }).catch(() => {});
 
     apiClient.getUserClusters(1).then((fetched) => {
-      if (fetched.length > 0) {
-        setClustersList((prev) => {
-          const merged = [...fetched];
-          prev.forEach((p) => {
-            if (!merged.some((m) => m.name === p.name)) {
-              merged.push(p);
-            }
-          });
-          return merged;
-        });
-      }
+      setClustersList(fetched);
     }).catch(() => {});
   }, []);
 
@@ -265,6 +255,25 @@ export const CloudPage: React.FC = () => {
   // Deletion Modal State
   const [credToDelete, setCredToDelete] = useState<CloudCredential | null>(null);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState<string>('');
+
+  const handleDeleteCluster = async (cluster: K8sCluster) => {
+    if (!window.confirm(`Are you sure you want to remove cluster '${cluster.name}' from platform?`)) {
+      return;
+    }
+    try {
+      await apiClient.deleteCluster(cluster.name, 1);
+      setClustersList((prev) => prev.filter((c) => c.name !== cluster.name && c.id !== cluster.id));
+      setSyncStatusMsg({
+        type: 'success',
+        text: `Cluster '${cluster.name}' successfully removed.`
+      });
+    } catch (e: any) {
+      setSyncStatusMsg({
+        type: 'error',
+        text: `Failed to remove cluster: ${e.message || e}`
+      });
+    }
+  };
 
   // Discovery / Sync Modal State
   const [showSyncModal, setShowSyncModal] = useState(false);
@@ -800,11 +809,20 @@ export const CloudPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div>
-                  <h4 className="font-extrabold text-white text-base">{cls.name}</h4>
-                  <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                    <Globe className="w-3.5 h-3.5 text-slate-500" /> {cls.region}
-                  </p>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h4 className="font-extrabold text-white text-base">{cls.name}</h4>
+                    <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                      <Globe className="w-3.5 h-3.5 text-slate-500" /> {cls.region}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteCluster(cls)}
+                    title={`Delete cluster ${cls.name}`}
+                    className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
 
                 <div className="pt-3 border-t border-accent-darkBorder/60 flex items-center justify-between text-xs text-slate-400 font-medium">

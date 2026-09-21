@@ -2,7 +2,7 @@ import json
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import delete
+from sqlalchemy import delete, func, or_
 from models.db_models import ClusterEntity
 from api.v1.schemas import DiscoveryRequest, TokenCreateRequest
 from providers.aws_scanner import AWSClusterScanner
@@ -109,12 +109,19 @@ class ClusterScannerService:
             saved_entities.append(entity)
 
 
+        clean_alias = request.alias.strip()
+        alias_condition = or_(
+            ClusterEntity.provider_alias == clean_alias,
+            ClusterEntity.provider_alias == request.alias,
+            func.lower(func.trim(ClusterEntity.provider_alias)) == func.lower(clean_alias)
+        )
+
         found_names = [c["name"] for c in found_clusters]
         if found_names:
             await self.db.execute(
                 delete(ClusterEntity).where(
                     ClusterEntity.user_id == request.user_id,
-                    ClusterEntity.provider_alias == request.alias,
+                    alias_condition,
                     ClusterEntity.cluster_name.not_in(found_names)  # If no cluster in found_names then delete
                 )
             )
@@ -123,10 +130,9 @@ class ClusterScannerService:
             await self.db.execute(
                 delete(ClusterEntity).where(
                     ClusterEntity.user_id == request.user_id,
-                    ClusterEntity.provider_alias == request.alias
+                    alias_condition
                 )
             )
-        
 
         await self.db.commit()
         for e in saved_entities:
@@ -145,6 +151,16 @@ class ClusterScannerService:
             select(ClusterEntity).where(ClusterEntity.cluster_name == cluster_name)
         )
         return result.scalars().first()
+
+    async def delete_cluster_by_name(self, cluster_name: str, user_id: int = 1) -> bool:
+        result = await self.db.execute(
+            delete(ClusterEntity).where(
+                ClusterEntity.cluster_name == cluster_name,
+                ClusterEntity.user_id == user_id
+            )
+        )
+        await self.db.commit()
+        return result.rowcount > 0
 
     # create token (for headers request from helm / kubectl) to get access creating resources in clusters 
     async def create_access_token(self,  request: TokenCreateRequest):

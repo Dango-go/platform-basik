@@ -44,6 +44,19 @@ async def get_cluster_by_name(
     return cluster
 
 
+@router.delete("/cluster/{cluster_name}")
+async def delete_cluster_endpoint(
+    cluster_name: str,
+    user_id: int = 1,
+    db: AsyncSession = Depends(db_session)
+):
+    scanner = ClusterScannerService(db=db)
+    deleted = await scanner.delete_cluster_by_name(cluster_name=cluster_name, user_id=user_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Cluster '{cluster_name}' not found for user {user_id}")
+    return {"status": "success", "message": f"Cluster '{cluster_name}' removed successfully."}
+
+
 # Create k8s access token for target cluster via AWS STS GetCallerIdentity presigned URL
 @router.post("/clusters/create_token/{cluster_name}")
 async def create_token_for_cluster(
