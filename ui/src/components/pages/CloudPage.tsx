@@ -333,19 +333,14 @@ export const CloudPage: React.FC = () => {
         }
       }
 
+      // Refresh the full cluster list directly from discovery-service DB
+      const latestClusters = await apiClient.getUserClusters(1);
+      setClustersList(latestClusters);
+
       if (newlyDiscovered.length > 0) {
-        setClustersList((prev) => {
-          const combined = [...newlyDiscovered];
-          prev.forEach((existing) => {
-            if (!combined.some((c) => c.name === existing.name)) {
-              combined.push(existing);
-            }
-          });
-          return combined;
-        });
         setSyncStatusMsg({
           type: 'success',
-          text: `Successfully discovered ${newlyDiscovered.length} Kubernetes cluster(s)!`
+          text: `Successfully synchronized ${newlyDiscovered.length} Kubernetes cluster(s)!`
         });
       } else if (scanErrors.length > 0) {
         setSyncStatusMsg({
@@ -355,7 +350,7 @@ export const CloudPage: React.FC = () => {
       } else {
         setSyncStatusMsg({
           type: 'success',
-          text: 'Scan completed. No new clusters found for selected credential.'
+          text: 'Scan completed. Clusters synchronized with cloud.'
         });
       }
     } catch (err: any) {

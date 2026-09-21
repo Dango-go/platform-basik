@@ -132,6 +132,18 @@ const ENGINE_HELM_CHARTS: Record<string, string> = {
   questdb: 'questdb/questdb (v0.3.1)'
 };
 
+// Default Valid Bitnami/Helm Chart versions for each engine
+const DEFAULT_HELM_CHART_VERSIONS: Record<string, string> = {
+  postgresql: '15.5.2',
+  mysql: '11.1.18',
+  mariadb: '19.0.8',
+  redis: '19.6.4',
+  mongodb: '15.6.2',
+  clickhouse: '6.1.4',
+  kafka: '30.1.7',
+  elasticsearch: '21.4.6'
+};
+
 // Default Custom Resource Manifests for Mode 3 (Operator Service CRD)
 const DEFAULT_CRD_MANIFESTS: Record<string, string> = {
   postgresql: `apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: my-postgres-db\n  namespace: databases\nspec:\n  instances: 3\n  storage:\n    size: 50Gi\n  postgresql:\n    parameters:\n      max_connections: "250"\n      shared_buffers: "2GB"`,
@@ -196,7 +208,9 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
   const [helmChartNameInput, setHelmChartNameInput] = useState<string>(
     `bitnami/${selectedEngine.engine_type}`
   );
-  const [helmChartVersionInput, setHelmChartVersionInput] = useState<string>('15.5.2');
+  const [helmChartVersionInput, setHelmChartVersionInput] = useState<string>(
+    DEFAULT_HELM_CHART_VERSIONS[selectedEngine.engine_type] || '15.5.2'
+  );
   const [helmActionStatus, setHelmActionStatus] = useState<string>('');
   const [isExecutingHelmAction, setIsExecutingHelmAction] = useState<boolean>(false);
 
@@ -351,7 +365,7 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
       setSelectedVersion(found.versions[0]);
       setDbName(`my-${found.engine_type}-db`);
       setHelmChartNameInput(`bitnami/${found.engine_type}`);
-      setHelmChartVersionInput(found.versions[0] || '15.5.2');
+      setHelmChartVersionInput(DEFAULT_HELM_CHART_VERSIONS[found.engine_type] || '15.5.2');
       setIsChartInstalled(false);
       setIsChartLoaded(false);
       setYamlContent('');
