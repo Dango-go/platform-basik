@@ -57,6 +57,7 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({
 
   // Selected item for Management Catalog Page (Running DB Instance Click)
   const [selectedManagementCatalogItem, setSelectedManagementCatalogItem] = useState<any>(null);
+  const [selectedManagementDb, setSelectedManagementDb] = useState<DeployedDatabase | null>(null);
 
   // Flow A: Click Engine Card in Catalog Grid -> Open Engine Overview Page (Create DB, Active instances of this engine, Docs)
   const handleOpenCatalogItem = (item: any) => {
@@ -66,12 +67,14 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({
 
   // Flow B: Click Active Running DB in Table -> Open Management Database Console
   const handleOpenFastManagement = (db: DeployedDatabase) => {
-    const found = CATALOG_ITEMS.find((c) => c.engine_type === db.engine_type) || CATALOG_ITEMS[0];
+    const dbEngine = (db.engine_type || '').toLowerCase();
+    const found = CATALOG_ITEMS.find((c) => (c.engine_type || '').toLowerCase() === dbEngine) || CATALOG_ITEMS[0];
     const customItem = {
       ...found,
       name: `${db.name} (${found.name})`,
       engine_type: db.engine_type,
     };
+    setSelectedManagementDb(db);
     setSelectedManagementCatalogItem(customItem);
     onTitleChange?.('Management Database Console');
   };
@@ -79,6 +82,7 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({
   const handleBackToCatalog = () => {
     setSelectedEngineOverviewItem(null);
     setSelectedManagementCatalogItem(null);
+    setSelectedManagementDb(null);
     onTitleChange?.(null);
   };
 
@@ -105,6 +109,7 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({
     return (
       <DatabaseEngineOverviewPage
         item={selectedEngineOverviewItem}
+        deployedDbs={deployedDbs}
         onBack={handleBackToCatalog}
         onNavigateCreate={onNavigateCreate}
         onOpenManagementConsole={handleOpenFastManagement}
@@ -117,6 +122,8 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({
     return (
       <DatabaseManagementCatalogPage
         item={selectedManagementCatalogItem}
+        selectedDb={selectedManagementDb}
+        deployedDbs={deployedDbs}
         onBack={handleBackToCatalog}
         onNavigateCreate={onNavigateCreate}
       />

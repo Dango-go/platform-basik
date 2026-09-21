@@ -21,6 +21,7 @@ import {
 
 interface DatabaseEngineOverviewPageProps {
   item: DatabaseCatalogItem;
+  deployedDbs?: DeployedDatabase[];
   onBack: () => void;
   onNavigateCreate: (engineType: string) => void;
   onOpenManagementConsole: (db: DeployedDatabase) => void;
@@ -71,6 +72,7 @@ const ENGINE_DOCS_DATA: Record<string, {
 
 export const DatabaseEngineOverviewPage: React.FC<DatabaseEngineOverviewPageProps> = ({
   item,
+  deployedDbs = [],
   onBack,
   onNavigateCreate,
   onOpenManagementConsole
@@ -78,8 +80,9 @@ export const DatabaseEngineOverviewPage: React.FC<DatabaseEngineOverviewPageProp
   const [activeTab, setActiveTab] = useState<'overview' | 'instances' | 'docs'>('overview');
 
   // Filter instances specifically for this engine type
-  const engineInstances = INITIAL_DEPLOYED_DBS.filter(
-    (db) => db.engine_type === item.engine_type
+  const allInstances = deployedDbs.length > 0 ? deployedDbs : INITIAL_DEPLOYED_DBS;
+  const engineInstances = allInstances.filter(
+    (db) => (db.engine_type || '').toLowerCase() === (item.engine_type || '').toLowerCase()
   );
 
   const docInfo = ENGINE_DOCS_DATA[item.engine_type] || {

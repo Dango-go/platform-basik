@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DatabaseCatalogItem } from '../../types';
+import { DatabaseCatalogItem, DeployedDatabase } from '../../types';
 import { INITIAL_DEPLOYED_DBS } from '../../services/mockData';
 import { 
   ArrowLeft, 
@@ -29,6 +29,8 @@ import {
 
 interface DatabaseManagementCatalogPageProps {
   item: DatabaseCatalogItem;
+  selectedDb?: DeployedDatabase | null;
+  deployedDbs?: DeployedDatabase[];
   onBack: () => void;
   onNavigateCreate: (engineType: string) => void;
 }
@@ -105,13 +107,43 @@ const ENGINE_EXTENSIONS: Record<string, Array<{ name: string; tag: string; descr
 
 export const DatabaseManagementCatalogPage: React.FC<DatabaseManagementCatalogPageProps> = ({
   item,
+  selectedDb,
+  deployedDbs = [],
   onBack,
   onNavigateCreate
 }) => {
-  // Filter active running instances for this specific engine
-  const runningInstances = INITIAL_DEPLOYED_DBS.filter(
-    (db) => db.engine_type === item.engine_type || item.engine_type === 'postgresql'
+  // Available instances
+  const allInstances = deployedDbs.length > 0 ? deployedDbs : INITIAL_DEPLOYED_DBS;
+  const runningInstances = allInstances.filter(
+    (db) => (db.engine_type || '').toLowerCase() === (item.engine_type || '').toLowerCase() || (item.engine_type || '').toLowerCase() === 'postgresql'
   );
+
+  // Safe fallback instance so selectedInstance is guaranteed to never be null
+  const fallbackInstance: DeployedDatabase = selectedDb || runningInstances[0] || allInstances[0] || {
+    id: '1',
+    name: (item.name || 'db-instance').split(' ')[0].toLowerCase() + '-main',
+    engine_type: item.engine_type || 'postgresql',
+    version: (item.versions && item.versions[0]) || '16',
+    cluster_name: 'default-cluster',
+    namespace: 'databases',
+    status: 'running',
+    cpu_usage_m: 2000,
+    memory_usage_mb: 4096,
+    storage_gb: 50,
+    monthly_cost: 69.50,
+    created_at: new Date().toISOString()
+  };
+
+  // Top-level Day-2 Live Scaling Panel state
+  const [selectedScaleInstanceId, setSelectedScaleInstanceId] = useState<string>(
+    selectedDb?.id || runningInstances[0]?.id || fallbackInstance.id
+  );
+  const selectedInstance: DeployedDatabase = 
+    (selectedDb && selectedDb.id === selectedScaleInstanceId ? selectedDb : null) ||
+    runningInstances.find(db => db.id === selectedScaleInstanceId) || 
+    selectedDb || 
+    runningInstances[0] || 
+    fallbackInstance;
 
   // Active Snippet Tab: 'cli' | 'python' | 'node' | 'go'
   const [activeSnippetTab, setActiveSnippetTab] = useState<'cli' | 'python' | 'node' | 'go'>('cli');
@@ -120,7 +152,7 @@ export const DatabaseManagementCatalogPage: React.FC<DatabaseManagementCatalogPa
   // Interactive Web Terminal Modal State
   const [showTerminalModal, setShowTerminalModal] = useState(false);
   const [selectedInstanceForTerminal, setSelectedInstanceForTerminal] = useState(
-    runningInstances[0]?.name || `prod-${item.engine_type}-main-0`
+    selectedInstance?.name || `prod-${item.engine_type}-main-0`
   );
 
   // Day-2 Instance Management Modal state (Day-2 Operations: Scale, Config Tuning, Pause/Resume)
@@ -139,20 +171,14 @@ export const DatabaseManagementCatalogPage: React.FC<DatabaseManagementCatalogPa
   const [instanceStatus, setInstanceStatus] = useState<'Running' | 'Stopped'>('Running');
   const [day2Notification, setDay2Notification] = useState<string | null>(null);
 
-  // Top-level Day-2 Live Scaling Panel state
-  const [selectedScaleInstanceId, setSelectedScaleInstanceId] = useState<string>(
-    runningInstances[0]?.id || '1'
-  );
-  const selectedInstance = runningInstances.find(db => db.id === selectedScaleInstanceId) || runningInstances[0] || INITIAL_DEPLOYED_DBS[0] || null;
-
   const [topCpu, setTopCpu] = useState<number>(
-    selectedInstance ? (selectedInstance.cpu_usage_m || 1000) / 1000 : 2.0
+    (selectedInstance.cpu_usage_m || 2000) / 1000
   );
   const [topRam, setTopRam] = useState<number>(
-    selectedInstance ? Math.round((selectedInstance.memory_usage_mb || 4096) / 1024) : 8.0
+    Math.round((selectedInstance.memory_usage_mb || 4096) / 1024)
   );
   const [topDisk, setTopDisk] = useState<number>(
-    selectedInstance ? selectedInstance.storage_gb || 50 : 100
+    selectedInstance.storage_gb || 50
   );
   const [topScaleStatus, setTopScaleStatus] = useState<'Running' | 'Scaling'>('Running');
   const [topScaleNotification, setTopScaleNotification] = useState<string | null>(null);
@@ -285,7 +311,7 @@ metrics:
     { type: 'info', text: `[K8S-EXEC-SERVICE]: Establishing secure mTLS tunnel to pod ${selectedInstanceForTerminal}...` },
     { type: 'info', text: `[RBAC-CHECK]: User 'bodya@databasik.io' authorized with ClusterAdmin role.` },
     { type: 'info', text: `[POD-EXEC]: Interactive shell initialized inside container namespace 'databases'.` },
-    { type: 'output', text: `Connected to ${item.name} v${item.versions[0]} engine.` },
+    { type: 'output', text: `Connected to ${item.name} v${item.versions?.[0] || '16'} engine.` },
     { type: 'output', text: `Type \\h or SELECT * for help or click sample query buttons below.` }
   ]);
 
