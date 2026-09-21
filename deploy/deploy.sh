@@ -4,7 +4,7 @@ set -e
 
 sudo mkdir -p /mnt
 if ! mountpoint -q /mnt; then
-    sudo mount /dev/xvdh /mnt
+    sudo mount /dev/nvme1n1p1 /mnt
 fi
 
 echo "📁 Creating directories..."

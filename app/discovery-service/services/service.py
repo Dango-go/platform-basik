@@ -2,6 +2,7 @@ import json
 from typing import List, Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import delete
 from models.db_models import ClusterEntity
 from api.v1.schemas import DiscoveryRequest, TokenCreateRequest
 from providers.aws_scanner import AWSClusterScanner
@@ -106,6 +107,25 @@ class ClusterScannerService:
                 self.db.add(entity)
 
             saved_entities.append(entity)
+
+
+        found_names = [c["name"] for c in found_clusters]
+        if found_names:
+            await self.db.execute(
+                delete(ClusterEntity).where(
+                    ClusterEntity.user_id == request.user_id,
+                    ClusterEntity.provider_alias == request.alias,
+                    ClusterEntity.cluster_name.not_in(found_names)  
+                )
+            )
+        else:
+            await self.db.execute(
+                delete(ClusterEntity).where(
+                    ClusterEntity.user_id == request.user_id,
+                    ClusterEntity.provider_alias == request.alias
+                )
+            )
+        
 
         await self.db.commit()
         for e in saved_entities:
