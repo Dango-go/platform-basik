@@ -181,12 +181,9 @@ export const CloudPage: React.FC = () => {
       setSyncStatusMsg({
         type: 'success',
         text: res.principal_arn
-          ? `Access Entry Authorized! IAM Principal "${res.principal_arn}" (Credential: ${chosenAlias}) was granted ClusterAdmin permissions on "${cls.name}".`
-          : (res.message || `Access Entry successfully authorized for cluster "${cls.name}" using credential "${chosenAlias}".`)
+          ? `Access Entry Authorized! IAM Principal "${res.principal_arn}" (Credential: ${chosenAlias}) was granted ClusterAdmin permissions on "${cls.name}". You can now click "Generate Token".`
+          : (res.message || `Access Entry successfully authorized for cluster "${cls.name}" using credential "${chosenAlias}". You can now click "Generate Token".`)
       });
-
-      // Automatically auto-create permanent SA token after granting access
-      await handleAutoCreateClusterToken(cls);
     } catch (err: any) {
       console.error('Authorize access entry failed:', err);
       setSyncStatusMsg({
@@ -855,11 +852,12 @@ export const CloudPage: React.FC = () => {
                   {/* GENERATE SERVICE ACCOUNT TOKEN ACTION BUTTON */}
                   <button
                     onClick={() => handleAutoCreateClusterToken(cls)}
-                    disabled={creatingTokenClusterId === cls.id || !!cls.token}
-                    className={`w-full font-bold text-xs py-2 rounded-xl border transition-all flex items-center justify-center gap-1.5 shadow-sm ${
+                    disabled={creatingTokenClusterId === cls.id}
+                    title={cls.token ? "ServiceAccount token is saved. Click to regenerate or refresh token." : "Generate permanent ServiceAccount token for this cluster."}
+                    className={`w-full font-bold text-xs py-2 rounded-xl border transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 ${
                       cls.token
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 cursor-default opacity-90'
-                        : 'bg-brand-blue/15 hover:bg-brand-blue text-brand-sky hover:text-white border-brand-sky/30 hover:border-brand-sky disabled:opacity-50'
+                        ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:border-emerald-400'
+                        : 'bg-brand-blue/15 hover:bg-brand-blue text-brand-sky hover:text-white border-brand-sky/30 hover:border-brand-sky'
                     }`}
                   >
                     {creatingTokenClusterId === cls.id ? (
@@ -873,7 +871,7 @@ export const CloudPage: React.FC = () => {
                       {creatingTokenClusterId === cls.id
                         ? 'Generating Token...'
                         : cls.token
-                        ? 'Generated Token'
+                        ? 'Regenerate Token'
                         : 'Generate Token'}
                     </span>
                   </button>

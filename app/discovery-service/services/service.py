@@ -115,9 +115,10 @@ class ClusterScannerService:
                 delete(ClusterEntity).where(
                     ClusterEntity.user_id == request.user_id,
                     ClusterEntity.provider_alias == request.alias,
-                    ClusterEntity.cluster_name.not_in(found_names)  
+                    ClusterEntity.cluster_name.not_in(found_names)  # If no cluster in found_names then delete
                 )
             )
+        # if in cloud 0 clusters
         else:
             await self.db.execute(
                 delete(ClusterEntity).where(
