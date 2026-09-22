@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { INITIAL_DEPLOYED_DBS, METRICS_SAMPLE, K8S_CLUSTERS, CATALOG_ITEMS } from '../../services/mockData';
-import { DatabaseCatalogItem, DeployedDatabase, K8sCluster } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { INITIAL_DEPLOYED_DBS, K8S_CLUSTERS, CATALOG_ITEMS } from '../../services/mockData';
+import { DeployedDatabase, K8sCluster, CategoryType } from '../../types';
 import { apiClient } from '../../services/apiClient';
 import { 
   Activity, 
@@ -12,48 +12,54 @@ import {
   Database, 
   BarChart3,
   Search,
-  ChevronDown,
   Filter,
   Check,
   Globe,
-  ArrowLeft
+  RefreshCw,
+  Layers,
+  Sparkles,
+  ArrowUpRight,
+  Wifi,
+  Sliders,
+  CheckCircle2,
+  X,
+  PieChart,
+  LineChart
 } from 'lucide-react';
+
+type DatabaseTypeFilter = 'ALL' | 'RELATIONAL' | 'NOSQL' | 'INMEMORY' | 'VECTOR' | 'TIMESERIES';
+type CloudProviderFilter = 'ALL' | 'AWS' | 'GCP' | 'AZURE' | 'DIGITALOCEAN' | 'ONPREMISE';
 
 export const MonitoringPage: React.FC = () => {
   const [deployedDbs, setDeployedDbs] = useState<DeployedDatabase[]>([]);
   const [clustersList, setClustersList] = useState<K8sCluster[]>([]);
   const [selectedDbId, setSelectedDbId] = useState<string>('');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
-  // 3 Search Modes: 'menu' | 'filters' | 'name_db' | 'name_cluster'
-  const [searchMode, setSearchMode] = useState<'menu' | 'filters' | 'name_db' | 'name_cluster'>('menu');
+  // Left Panel Filters
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<DatabaseTypeFilter>('ALL');
+  const [cloudFilter, setCloudFilter] = useState<CloudProviderFilter>('ALL');
+  const [timeRange, setTimeRange] = useState<'15m' | '1h' | '6h' | '24h' | '7d'>('1h');
+  const [isLiveAutoRefresh, setIsLiveAutoRefresh] = useState<boolean>(true);
 
-  // Input queries
-  const [dbNameQuery, setDbNameQuery] = useState('');
-  const [clusterQuery, setClusterQuery] = useState('');
-
-  // Filters mode drilldown state
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedEngineType, setSelectedEngineType] = useState<string | null>(null);
-
-  // Selected Cluster state for mode 3
-  const [selectedTargetCluster, setSelectedTargetCluster] = useState<string | null>(null);
-
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
+  // Fetch deployed databases and clusters
   useEffect(() => {
     apiClient.getDeployedDatabases().then((dbs) => {
       if (dbs && dbs.length > 0) {
         setDeployedDbs(dbs);
         setSelectedDbId((prev) => prev || dbs[0].id);
       }
-    }).catch(() => {});
+    }).catch((err) => {
+      console.warn('Could not fetch deployed DBs:', err);
+    });
 
     apiClient.getUserClusters(1).then((cls) => {
       if (cls && cls.length > 0) {
         setClustersList(cls);
       }
-    }).catch(() => {});
+    }).catch((err) => {
+      console.warn('Could not fetch user clusters:', err);
+    });
   }, []);
 
   const allDbs = deployedDbs.length > 0 ? deployedDbs : INITIAL_DEPLOYED_DBS;
@@ -75,465 +81,563 @@ export const MonitoringPage: React.FC = () => {
     values_yaml: ''
   };
 
-  const selectedDb: DeployedDatabase = allDbs.find((db) => db.id === selectedDbId) || allDbs[0] || fallbackDb;
-  const metrics = METRICS_SAMPLE;
+  // Helper to find category of any engine
+  const getCategoryForEngine = (engineType: string): string => {
+    const catalogItem = CATALOG_ITEMS.find(
+      (item) => item.engine_type.toLowerCase() === engineType.toLowerCase()
+    );
+    if (catalogItem) return catalogItem.category.toUpperCase();
+    if (['postgresql', 'mysql', 'mariadb', 'cockroach', 'clickhouse'].includes(engineType.toLowerCase())) {
+      return 'RELATIONAL';
+    }
+    if (['mongodb', 'cassandra', 'couchbase', 'scylladb'].includes(engineType.toLowerCase())) {
+      return 'NOSQL';
+    }
+    if (['redis', 'keydb', 'dragonfly'].includes(engineType.toLowerCase())) {
+      return 'INMEMORY';
+    }
+    if (['qdrant', 'milvus', 'chroma', 'weaviate'].includes(engineType.toLowerCase())) {
+      return 'VECTOR';
+    }
+    if (['influxdb', 'timescaledb', 'questdb'].includes(engineType.toLowerCase())) {
+      return 'TIMESERIES';
+    }
+    return 'RELATIONAL';
+  };
 
-  // Click outside listener to close dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Helper to map cluster name to Provider Name
-  const getProviderName = (clusterName: string) => {
+  // Helper to map cluster name to Cloud Provider
+  const getCloudProviderForCluster = (clusterName: string): { name: string; key: CloudProviderFilter; iconColor: string } => {
     const cluster = allClusters.find((c) => c.name === clusterName);
-    if (!cluster) return 'On-Premise';
-    if (cluster.provider.includes('AWS')) return 'AWS EKS';
-    if (cluster.provider.includes('Azure')) return 'Azure AKS';
-    if (cluster.provider.includes('DigitalOcean')) return 'DigitalOcean';
-    return 'Lenovo K8s';
+    if (!cluster) {
+      return { name: 'On-Premise', key: 'ONPREMISE', iconColor: 'text-amber-400' };
+    }
+    const prov = cluster.provider.toUpperCase();
+    if (prov.includes('AWS') || prov.includes('EKS')) {
+      return { name: 'AWS EKS', key: 'AWS', iconColor: 'text-amber-500' };
+    }
+    if (prov.includes('GCP') || prov.includes('GKE')) {
+      return { name: 'GCP GKE', key: 'GCP', iconColor: 'text-rose-400' };
+    }
+    if (prov.includes('AZURE') || prov.includes('AKS')) {
+      return { name: 'Azure AKS', key: 'AZURE', iconColor: 'text-sky-400' };
+    }
+    if (prov.includes('DIGITALOCEAN') || prov.includes('DOKS')) {
+      return { name: 'DigitalOcean', key: 'DIGITALOCEAN', iconColor: 'text-blue-400' };
+    }
+    return { name: 'On-Premise', key: 'ONPREMISE', iconColor: 'text-emerald-400' };
   };
 
-  // Reset drilldown when mode changes
-  const handleSelectMode = (mode: 'filters' | 'name_db' | 'name_cluster') => {
-    setSearchMode(mode);
-    setDbNameQuery('');
-    setClusterQuery('');
-    setSelectedCategory(null);
-    setSelectedEngineType(null);
-    setSelectedTargetCluster(null);
+  // Helper to find engine icon
+  const getEngineIconUrl = (engineType: string): string => {
+    const item = CATALOG_ITEMS.find((c) => c.engine_type.toLowerCase() === engineType.toLowerCase());
+    return item?.icon_url || 'https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/postgresql/postgresql.png';
   };
+
+  // Filter databases
+  const filteredDbs = allDbs.filter((db) => {
+    // 1. Search Query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchName = db.name.toLowerCase().includes(q);
+      const matchEngine = db.engine_type.toLowerCase().includes(q);
+      const matchCluster = db.cluster_name.toLowerCase().includes(q);
+      if (!matchName && !matchEngine && !matchCluster) return false;
+    }
+
+    // 2. Database Type Filter
+    if (typeFilter !== 'ALL') {
+      const dbCategory = getCategoryForEngine(db.engine_type);
+      if (dbCategory !== typeFilter) return false;
+    }
+
+    // 3. Cloud Provider Filter
+    if (cloudFilter !== 'ALL') {
+      const provInfo = getCloudProviderForCluster(db.cluster_name);
+      if (provInfo.key !== cloudFilter) return false;
+    }
+
+    return true;
+  });
+
+  const selectedDb: DeployedDatabase = 
+    filteredDbs.find((db) => db.id === selectedDbId) ||
+    allDbs.find((db) => db.id === selectedDbId) ||
+    filteredDbs[0] ||
+    allDbs[0] ||
+    fallbackDb;
+
+  const currentCategory = getCategoryForEngine(selectedDb.engine_type);
+  const currentProvider = getCloudProviderForCluster(selectedDb.cluster_name);
+
+  // List of placeholder graph cards for the charts dashboard
+  const PLACEHOLDER_CHARTS = [
+    {
+      id: 'cpu_usage',
+      title: 'CPU Utilization',
+      subtitle: 'Percentage of allocated cores requested vs limit',
+      unit: '% cores',
+      icon: Cpu,
+      color: 'text-sky-400'
+    },
+    {
+      id: 'memory_usage',
+      title: 'Memory Working Set',
+      subtitle: 'Resident set memory size (RSS) & Cache consumption',
+      unit: 'MB / GB',
+      icon: HardDrive,
+      color: 'text-purple-400'
+    },
+    {
+      id: 'iops_throughput',
+      title: 'Disk I/O & IOPS Throughput',
+      subtitle: 'Read/Write operations per second & Volume bandwidth',
+      unit: 'IOPS / MBps',
+      icon: Activity,
+      color: 'text-emerald-400'
+    },
+    {
+      id: 'qps_operations',
+      title: 'Queries Per Second (QPS)',
+      subtitle: 'Total query volume, read transactions and mutate ops',
+      unit: 'req/sec',
+      icon: Zap,
+      color: 'text-amber-400'
+    },
+    {
+      id: 'active_connections',
+      title: 'Active Client Connections',
+      subtitle: 'Established client sockets vs max allowed pool limit',
+      unit: 'connections',
+      icon: Server,
+      color: 'text-indigo-400'
+    },
+    {
+      id: 'query_latency',
+      title: 'Query Latency (p95 / p99)',
+      subtitle: 'Response time percentiles & slow query execution',
+      unit: 'ms',
+      icon: Clock,
+      color: 'text-rose-400'
+    },
+    {
+      id: 'cache_hit_ratio',
+      title: 'Buffer Cache Hit Ratio',
+      subtitle: 'Efficiency of shared buffers and memory page cache',
+      unit: '% hit rate',
+      icon: PieChart,
+      color: 'text-cyan-400'
+    },
+    {
+      id: 'network_traffic',
+      title: 'Network Ingress / Egress',
+      subtitle: 'Bandwidth utilization across database network interface',
+      unit: 'KB/s / MB/s',
+      icon: Wifi,
+      color: 'text-teal-400'
+    }
+  ];
 
   return (
-    <div className="space-y-8 text-slate-100">
+    <div className="space-y-6 text-slate-100">
       
-      {/* 1. ADVANCED GOOGLE-LIKE SMART SEARCH HEADER */}
-      <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-6 shadow-xl space-y-5">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-brand-blue/20 text-brand-sky flex items-center justify-center font-bold border border-brand-sky/30">
+      {/* Top Header Card */}
+      <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-5 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-brand-blue/20 text-brand-sky flex items-center justify-center font-bold border border-brand-sky/30 shadow-inner">
             <Activity className="w-6 h-6" />
           </div>
           <div>
-            {/* TITLE WITH WHITE SEARCH ICON AT THE END */}
             <h3 className="text-lg font-extrabold text-white flex items-center gap-2">
-              <span>Performance Metrics & Monitoring</span>
-              <Search className="w-5 h-5 text-white stroke-[2.5]" />
+              <span>Monitoring & Performance Metrics</span>
+              <span className="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Live Telemetry
+              </span>
             </h3>
-            <p className="text-xs text-slate-400">Search for cluster target database instances</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Select deployed database instances to inspect metrics, health status and performance telemetry
+            </p>
           </div>
         </div>
 
-        {/* SMART COMBOBOX DROPDOWN SELECTOR */}
-        <div className="relative" ref={dropdownRef}>
-          {/* RENAMED TO Selected Target Data Base */}
-          <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-            Selected Target Data Base:
-          </label>
+        {/* Global Controls: Time Range & Live Switch */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex items-center bg-bg-main p-1 rounded-xl border border-accent-darkBorder">
+            {(['15m', '1h', '6h', '24h', '7d'] as const).map((range) => (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range)}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                  timeRange === range
+                    ? 'bg-brand-blue text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
 
-          {/* Trigger Bar Button */}
           <button
-            onClick={() => {
-              setIsDropdownOpen(!isDropdownOpen);
-              if (!isDropdownOpen) setSearchMode('menu');
-            }}
-            className="w-full bg-bg-main border border-accent-darkBorder hover:border-brand-sky text-left px-4 py-3 rounded-xl flex items-center justify-between transition-all shadow-md group"
+            type="button"
+            onClick={() => setIsLiveAutoRefresh(!isLiveAutoRefresh)}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-md ${
+              isLiveAutoRefresh
+                ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-400'
+                : 'bg-bg-main border-accent-darkBorder text-slate-400'
+            }`}
           >
-            <div className="flex items-center gap-3 overflow-hidden">
-              <Database className="w-4 h-4 text-brand-sky shrink-0" />
-              {/* Format: Name: [db_name] • Cluster: [cluster_name] • Provider: [provider_name] */}
-              <div className="font-semibold text-sm text-white truncate flex items-center gap-2">
-                <span className="font-extrabold">Name: {selectedDb.name}</span>
-                <span className="text-slate-500">•</span>
-                <span className="text-slate-300">Cluster: {selectedDb.cluster_name}</span>
-                <span className="text-slate-500">•</span>
-                <span className="text-brand-sky font-bold">Provider: {getProviderName(selectedDb.cluster_name)}</span>
-              </div>
-            </div>
-            <ChevronDown className={`w-4 h-4 text-slate-400 group-hover:text-white transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isLiveAutoRefresh ? 'animate-spin' : ''}`} />
+            {isLiveAutoRefresh ? 'Auto 5s' : 'Paused'}
           </button>
+        </div>
+      </div>
 
-          {/* COMBOBOX POPUP PANEL WITH 3 MODES */}
-          {isDropdownOpen && (
-            <div className="absolute left-0 right-0 top-full mt-2 bg-bg-card border border-accent-darkBorder rounded-2xl shadow-2xl z-30 overflow-hidden p-4 backdrop-blur-md space-y-4">
-              
-              {/* MODE MENU: 3 MAIN BUTTONS (Filters, Name Data Base, Name Cluster) */}
-              <div className="grid grid-cols-3 gap-2 border-b border-accent-darkBorder pb-3">
+      {/* ======================================================== */}
+      {/* 2-COLUMN MAIN LAYOUT: LEFT SELECTOR PANEL + RIGHT GRAPHS */}
+      {/* ======================================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        {/* ======================================================== */}
+        {/* 1. LEFT PANEL: DEPLOYED DATABASES SELECTOR & FILTERS */}
+        {/* ======================================================== */}
+        <div className="lg:col-span-4 bg-bg-card border border-accent-darkBorder rounded-2xl p-5 shadow-xl space-y-4">
+          
+          {/* Panel Header */}
+          <div className="flex items-center justify-between border-b border-accent-darkBorder/80 pb-3">
+            <div className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-brand-sky" />
+              <span className="text-xs font-bold uppercase tracking-wider text-white">
+                Deployed Databases
+              </span>
+            </div>
+            <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-lg bg-brand-blue/20 text-brand-sky border border-brand-sky/20">
+              {filteredDbs.length} of {allDbs.length}
+            </span>
+          </div>
+
+          {/* Search Box Input */}
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search database by name..."
+              className="w-full bg-bg-main border border-accent-darkBorder hover:border-brand-sky/50 focus:border-brand-sky text-white text-xs rounded-xl pl-9 pr-8 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky/30 transition-all font-semibold"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5 rounded"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* ======================================================== */}
+          {/* DATABASE TYPE FILTER BAR (MATCHING USER SCREENSHOT) */}
+          {/* ======================================================== */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+              Database Type
+            </label>
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-[11px] font-bold tracking-wider">
+              {(['ALL', 'RELATIONAL', 'NOSQL', 'INMEMORY', 'VECTOR', 'TIMESERIES'] as DatabaseTypeFilter[]).map((tab) => (
                 <button
-                  onClick={() => handleSelectMode('filters')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
-                    searchMode === 'filters'
-                      ? 'bg-brand-blue text-white border-brand-sky shadow-md'
-                      : 'bg-bg-main text-slate-400 border-accent-darkBorder hover:bg-accent-darkHover hover:text-white'
+                  key={tab}
+                  type="button"
+                  onClick={() => setTypeFilter(tab)}
+                  className={`px-3 py-1.5 rounded-lg whitespace-nowrap uppercase transition-all border ${
+                    typeFilter === tab
+                      ? 'bg-brand-blue/30 text-brand-sky border-brand-sky/50 shadow-md font-extrabold'
+                      : 'bg-transparent text-slate-400 border-transparent hover:text-white hover:bg-slate-800/40'
                   }`}
                 >
-                  <Filter className="w-3.5 h-3.5" />
-                  <span>Filters</span>
+                  {tab}
                 </button>
+              ))}
+            </div>
+          </div>
 
+          {/* ======================================================== */}
+          {/* CLOUD PROVIDER FILTER BAR */}
+          {/* ======================================================== */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+              Cloud Provider
+            </label>
+            <div className="flex items-center gap-1 flex-wrap text-[11px] font-semibold">
+              {[
+                { label: 'All Clouds', key: 'ALL' },
+                { label: 'AWS', key: 'AWS' },
+                { label: 'GCP', key: 'GCP' },
+                { label: 'Azure', key: 'AZURE' },
+                { label: 'DigitalOcean', key: 'DIGITALOCEAN' },
+                { label: 'On-Premise', key: 'ONPREMISE' }
+              ].map((c) => (
                 <button
-                  onClick={() => handleSelectMode('name_db')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
-                    searchMode === 'name_db'
-                      ? 'bg-brand-blue text-white border-brand-sky shadow-md'
-                      : 'bg-bg-main text-slate-400 border-accent-darkBorder hover:bg-accent-darkHover hover:text-white'
+                  key={c.key}
+                  type="button"
+                  onClick={() => setCloudFilter(c.key as CloudProviderFilter)}
+                  className={`px-2.5 py-1 rounded-lg transition-all border text-[10px] font-bold ${
+                    cloudFilter === c.key
+                      ? 'bg-slate-800 text-white border-brand-sky/50 shadow-sm'
+                      : 'bg-bg-main/60 text-slate-400 border-accent-darkBorder/60 hover:text-slate-200'
                   }`}
                 >
-                  <Database className="w-3.5 h-3.5" />
-                  <span>Name Data Base</span>
+                  {c.label}
                 </button>
+              ))}
+            </div>
+          </div>
 
-                <button
-                  onClick={() => handleSelectMode('name_cluster')}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
-                    searchMode === 'name_cluster'
-                      ? 'bg-brand-blue text-white border-brand-sky shadow-md'
-                      : 'bg-bg-main text-slate-400 border-accent-darkBorder hover:bg-accent-darkHover hover:text-white'
+          {/* ======================================================== */}
+          {/* DATABASE INSTANCES CARDS LIST */}
+          {/* ======================================================== */}
+          <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
+            {filteredDbs.map((db) => {
+              const isSelected = selectedDb.id === db.id;
+              const prov = getCloudProviderForCluster(db.cluster_name);
+              const iconUrl = getEngineIconUrl(db.engine_type);
+              const cat = getCategoryForEngine(db.engine_type);
+
+              return (
+                <div
+                  key={db.id}
+                  onClick={() => setSelectedDbId(db.id)}
+                  className={`p-3.5 rounded-xl border text-left cursor-pointer transition-all relative group flex items-start gap-3 ${
+                    isSelected
+                      ? 'bg-brand-blue/15 border-brand-sky ring-1 ring-brand-sky/40 shadow-lg shadow-brand-blue/10'
+                      : 'bg-bg-main/70 border-accent-darkBorder hover:border-slate-700 hover:bg-bg-main'
                   }`}
                 >
-                  <Globe className="w-3.5 h-3.5" />
-                  <span>Name Cluster</span>
-                </button>
+                  {/* Left Accent indicator when active */}
+                  {isSelected && (
+                    <div className="absolute left-0 top-2 bottom-2 w-1 bg-brand-sky rounded-r"></div>
+                  )}
+
+                  <img
+                    src={iconUrl}
+                    alt={db.name}
+                    className="w-8 h-8 object-contain rounded-lg bg-slate-950 p-1 border border-accent-darkBorder shrink-0 mt-0.5"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                      <span className={`font-bold text-xs truncate ${isSelected ? 'text-white' : 'text-slate-200 group-hover:text-white'}`}>
+                        {db.name}
+                      </span>
+                      <span className="flex items-center gap-1 text-[10px] font-semibold text-emerald-400 shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        {db.status || 'running'}
+                      </span>
+                    </div>
+
+                    <div className="text-[11px] text-slate-400 flex items-center gap-1.5 truncate">
+                      <span className="font-semibold text-slate-300">{db.engine_type} {db.version ? `v${db.version}` : ''}</span>
+                      <span>•</span>
+                      <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 bg-slate-800/80 rounded text-slate-400">{cat}</span>
+                    </div>
+
+                    <div className="text-[10px] text-slate-400 flex items-center justify-between gap-2 mt-2 pt-1.5 border-t border-slate-800/60 font-mono">
+                      <span className={`truncate flex items-center gap-1 ${prov.iconColor}`}>
+                        <Globe className="w-3 h-3 shrink-0" />
+                        {prov.name} ({db.cluster_name})
+                      </span>
+                      <span className="text-slate-400 shrink-0">
+                        {db.storage_gb ? `${db.storage_gb}GB` : '50GB'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {filteredDbs.length === 0 && (
+              <div className="p-8 text-center text-slate-400 space-y-2 border border-dashed border-accent-darkBorder rounded-xl">
+                <Database className="w-8 h-8 text-slate-500 mx-auto" />
+                <p className="text-xs font-bold text-slate-300">No matching databases</p>
+                <p className="text-[11px] text-slate-400">Try adjusting your search query or filters</p>
+              </div>
+            )}
+          </div>
+
+        </div>
+
+        {/* ======================================================== */}
+        {/* 2. RIGHT PANEL: SELECTED DB DETAILS & LARGE CHARTS PANEL */}
+        {/* ======================================================== */}
+        <div className="lg:col-span-8 space-y-6">
+          
+          {/* ACTIVE DATABASE DETAILS BANNER CARD */}
+          <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-5 shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-brand-blue/5 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <img
+                  src={getEngineIconUrl(selectedDb.engine_type)}
+                  alt={selectedDb.name}
+                  className="w-12 h-12 object-contain rounded-xl bg-slate-950 p-2 border border-accent-darkBorder shadow-inner shrink-0"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+                <div>
+                  <div className="flex items-center gap-2.5">
+                    <h3 className="text-lg font-extrabold text-white">
+                      {selectedDb.name}
+                    </h3>
+                    <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-md bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Healthy
+                    </span>
+                    <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                      {currentCategory}
+                    </span>
+                  </div>
+
+                  <div className="text-xs text-slate-400 flex items-center gap-3 mt-1 font-mono">
+                    <span>Engine: <strong className="text-white capitalize">{selectedDb.engine_type} {selectedDb.version}</strong></span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      <Globe className={`w-3.5 h-3.5 ${currentProvider.iconColor}`} />
+                      <span>{currentProvider.name}</span>
+                      <strong className="text-slate-300">({selectedDb.cluster_name})</strong>
+                    </span>
+                    <span>•</span>
+                    <span>Namespace: <strong className="text-slate-300">{selectedDb.namespace || 'databases'}</strong></span>
+                  </div>
+                </div>
               </div>
 
-              {/* MODE 1: FILTERS */}
-              {searchMode === 'filters' && (
-                <div className="space-y-3">
-                  {!selectedCategory ? (
-                    <div>
-                      <span className="text-xs font-bold text-slate-400 uppercase block mb-2">Step 1: Select Database Category</span>
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { id: 'relational', name: 'Relational Databases' },
-                          { id: 'nosql', name: 'NoSQL Databases' },
-                          { id: 'vector', name: 'Vector Databases' },
-                          { id: 'inmemory', name: 'In-Memory Databases' },
-                          { id: 'timeseries', name: 'Time-Series Databases' },
-                        ].map((cat) => (
-                          <button
-                            key={cat.id}
-                            onClick={() => setSelectedCategory(cat.id)}
-                            className="p-3 bg-bg-main border border-accent-darkBorder rounded-xl text-left text-xs font-bold text-white hover:border-brand-sky hover:bg-accent-darkHover transition-all flex items-center justify-between"
-                          >
-                            <span>{cat.name}</span>
-                            <ChevronDown className="-rotate-90 w-3.5 h-3.5 text-slate-500" />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : !selectedEngineType ? (
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold text-slate-400 uppercase">Step 2: Select Database Engine</span>
-                        <button onClick={() => setSelectedCategory(null)} className="text-xs text-brand-sky hover:underline flex items-center gap-1">
-                          <ArrowLeft className="w-3 h-3" /> Back
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {CATALOG_ITEMS.filter((item) => item.category === selectedCategory).map((engine) => (
-                          <button
-                            key={engine.id}
-                            onClick={() => setSelectedEngineType(engine.engine_type)}
-                            className="p-3 bg-bg-main border border-accent-darkBorder rounded-xl text-left text-xs font-bold text-white hover:border-brand-sky hover:bg-accent-darkHover transition-all flex items-center gap-2"
-                          >
-                            <img src={engine.icon_url} alt="" className="w-4 h-4 object-contain" />
-                            <span>{engine.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold text-slate-400 uppercase">Step 3: Select Active Instance</span>
-                        <button onClick={() => setSelectedEngineType(null)} className="text-xs text-brand-sky hover:underline flex items-center gap-1">
-                          <ArrowLeft className="w-3 h-3" /> Back to Engines
-                        </button>
-                      </div>
-                      <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                        {allDbs.filter((db) => db.engine_type === selectedEngineType).length === 0 ? (
-                          <div className="p-4 text-center text-xs text-slate-500">No active instances for this engine.</div>
-                        ) : (
-                          allDbs.filter((db) => db.engine_type === selectedEngineType).map((db) => (
-                            <div
-                              key={db.id}
-                              onClick={() => {
-                                setSelectedDbId(db.id);
-                                setIsDropdownOpen(false);
-                              }}
-                              className="p-3 bg-bg-main border border-accent-darkBorder rounded-xl text-xs font-semibold text-white hover:border-brand-sky hover:bg-accent-darkHover cursor-pointer flex items-center justify-between"
-                            >
-                              <span>Name: <strong>{db.name}</strong> • Cluster: {db.cluster_name} • Provider: {getProviderName(db.cluster_name)}</span>
-                              {db.id === selectedDb.id && <Check className="w-4 h-4 text-brand-sky" />}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
+              {/* Resource Badges */}
+              <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-800 text-xs font-mono">
+                <div className="bg-bg-main px-3 py-1.5 rounded-xl border border-accent-darkBorder text-center">
+                  <span className="text-[10px] text-slate-400 block uppercase">CPU</span>
+                  <span className="font-bold text-sky-400">{selectedDb.cpu_usage_m ? `${selectedDb.cpu_usage_m}m` : '2000m'}</span>
                 </div>
-              )}
-
-              {/* MODE 2: NAME DATA BASE */}
-              {searchMode === 'name_db' && (
-                <div className="space-y-3">
-                  <div className="relative">
-                    <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      autoFocus
-                      value={dbNameQuery}
-                      onChange={(e) => setDbNameQuery(e.target.value)}
-                      placeholder="Type database instance name (e.g. prod-postgres-main)..."
-                      className="w-full bg-bg-main border border-accent-darkBorder text-white text-xs rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                    {allDbs.filter((db) => db.name.toLowerCase().includes(dbNameQuery.toLowerCase())).map((db) => (
-                      <div
-                        key={db.id}
-                        onClick={() => {
-                          setSelectedDbId(db.id);
-                          setIsDropdownOpen(false);
-                        }}
-                        className="p-3 bg-bg-main border border-accent-darkBorder rounded-xl text-xs font-semibold text-white hover:border-brand-sky hover:bg-accent-darkHover cursor-pointer flex items-center justify-between"
-                      >
-                        <span>Name: <strong>{db.name}</strong> • Cluster: {db.cluster_name} • Provider: {getProviderName(db.cluster_name)}</span>
-                        {db.id === selectedDb.id && <Check className="w-4 h-4 text-brand-sky" />}
-                      </div>
-                    ))}
-                  </div>
+                <div className="bg-bg-main px-3 py-1.5 rounded-xl border border-accent-darkBorder text-center">
+                  <span className="text-[10px] text-slate-400 block uppercase">RAM</span>
+                  <span className="font-bold text-purple-400">{selectedDb.memory_usage_mb ? `${selectedDb.memory_usage_mb}MB` : '4096MB'}</span>
                 </div>
-              )}
-
-              {/* MODE 3: NAME CLUSTER */}
-              {searchMode === 'name_cluster' && (
-                <div className="space-y-3">
-                  <div className="relative">
-                    <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      autoFocus
-                      value={clusterQuery}
-                      onChange={(e) => {
-                        setClusterQuery(e.target.value);
-                        setSelectedTargetCluster(null);
-                      }}
-                      placeholder="Type cluster name (Google regex style auto-suggest)..."
-                      className="w-full bg-bg-main border border-accent-darkBorder text-white text-xs rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky"
-                    />
-                  </div>
-
-                  {!selectedTargetCluster ? (
-                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                      <span className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Matching Clusters:</span>
-                      {allClusters.filter((cls) => cls.name.toLowerCase().includes(clusterQuery.toLowerCase())).map((cls) => (
-                        <div
-                          key={cls.id}
-                          onClick={() => setSelectedTargetCluster(cls.name)}
-                          className="p-3 bg-bg-main border border-accent-darkBorder rounded-xl text-xs font-bold text-white hover:border-brand-sky hover:bg-accent-darkHover cursor-pointer flex items-center justify-between"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Globe className="w-4 h-4 text-brand-sky" />
-                            <span>Cluster: <strong>{cls.name}</strong> ({cls.provider})</span>
-                          </div>
-                          <span className="text-[10px] text-slate-400 font-mono">Select &rarr;</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-brand-sky uppercase">Instances in Cluster "{selectedTargetCluster}":</span>
-                        <button onClick={() => setSelectedTargetCluster(null)} className="text-xs text-brand-sky hover:underline flex items-center gap-1">
-                          <ArrowLeft className="w-3 h-3" /> Change Cluster
-                        </button>
-                      </div>
-                      <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                        {allDbs.filter((db) => db.cluster_name === selectedTargetCluster).length === 0 ? (
-                          <div className="p-4 text-center text-xs text-slate-500">No databases deployed in this cluster.</div>
-                        ) : (
-                          allDbs.filter((db) => db.cluster_name === selectedTargetCluster).map((db) => (
-                            <div
-                              key={db.id}
-                              onClick={() => {
-                                setSelectedDbId(db.id);
-                                setIsDropdownOpen(false);
-                              }}
-                              className="p-3 bg-bg-main border border-accent-darkBorder rounded-xl text-xs font-semibold text-white hover:border-brand-sky hover:bg-accent-darkHover cursor-pointer flex items-center justify-between"
-                            >
-                              <span>Name: <strong>{db.name}</strong> • Cluster: {db.cluster_name} • Provider: {getProviderName(db.cluster_name)}</span>
-                              {db.id === selectedDb.id && <Check className="w-4 h-4 text-brand-sky" />}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
+                <div className="bg-bg-main px-3 py-1.5 rounded-xl border border-accent-darkBorder text-center">
+                  <span className="text-[10px] text-slate-400 block uppercase">Disk</span>
+                  <span className="font-bold text-emerald-400">{selectedDb.storage_gb ? `${selectedDb.storage_gb}GB` : '50GB'}</span>
                 </div>
-              )}
-
-              {/* DEFAULT INITIAL INSTRUCTION */}
-              {searchMode === 'menu' && (
-                <div className="p-4 text-center text-xs text-slate-400">
-                  Select one of the 3 search modes above (<strong>Filters</strong>, <strong>Name Data Base</strong>, or <strong>Name Cluster</strong>).
-                </div>
-              )}
-
+              </div>
             </div>
-          )}
-        </div>
-      </div>
+          </div>
 
-      {/* 2. GRID OF 7 METRIC DASHBOARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* ======================================================== */}
+          {/* LARGE PERFORMANCE GRAPHS CONTAINER PANEL */}
+          {/* ======================================================== */}
+          <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-6 shadow-xl space-y-6">
+            
+            {/* Charts Section Header */}
+            <div className="flex items-center justify-between border-b border-accent-darkBorder/80 pb-4">
+              <div className="flex items-center gap-2.5">
+                <BarChart3 className="w-5 h-5 text-brand-sky" />
+                <div>
+                  <h4 className="text-sm font-extrabold uppercase tracking-wider text-white">
+                    Metrics & Telemetry Visualizer
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Real-time metric telemetry channels for instance <span className="font-mono text-brand-sky font-bold">"{selectedDb.name}"</span>
+                  </p>
+                </div>
+              </div>
 
-        {/* 1. CPU Usage graphic */}
-        <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-5 shadow-xl space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-              <Cpu className="w-4 h-4 text-brand-sky" /> CPU Usage Graphic
-            </span>
-            <span className="text-xs font-bold text-brand-sky">{metrics.cpu_usage[metrics.cpu_usage.length - 1]}%</span>
-          </div>
-          <div className="h-32 bg-bg-main rounded-xl p-3 flex items-end justify-between gap-1 border border-accent-darkBorder">
-            {metrics.cpu_usage.map((val, idx) => (
-              <div
-                key={idx}
-                style={{ height: `${val}%` }}
-                className="w-full bg-brand-sky hover:bg-sky-400 transition-all rounded-t-sm"
-                title={`CPU: ${val}%`}
-              ></div>
-            ))}
-          </div>
-        </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-slate-400 bg-bg-main px-3 py-1 rounded-lg border border-accent-darkBorder">
+                  Range: <strong className="text-white">{timeRange}</strong>
+                </span>
+              </div>
+            </div>
 
-        {/* 2. Memory Usage graphic */}
-        <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-5 shadow-xl space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-              <Server className="w-4 h-4 text-brand-cyan" /> Memory Usage Graphic
-            </span>
-            <span className="text-xs font-bold text-brand-cyan">{metrics.memory_usage[metrics.memory_usage.length - 1]}%</span>
-          </div>
-          <div className="h-32 bg-bg-main rounded-xl p-3 flex items-end justify-between gap-1 border border-accent-darkBorder">
-            {metrics.memory_usage.map((val, idx) => (
-              <div
-                key={idx}
-                style={{ height: `${val}%` }}
-                className="w-full bg-brand-cyan hover:bg-cyan-400 transition-all rounded-t-sm"
-                title={`Memory: ${val}%`}
-              ></div>
-            ))}
-          </div>
-        </div>
+            {/* ======================================================== */}
+            {/* GRID OF PLACEHOLDER CHARTS (READY FOR INTEGRATION) */}
+            {/* ======================================================== */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {PLACEHOLDER_CHARTS.map((chart) => {
+                const IconComponent = chart.icon;
+                return (
+                  <div
+                    key={chart.id}
+                    className="p-5 bg-bg-main/80 border border-accent-darkBorder hover:border-slate-700 rounded-2xl space-y-4 transition-all shadow-inner group"
+                  >
+                    {/* Chart Header */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`p-2 rounded-xl bg-slate-900 border border-slate-800 ${chart.color}`}>
+                          <IconComponent className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="font-bold text-xs text-white block">
+                            {chart.title}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {chart.subtitle}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400 px-2 py-0.5 rounded bg-slate-900 border border-slate-800">
+                        {chart.unit}
+                      </span>
+                    </div>
 
-        {/* 3. Disk I/O / Storage graphic */}
-        <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-5 shadow-xl space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-              <HardDrive className="w-4 h-4 text-amber-400" /> Disk I/O / Storage Graphic
-            </span>
-            <span className="text-xs font-bold text-amber-400">{metrics.disk_io[metrics.disk_io.length - 1]} MB/s</span>
-          </div>
-          <div className="h-32 bg-bg-main rounded-xl p-3 flex items-end justify-between gap-1 border border-accent-darkBorder">
-            {metrics.disk_io.map((val, idx) => (
-              <div
-                key={idx}
-                style={{ height: `${(val / 500) * 100}%` }}
-                className="w-full bg-amber-500 hover:bg-amber-400 transition-all rounded-t-sm"
-                title={`Disk I/O: ${val} MB/s`}
-              ></div>
-            ))}
-          </div>
-        </div>
+                    {/* Chart Area Wireframe Placeholder */}
+                    <div className="h-36 w-full rounded-xl bg-slate-950/60 border border-dashed border-slate-800 flex flex-col items-center justify-center p-4 text-center space-y-2 relative overflow-hidden">
+                      {/* Subdued Background Grid Lines */}
+                      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:1.5rem_1.5rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-30 pointer-events-none"></div>
 
-        {/* 4. Active Connections graphic */}
-        <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-5 shadow-xl space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-              <Database className="w-4 h-4 text-indigo-400" /> Active Connections Graphic
-            </span>
-            <span className="text-xs font-bold text-indigo-400">{metrics.active_connections[metrics.active_connections.length - 1]} conn</span>
-          </div>
-          <div className="h-32 bg-bg-main rounded-xl p-3 flex items-end justify-between gap-1 border border-accent-darkBorder">
-            {metrics.active_connections.map((val, idx) => (
-              <div
-                key={idx}
-                style={{ height: `${(val / 60) * 100}%` }}
-                className="w-full bg-indigo-500 hover:bg-indigo-400 transition-all rounded-t-sm"
-                title={`Connections: ${val}`}
-              ></div>
-            ))}
-          </div>
-        </div>
+                      <LineChart className="w-6 h-6 text-slate-600 stroke-[1.5]" />
+                      <div>
+                        <span className="text-[11px] font-mono font-semibold text-slate-400 block">
+                          Waiting for metric stream ({chart.id})
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          Telemetry channel configured • Ready for graph visualization
+                        </span>
+                      </div>
+                    </div>
 
-        {/* 5. QPS (Queries Per Second) graphic */}
-        <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-5 shadow-xl space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-              <Zap className="w-4 h-4 text-emerald-400" /> QPS (Queries Per Second) Graphic
-            </span>
-            <span className="text-xs font-bold text-emerald-400">{metrics.qps[metrics.qps.length - 1]} qps</span>
-          </div>
-          <div className="h-32 bg-bg-main rounded-xl p-3 flex items-end justify-between gap-1 border border-accent-darkBorder">
-            {metrics.qps.map((val, idx) => (
-              <div
-                key={idx}
-                style={{ height: `${(val / 2500) * 100}%` }}
-                className="w-full bg-emerald-500 hover:bg-emerald-400 transition-all rounded-t-sm"
-                title={`QPS: ${val}`}
-              ></div>
-            ))}
-          </div>
-        </div>
+                    {/* Bottom stats footer */}
+                    <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-1 border-t border-slate-800/40">
+                      <span>Avg: <strong className="text-slate-300">--</strong></span>
+                      <span>Min: <strong className="text-slate-300">--</strong></span>
+                      <span>Max: <strong className="text-slate-300">--</strong></span>
+                      <span>Current: <strong className="text-emerald-400">● Live</strong></span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
-        {/* 6. Cache Hit Ratio graphic */}
-        <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-5 shadow-xl space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-              <BarChart3 className="w-4 h-4 text-cyan-400" /> Cache Hit Ratio Graphic
-            </span>
-            <span className="text-xs font-bold text-cyan-400">{metrics.cache_hit_ratio[metrics.cache_hit_ratio.length - 1]}%</span>
-          </div>
-          <div className="h-32 bg-bg-main rounded-xl p-3 flex items-end justify-between gap-1 border border-accent-darkBorder">
-            {metrics.cache_hit_ratio.map((val, idx) => (
-              <div
-                key={idx}
-                style={{ height: `${val}%` }}
-                className="w-full bg-cyan-500 hover:bg-cyan-400 transition-all rounded-t-sm"
-                title={`Cache Hit: ${val}%`}
-              ></div>
-            ))}
-          </div>
-        </div>
+            {/* Bottom Telemetry Status Banner */}
+            <div className="p-4 bg-slate-900/60 border border-brand-sky/20 rounded-xl flex items-center justify-between gap-3 text-xs text-slate-300">
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="w-4 h-4 text-brand-sky shrink-0" />
+                <span>
+                  Telemetry pipeline is active for cluster <strong>{selectedDb.cluster_name}</strong>. Graphs will render dynamically once metric collectors are configured.
+                </span>
+              </div>
+              <span className="text-[11px] font-mono text-emerald-400 shrink-0 font-semibold">
+                ✓ Ready
+              </span>
+            </div>
 
-        {/* 7. Slow Queries / Transaction Duration graphic */}
-        <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-5 shadow-xl space-y-3 col-span-1 md:col-span-2 lg:col-span-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-rose-400" /> Slow Queries / Transaction Duration Graphic (ms)
-            </span>
-            <span className="text-xs font-bold text-rose-400">{metrics.slow_queries_duration[metrics.slow_queries_duration.length - 1]} ms</span>
           </div>
-          <div className="h-28 bg-bg-main rounded-xl p-3 flex items-end justify-between gap-2 border border-accent-darkBorder">
-            {metrics.slow_queries_duration.map((val, idx) => (
-              <div
-                key={idx}
-                style={{ height: `${(val / 130) * 100}%` }}
-                className="w-full bg-rose-500 hover:bg-rose-400 transition-all rounded-t-sm"
-                title={`Slow Query Duration: ${val}ms`}
-              ></div>
-            ))}
-          </div>
+
         </div>
 
       </div>
+
     </div>
   );
 };
