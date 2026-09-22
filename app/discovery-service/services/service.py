@@ -109,11 +109,15 @@ class ClusterScannerService:
             saved_entities.append(entity)
 
 
+        cred_region = creds.get("aws_region") or creds.get("region")
+        target_region = (request.region if request.region and str(request.region).strip() else None) or (cred_region if cred_region and str(cred_region).strip() else None) or "us-east-1"
+
         clean_alias = request.alias.strip()
         alias_condition = or_(
             ClusterEntity.provider_alias == clean_alias,
             ClusterEntity.provider_alias == request.alias,
-            func.lower(func.trim(ClusterEntity.provider_alias)) == func.lower(clean_alias)
+            func.lower(func.trim(ClusterEntity.provider_alias)) == func.lower(clean_alias),
+            (ClusterEntity.provider_type == provider_type) & (ClusterEntity.region == target_region)
         )
 
         found_names = [c["name"] for c in found_clusters]

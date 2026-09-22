@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { INITIAL_DEPLOYED_DBS, METRICS_SAMPLE, K8S_CLUSTERS, CATALOG_ITEMS } from '../../services/mockData';
-import { DeployedDatabase } from '../../types';
+import { DatabaseCatalogItem, DeployedDatabase, K8sCluster } from '../../types';
+import { apiClient } from '../../services/apiClient';
 import { 
   Activity, 
   Cpu, 
@@ -19,7 +20,9 @@ import {
 } from 'lucide-react';
 
 export const MonitoringPage: React.FC = () => {
-  const [selectedDbId, setSelectedDbId] = useState(INITIAL_DEPLOYED_DBS[0]?.id || '');
+  const [deployedDbs, setDeployedDbs] = useState<DeployedDatabase[]>([]);
+  const [clustersList, setClustersList] = useState<K8sCluster[]>([]);
+  const [selectedDbId, setSelectedDbId] = useState<string>('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
   // 3 Search Modes: 'menu' | 'filters' | 'name_db' | 'name_cluster'
@@ -38,7 +41,41 @@ export const MonitoringPage: React.FC = () => {
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const selectedDb = INITIAL_DEPLOYED_DBS.find((db) => db.id === selectedDbId) || INITIAL_DEPLOYED_DBS[0] || null;
+  useEffect(() => {
+    apiClient.getDeployedDatabases().then((dbs) => {
+      if (dbs && dbs.length > 0) {
+        setDeployedDbs(dbs);
+        setSelectedDbId((prev) => prev || dbs[0].id);
+      }
+    }).catch(() => {});
+
+    apiClient.getUserClusters(1).then((cls) => {
+      if (cls && cls.length > 0) {
+        setClustersList(cls);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const allDbs = deployedDbs.length > 0 ? deployedDbs : INITIAL_DEPLOYED_DBS;
+  const allClusters = clustersList.length > 0 ? clustersList : K8S_CLUSTERS;
+
+  const fallbackDb: DeployedDatabase = {
+    id: '1',
+    name: 'prod-postgres-main',
+    engine_type: 'postgresql',
+    version: '16',
+    cluster_name: 'lenovo-prod-k8s',
+    namespace: 'databases',
+    status: 'running',
+    cpu_usage_m: 2000,
+    memory_usage_mb: 4096,
+    storage_gb: 50,
+    monthly_cost: 69.50,
+    created_at: new Date().toISOString(),
+    values_yaml: ''
+  };
+
+  const selectedDb: DeployedDatabase = allDbs.find((db) => db.id === selectedDbId) || allDbs[0] || fallbackDb;
   const metrics = METRICS_SAMPLE;
 
   // Click outside listener to close dropdown
@@ -54,7 +91,7 @@ export const MonitoringPage: React.FC = () => {
 
   // Helper to map cluster name to Provider Name
   const getProviderName = (clusterName: string) => {
-    const cluster = K8S_CLUSTERS.find((c) => c.name === clusterName);
+    const cluster = allClusters.find((c) => c.name === clusterName);
     if (!cluster) return 'On-Premise';
     if (cluster.provider.includes('AWS')) return 'AWS EKS';
     if (cluster.provider.includes('Azure')) return 'Azure AKS';
@@ -218,10 +255,10 @@ export const MonitoringPage: React.FC = () => {
                         </button>
                       </div>
                       <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                        {INITIAL_DEPLOYED_DBS.filter((db) => db.engine_type === selectedEngineType).length === 0 ? (
+                        {allDbs.filter((db) => db.engine_type === selectedEngineType).length === 0 ? (
                           <div className="p-4 text-center text-xs text-slate-500">No active instances for this engine.</div>
                         ) : (
-                          INITIAL_DEPLOYED_DBS.filter((db) => db.engine_type === selectedEngineType).map((db) => (
+                          allDbs.filter((db) => db.engine_type === selectedEngineType).map((db) => (
                             <div
                               key={db.id}
                               onClick={() => {
@@ -257,7 +294,7 @@ export const MonitoringPage: React.FC = () => {
                   </div>
 
                   <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                    {INITIAL_DEPLOYED_DBS.filter((db) => db.name.toLowerCase().includes(dbNameQuery.toLowerCase())).map((db) => (
+                    {allDbs.filter((db) => db.name.toLowerCase().includes(dbNameQuery.toLowerCase())).map((db) => (
                       <div
                         key={db.id}
                         onClick={() => {
@@ -295,7 +332,7 @@ export const MonitoringPage: React.FC = () => {
                   {!selectedTargetCluster ? (
                     <div className="space-y-1.5 max-h-48 overflow-y-auto">
                       <span className="text-[11px] font-bold text-slate-400 uppercase block mb-1">Matching Clusters:</span>
-                      {K8S_CLUSTERS.filter((cls) => cls.name.toLowerCase().includes(clusterQuery.toLowerCase())).map((cls) => (
+                      {allClusters.filter((cls) => cls.name.toLowerCase().includes(clusterQuery.toLowerCase())).map((cls) => (
                         <div
                           key={cls.id}
                           onClick={() => setSelectedTargetCluster(cls.name)}
@@ -318,10 +355,10 @@ export const MonitoringPage: React.FC = () => {
                         </button>
                       </div>
                       <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                        {INITIAL_DEPLOYED_DBS.filter((db) => db.cluster_name === selectedTargetCluster).length === 0 ? (
+                        {allDbs.filter((db) => db.cluster_name === selectedTargetCluster).length === 0 ? (
                           <div className="p-4 text-center text-xs text-slate-500">No databases deployed in this cluster.</div>
                         ) : (
-                          INITIAL_DEPLOYED_DBS.filter((db) => db.cluster_name === selectedTargetCluster).map((db) => (
+                          allDbs.filter((db) => db.cluster_name === selectedTargetCluster).map((db) => (
                             <div
                               key={db.id}
                               onClick={() => {
