@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CATALOG_ITEMS, K8S_CLUSTERS as MOCK_CLUSTERS } from '../../services/mockData';
+import { CHART_CATALOG_PACKAGES, ChartCatalogPackage } from '../../services/chartCatalog';
 import { apiClient } from '../../services/apiClient';
 import { K8sCluster } from '../../types';
 import { 
@@ -30,7 +31,16 @@ import {
   FileText,
   Tag,
   AlertTriangle,
-  AlertCircle
+  AlertCircle,
+  Search,
+  Filter,
+  Sparkles,
+  ExternalLink,
+  ChevronDown,
+  Layers,
+  Zap,
+  Globe,
+  Check
 } from 'lucide-react';
 
 interface CreateDatabaseWizardPageProps {
@@ -109,58 +119,30 @@ const HELM_CHART_FILES: Record<string, HelmChartFileItem[]> = {
   ]
 };
 
-// Helm chart mapping default for each engine
-const ENGINE_HELM_CHARTS: Record<string, string> = {
-  postgresql: 'bitnami/postgresql (v15.5.2)',
-  mysql: 'bitnami/mysql (v10.2.1)',
-  mariadb: 'bitnami/mariadb (v19.0.1)',
-  cockroach: 'cockroachdb/cockroachdb (v11.1.5)',
-  mongodb: 'bitnami/mongodb (v15.4.0)',
-  cassandra: 'bitnami/cassandra (v11.0.3)',
-  couchbase: 'couchbase/couchbase-operator (v2.6.0)',
-  scylladb: 'scylla-operator/scylla (v1.11.0)',
-  qdrant: 'qdrant/qdrant (v0.6.4)',
-  milvus: 'milvus/milvus (v4.1.14)',
-  chroma: 'chroma/chromadb (v0.1.2)',
-  weaviate: 'weaviate/weaviate (v1.24.1)',
-  redis: 'bitnami/redis (v18.1.5)',
-  keydb: 'enapter/keydb (v0.4.2)',
-  dragonfly: 'dragonflydb/dragonfly (v0.8.0)',
-  clickhouse: 'bitnami/clickhouse (v5.1.0)',
-  influxdb: 'influxdata/influxdb (v2.1.2)',
-  timescaledb: 'timescale/timescaledb (v0.32.0)',
-  questdb: 'questdb/questdb (v0.3.1)'
-};
-
-// Default Valid Bitnami/Helm Chart versions for each engine
-const DEFAULT_HELM_CHART_VERSIONS: Record<string, string> = {
-  postgresql: '15.5.2',
-  mysql: '11.1.18',
-  mariadb: '19.0.8',
-  redis: '19.6.4',
-  mongodb: '15.6.2',
-  clickhouse: '6.1.4',
-  kafka: '30.1.7',
-  elasticsearch: '21.4.6'
-};
-
-// Default Custom Resource Manifests for Mode 3 (Operator Service CRD)
-const DEFAULT_CRD_MANIFESTS: Record<string, string> = {
-  postgresql: `apiVersion: postgresql.cnpg.io/v1\nkind: Cluster\nmetadata:\n  name: my-postgres-db\n  namespace: databases\nspec:\n  instances: 3\n  storage:\n    size: 50Gi\n  postgresql:\n    parameters:\n      max_connections: "250"\n      shared_buffers: "2GB"`,
-  redis: `apiVersion: redis.redis.opstreelabs.in/v1beta1\nkind: Redis\nmetadata:\n  name: my-redis-cache\n  namespace: databases\nspec:\n  kubernetesConfig:\n    image: redis:7.2\n  redisExporter:\n    enabled: true`,
-  clickhouse: `apiVersion: clickhouse.altinity.com/v1\nkind: ClickHouseInstallation\nmetadata:\n  name: my-clickhouse-analytics\n  namespace: databases\nspec:\n  configuration:\n    clusters:\n      - name: "prod-cluster"\n        layout:\n          shardsCount: 2\n          replicasCount: 2`,
-  mongodb: `apiVersion: mongodbcommunity.mongodb.com/v1\nkind: MongoDBCommunity\nmetadata:\n  name: my-mongodb-cluster\n  namespace: databases\nspec:\n  members: 3\n  type: ReplicaSet\n  version: "7.0.5"`
-};
-
 export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> = ({
   initialEngineType = 'postgresql',
   onSuccess
 }) => {
+  // Initialize initial package from Catalog
+  const initialPkg = CHART_CATALOG_PACKAGES.find(
+    (pkg) => pkg.engine_type === initialEngineType && pkg.recommended_for_prod
+  ) || CHART_CATALOG_PACKAGES.find(
+    (pkg) => pkg.engine_type === initialEngineType
+  ) || CHART_CATALOG_PACKAGES[0];
+
+  const [selectedPackage, setSelectedPackage] = useState<ChartCatalogPackage>(initialPkg);
   const [selectedEngine, setSelectedEngine] = useState(
-    CATALOG_ITEMS.find((item) => item.engine_type === initialEngineType) || CATALOG_ITEMS[0]
+    CATALOG_ITEMS.find((item) => item.engine_type === initialPkg.engine_type) || CATALOG_ITEMS[0]
   );
-  const [selectedVersion, setSelectedVersion] = useState(selectedEngine.versions[0]);
-  const [dbName, setDbName] = useState(`my-${selectedEngine.engine_type}-db`);
+  const [selectedVersion, setSelectedVersion] = useState(initialPkg.app_version || selectedEngine.versions[0]);
+  const [dbName, setDbName] = useState(`my-${initialPkg.engine_type}-${initialPkg.package_type === 'operator' ? 'cluster' : 'db'}`);
+
+  // Catalog Search & Filter States
+  const [catalogSearchQuery, setCatalogSearchQuery] = useState<string>('');
+  const [catalogTypeFilter, setCatalogTypeFilter] = useState<'all' | 'operator' | 'helm_chart'>('all');
+  const [catalogCategoryFilter, setCatalogCategoryFilter] = useState<string>('all');
+  const [isCatalogOpen, setIsCatalogOpen] = useState<boolean>(false);
+  const catalogContainerRef = useRef<HTMLDivElement>(null);
 
   // Cascading Dependent Selects for Provider -> Cluster
   const [selectedProvider, setSelectedProvider] = useState<string>('');
@@ -175,12 +157,13 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
   const [selectedPreset, setSelectedPreset] = useState<'Custom' | 'Small' | 'Medium' | 'Large'>('Medium');
 
   // 2 INSTALLATION MODES: 'helm' (Helm values.yaml) or 'crd' (Operator Service CRD Manifest)
-  const [installMode, setInstallMode] = useState<'helm' | 'crd'>('helm');
+  const [installMode, setInstallMode] = useState<'helm' | 'crd'>(
+    initialPkg.package_type === 'operator' ? 'crd' : 'helm'
+  );
 
   // Selected File inside Helm Chart & Load/Installed state
   const [selectedHelmFile, setSelectedHelmFile] = useState<string>('values.yaml');
-  const [isChartLoaded, setIsChartLoaded] = useState<boolean>(false);
-
+  const [isChartLoaded, setIsChartLoaded] = useState<boolean>(true);
   const [isChartInstalled, setIsChartInstalled] = useState<boolean>(false);
   const [deployErrorMsg, setDeployErrorMsg] = useState<string | null>(null);
 
@@ -197,22 +180,93 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
   const [dbPassword, setDbPassword] = useState<string>(generateRandomPassword());
   const [showPassword, setShowPassword] = useState<boolean>(false);
 
-  // YAML editor content for Helm (Mode 1) — Empty by default until chart is pulled
-  const [yamlContent, setYamlContent] = useState<string>('');
+  // YAML editor content for Helm (Mode 1)
+  const [yamlContent, setYamlContent] = useState<string>(initialPkg.default_values_yaml || '');
+  
   // Modal & User custom YAML files state
   const [showAddCustomFileModal, setShowAddCustomFileModal] = useState<boolean>(false);
   const [newCustomFileName, setNewCustomFileName] = useState<string>('my-custom-values.yaml');
   const [userCustomFiles, setUserCustomFiles] = useState<Array<{ name: string; path: string; content: string }>>([]);
 
   const [saveSuccessMsg, setSaveSuccessMsg] = useState(false);
-  const [helmChartNameInput, setHelmChartNameInput] = useState<string>(
-    `bitnami/${selectedEngine.engine_type}`
-  );
-  const [helmChartVersionInput, setHelmChartVersionInput] = useState<string>(
-    DEFAULT_HELM_CHART_VERSIONS[selectedEngine.engine_type] || '15.5.2'
-  );
+  const [helmChartNameInput, setHelmChartNameInput] = useState<string>(initialPkg.chart_name);
+  const [helmChartVersionInput, setHelmChartVersionInput] = useState<string>(initialPkg.default_version);
   const [helmActionStatus, setHelmActionStatus] = useState<string>('');
   const [isExecutingHelmAction, setIsExecutingHelmAction] = useState<boolean>(false);
+
+  // CRD Manifest content & Namespace for Operator Service (Mode 2)
+  const [crdManifestContent, setCrdManifestContent] = useState<string>(initialPkg.default_crd_manifest || '');
+  const [crdNamespace, setCrdNamespace] = useState<string>('default (specified in manifest)');
+
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [clustersList, setClustersList] = useState<K8sCluster[]>(MOCK_CLUSTERS);
+
+  // Close catalog dropdown on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (catalogContainerRef.current && !catalogContainerRef.current.contains(e.target as Node)) {
+        setIsCatalogOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  useEffect(() => {
+    apiClient.getUserClusters(1).then((fetched) => {
+      if (fetched && fetched.length > 0) {
+        setClustersList([...fetched, ...MOCK_CLUSTERS.filter((m) => !fetched.some((f) => f.id === m.id))]);
+      }
+    }).catch((e) => {
+      console.warn('Failed to load user clusters for wizard:', e);
+    });
+  }, []);
+
+  // Filtered packages according to user query and type/category tabs
+  const filteredPackages = CHART_CATALOG_PACKAGES.filter((pkg) => {
+    if (catalogTypeFilter !== 'all' && pkg.package_type !== catalogTypeFilter) {
+      return false;
+    }
+    if (catalogCategoryFilter !== 'all' && pkg.category !== catalogCategoryFilter) {
+      return false;
+    }
+    if (!catalogSearchQuery.trim()) return true;
+    const query = catalogSearchQuery.toLowerCase();
+    return (
+      pkg.name.toLowerCase().includes(query) ||
+      pkg.engine_type.toLowerCase().includes(query) ||
+      pkg.publisher.toLowerCase().includes(query) ||
+      pkg.chart_name.toLowerCase().includes(query) ||
+      pkg.description.toLowerCase().includes(query) ||
+      pkg.tags.some((t) => t.toLowerCase().includes(query))
+    );
+  });
+
+  const handleSelectPackage = (pkg: ChartCatalogPackage) => {
+    setSelectedPackage(pkg);
+    const foundEngine = CATALOG_ITEMS.find((item) => item.engine_type === pkg.engine_type);
+    if (foundEngine) {
+      setSelectedEngine(foundEngine);
+    }
+    setSelectedVersion(pkg.app_version || foundEngine?.versions[0] || '16');
+    setDbName(`my-${pkg.engine_type}-${pkg.package_type === 'operator' ? 'cluster' : 'db'}`);
+    
+    if (pkg.package_type === 'operator') {
+      setInstallMode('crd');
+      if (pkg.default_crd_manifest) {
+        setCrdManifestContent(pkg.default_crd_manifest);
+      }
+    } else {
+      setInstallMode('helm');
+      setHelmChartNameInput(pkg.chart_name);
+      setHelmChartVersionInput(pkg.default_version);
+      if (pkg.default_values_yaml) {
+        setYamlContent(pkg.default_values_yaml);
+        setIsChartLoaded(true);
+      }
+    }
+    setIsCatalogOpen(false);
+  };
 
   const handleCreateCustomFile = () => {
     let cleanName = newCustomFileName.trim();
@@ -277,7 +331,7 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
         const chartName = chartParts.length > 1 ? chartParts[1] : chartParts[0];
 
         await apiClient.pullHelmChart({
-          chart_repo_url: `https://charts.bitnami.com/${repoName}`,
+          chart_repo_url: selectedPackage.chart_repo_url || `https://charts.bitnami.com/${repoName}`,
           chart_name: chartName,
           chart_version: helmChartVersionInput.trim() || '15.5.2',
           release_name: dbName
@@ -288,7 +342,6 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
         const targetFile = selectedHelmFile || 'values.yaml';
         setSelectedHelmFile(targetFile);
 
-        // Automatically fetch real unpacked file from backend after pulling
         try {
           const fetchedContent = await apiClient.getHelmFile(dbName, targetFile);
           if (fetchedContent) {
@@ -321,25 +374,6 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
     }
   };
 
-  // CRD Manifest content & Namespace for Operator Service (Mode 2)
-  const [crdManifestContent, setCrdManifestContent] = useState<string>(
-    DEFAULT_CRD_MANIFESTS[selectedEngine.engine_type] || DEFAULT_CRD_MANIFESTS['postgresql']
-  );
-  const [crdNamespace, setCrdNamespace] = useState<string>('default (specified in manifest)');
-
-  const [isDeploying, setIsDeploying] = useState(false);
-  const [clustersList, setClustersList] = useState<K8sCluster[]>(MOCK_CLUSTERS);
-
-  useEffect(() => {
-    apiClient.getUserClusters(1).then((fetched) => {
-      if (fetched && fetched.length > 0) {
-        setClustersList([...fetched, ...MOCK_CLUSTERS.filter((m) => !fetched.some((f) => f.id === m.id))]);
-      }
-    }).catch((e) => {
-      console.warn('Failed to load user clusters for wizard:', e);
-    });
-  }, []);
-
   // Filter clusters based on selected Cloud Provider
   const availableClusters = selectedProvider
     ? clustersList.filter((cls) => {
@@ -355,24 +389,7 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
 
   const handleProviderChange = (prov: string) => {
     setSelectedProvider(prov);
-    setSelectedCluster(''); // Reset dependent cluster selection
-  };
-
-  const handleEngineChange = (engineType: string) => {
-    const found = CATALOG_ITEMS.find((item) => item.engine_type === engineType);
-    if (found) {
-      setSelectedEngine(found);
-      setSelectedVersion(found.versions[0]);
-      setDbName(`my-${found.engine_type}-db`);
-      setHelmChartNameInput(`bitnami/${found.engine_type}`);
-      setHelmChartVersionInput(DEFAULT_HELM_CHART_VERSIONS[found.engine_type] || '15.5.2');
-      setIsChartInstalled(false);
-      setIsChartLoaded(false);
-      setYamlContent('');
-      if (DEFAULT_CRD_MANIFESTS[found.engine_type]) {
-        setCrdManifestContent(DEFAULT_CRD_MANIFESTS[found.engine_type]);
-      }
-    }
+    setSelectedCluster('');
   };
 
   const handleDeploy = async () => {
@@ -439,8 +456,248 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
             Create New Database Instance
           </h3>
           <p className="text-xs text-slate-400 mt-1">
-            Select engine parameters and preferred installation mode (Helm values.yaml or K8s Operator CRD)
+            Search and select from standardized Kubernetes Operators (CloudNativePG, Zalando, Altinity, Opstree, Percona) or official Helm Charts.
           </p>
+        </div>
+
+        {/* ======================================================== */}
+        {/* ARTIFACTHUB / CHART CATALOG SEARCH & SELECTION DISCOVERY */}
+        {/* ======================================================== */}
+        <div ref={catalogContainerRef} className="relative space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-purple-400" />
+              ArtifactHub & Operator Catalog Search
+            </label>
+            <span className="text-[11px] font-mono text-slate-400">
+              {CHART_CATALOG_PACKAGES.length} standardized packages available
+            </span>
+          </div>
+
+          {/* Search Box Input Bar */}
+          <div className="relative">
+            <div className="relative flex items-center">
+              <Search className="w-5 h-5 text-brand-sky absolute left-4 pointer-events-none" />
+              <input
+                type="text"
+                value={catalogSearchQuery}
+                onFocus={() => setIsCatalogOpen(true)}
+                onChange={(e) => {
+                  setCatalogSearchQuery(e.target.value);
+                  setIsCatalogOpen(true);
+                }}
+                placeholder="Search operators and charts by name, publisher, repo, tags (e.g., CloudNativePG, Zalando, Altinity, Redis, Bitnami, HA)..."
+                className="w-full bg-bg-main border border-accent-darkBorder hover:border-brand-sky/60 focus:border-brand-sky text-white text-sm rounded-xl pl-12 pr-28 py-3.5 focus:outline-none focus:ring-2 focus:ring-brand-sky/30 shadow-inner font-semibold transition-all"
+              />
+              <div className="absolute right-3 flex items-center gap-2">
+                {catalogSearchQuery && (
+                  <button
+                    onClick={() => setCatalogSearchQuery('')}
+                    className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsCatalogOpen(!isCatalogOpen)}
+                  className="px-3 py-1.5 bg-brand-blue/20 hover:bg-brand-blue/40 border border-brand-sky/30 rounded-lg text-xs font-bold text-brand-sky flex items-center gap-1 transition-all"
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                  Catalog
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isCatalogOpen ? 'rotate-180' : ''}`} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* CATALOG DROPDOWN / SEARCH RESULTS MODAL */}
+          {isCatalogOpen && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-slate-950/95 border border-purple-500/30 rounded-2xl p-4 shadow-2xl backdrop-blur-xl z-50 space-y-4 max-h-[520px] overflow-y-auto animate-fadeIn">
+              {/* Filter Tabs */}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                {/* Type Filter */}
+                <div className="flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setCatalogTypeFilter('all')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                      catalogTypeFilter === 'all'
+                        ? 'bg-purple-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    All Packages ({CHART_CATALOG_PACKAGES.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCatalogTypeFilter('operator')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                      catalogTypeFilter === 'operator'
+                        ? 'bg-purple-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Zap className="w-3 h-3 text-amber-300" />
+                    ⚡ Operators ({CHART_CATALOG_PACKAGES.filter((p) => p.package_type === 'operator').length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCatalogTypeFilter('helm_chart')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                      catalogTypeFilter === 'helm_chart'
+                        ? 'bg-sky-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <PackageCheck className="w-3 h-3 text-sky-200" />
+                    📦 Helm Charts ({CHART_CATALOG_PACKAGES.filter((p) => p.package_type === 'helm_chart').length})
+                  </button>
+                </div>
+
+                {/* Category Filters */}
+                <div className="flex items-center gap-1 flex-wrap">
+                  {['all', 'relational', 'nosql', 'inmemory', 'vector', 'timeseries'].map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setCatalogCategoryFilter(cat)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold uppercase tracking-wider transition-all border ${
+                        catalogCategoryFilter === cat
+                          ? 'bg-slate-800 text-brand-sky border-brand-sky/40'
+                          : 'bg-transparent text-slate-500 border-transparent hover:text-slate-300'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Package Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {filteredPackages.map((pkg) => {
+                  const isSelected = selectedPackage.id === pkg.id;
+                  const isOperator = pkg.package_type === 'operator';
+                  return (
+                    <div
+                      key={pkg.id}
+                      onClick={() => handleSelectPackage(pkg)}
+                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative group flex flex-col justify-between ${
+                        isSelected
+                          ? 'bg-purple-950/40 border-purple-500 ring-2 ring-purple-500/30 shadow-lg'
+                          : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2.5">
+                            <img
+                              src={pkg.icon_url}
+                              alt={pkg.name}
+                              className="w-7 h-7 object-contain rounded bg-slate-950 p-1 border border-slate-800"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = 'none';
+                              }}
+                            />
+                            <div>
+                              <span className="font-bold text-xs text-white block group-hover:text-brand-sky transition-colors">
+                                {pkg.name}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                {pkg.publisher} • {pkg.chart_name}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Type Badge */}
+                          <span
+                            className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md border shrink-0 ${
+                              isOperator
+                                ? 'bg-purple-900/50 text-purple-300 border-purple-500/40'
+                                : 'bg-sky-900/50 text-sky-300 border-sky-500/40'
+                            }`}
+                          >
+                            {isOperator ? '⚡ Operator CRD' : '📦 Helm Chart'}
+                          </span>
+                        </div>
+
+                        <p className="text-[11px] text-slate-300 line-clamp-2 leading-relaxed mb-3">
+                          {pkg.description}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[10px]">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {pkg.tags.slice(0, 3).map((tag, i) => (
+                            <span key={i} className="px-1.5 py-0.5 bg-slate-800 text-slate-400 rounded text-[9px]">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                        <span className="font-mono text-slate-400">
+                          App: v{pkg.app_version}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {filteredPackages.length === 0 && (
+                <div className="p-8 text-center text-slate-400 space-y-2">
+                  <AlertCircle className="w-8 h-8 text-amber-400 mx-auto" />
+                  <p className="text-sm font-semibold text-slate-300">No matching operators or charts found</p>
+                  <p className="text-xs">Try searching for generic names like PostgreSQL, Redis, ClickHouse, or Altinity</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ACTIVE SELECTED PACKAGE SUMMARY CARD */}
+          <div className="p-4 bg-gradient-to-r from-purple-950/30 via-slate-900/80 to-sky-950/30 border border-purple-500/30 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg">
+            <div className="flex items-center gap-3.5">
+              <img
+                src={selectedPackage.icon_url}
+                alt={selectedPackage.name}
+                className="w-10 h-10 object-contain rounded-xl bg-slate-950 p-1.5 border border-purple-500/30 shadow-inner"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold text-sm text-white">
+                    {selectedPackage.name}
+                  </span>
+                  <span
+                    className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md border ${
+                      selectedPackage.package_type === 'operator'
+                        ? 'bg-purple-900/60 text-purple-200 border-purple-400/50'
+                        : 'bg-sky-900/60 text-sky-200 border-sky-400/50'
+                    }`}
+                  >
+                    {selectedPackage.package_type === 'operator' ? '⚡ Kubernetes Operator' : '📦 Standalone Helm'}
+                  </span>
+                </div>
+                <span className="text-xs text-slate-400 flex items-center gap-2 mt-0.5 font-mono">
+                  <span>Repo: <strong>{selectedPackage.chart_name}</strong></span>
+                  <span>•</span>
+                  <span>Publisher: <strong className="text-purple-300">{selectedPackage.publisher}</strong></span>
+                  <span>•</span>
+                  <span>Default App: <strong>v{selectedPackage.app_version}</strong></span>
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsCatalogOpen(true)}
+              className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-xs font-bold text-brand-sky flex items-center gap-1.5 transition-all shadow-md shrink-0"
+            >
+              <Search className="w-3.5 h-3.5" /> Switch Operator / Chart
+            </button>
+          </div>
         </div>
 
         {/* TWO INSTALLATION MODE BUTTONS: Helm Chart vs Operator CRD */}
@@ -469,15 +726,15 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
             onClick={() => setInstallMode('crd')}
             className={`p-4 rounded-xl border text-left transition-all flex items-start gap-3.5 ${
               installMode === 'crd'
-                ? 'bg-brand-blue/20 border-brand-sky ring-2 ring-brand-sky/30 text-white shadow-lg'
+                ? 'bg-purple-900/30 border-purple-500 ring-2 ring-purple-500/30 text-white shadow-lg'
                 : 'bg-bg-main border-accent-darkBorder text-slate-400 hover:bg-accent-darkHover'
             }`}
           >
-            <Boxes className={`w-6 h-6 mt-0.5 shrink-0 ${installMode === 'crd' ? 'text-brand-sky' : 'text-slate-500'}`} />
+            <Boxes className={`w-6 h-6 mt-0.5 shrink-0 ${installMode === 'crd' ? 'text-purple-400' : 'text-slate-500'}`} />
             <div>
-              <span className="font-bold text-sm block text-white">2. Custom Resource (CRD)</span>
+              <span className="font-bold text-sm block text-white">2. Custom Resource (Operator CRD)</span>
               <span className="text-xs text-slate-400 leading-normal">
-                Kubernetes Operator CRD Manifest (CloudNativePG / KubeDB via operator-service).
+                Kubernetes Operator CRD Manifest ({selectedPackage.name} via operator-service).
               </span>
             </div>
           </button>
@@ -489,236 +746,204 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
       <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-6 space-y-6 shadow-xl">
         
         {/* ======================================================== */}
-        {/* STEP 1: INITIAL MANDATORY FIELDS FOR MODES 1 & 2 */}
+        {/* STEP 1: INITIAL MANDATORY FIELDS FOR BOTH MODES */}
         {/* ======================================================== */}
-        {installMode !== 'crd' && (
-          <div className="space-y-6">
-            <div className="border-b border-accent-darkBorder pb-3 flex items-center justify-between">
-              <div>
-                <h4 className="text-sm font-bold uppercase tracking-wider text-brand-sky flex items-center gap-2">
-                  <Database className="w-4 h-4" /> Deploy Management Catalog
-                </h4>
-                <p className="text-xs text-slate-400 mt-0.5">Specify instance ID, database engine, cloud provider, and target cluster</p>
-              </div>
-
-              {/* Engine Version Picker */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-400">Engine Version:</span>
-                {selectedEngine.versions.map((ver) => (
-                  <button
-                    key={ver}
-                    onClick={() => setSelectedVersion(ver)}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all ${
-                      selectedVersion === ver
-                        ? 'bg-brand-blue text-white border-brand-sky shadow-md'
-                        : 'bg-bg-main text-slate-400 border-accent-darkBorder hover:bg-accent-darkHover hover:text-white'
-                    }`}
-                  >
-                    v{ver}
-                  </button>
-                ))}
-              </div>
+        <div className="space-y-6">
+          <div className="border-b border-accent-darkBorder pb-3 flex items-center justify-between">
+            <div>
+              <h4 className="text-sm font-bold uppercase tracking-wider text-brand-sky flex items-center gap-2">
+                <Database className="w-4 h-4" /> Instance Configuration & Target Placement
+              </h4>
+              <p className="text-xs text-slate-400 mt-0.5">Specify instance ID, cloud provider, and target cluster</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
-              {/* FIELD 1: Database Name (Release name) */}
-              <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                  Database Instance Name (Release name)
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={dbName}
-                  onChange={(e) => setDbName(e.target.value)}
-                  placeholder="e.g., my-app-db"
-                  className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky font-semibold"
-                />
-                <span className="text-[11px] text-slate-400 mt-1.5 block leading-relaxed">
-                  Changing the instance name deploys a new unique Helm release with its own isolated configuration and resources.
-                </span>
-              </div>
-
-              {/* FIELD 2: Database Engine Name (Select) */}
-              <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                  Database Engine Name
-                </label>
-                <select
-                  value={selectedEngine.engine_type}
-                  onChange={(e) => handleEngineChange(e.target.value)}
-                  className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky font-semibold"
+            {/* Engine Version Picker */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-400">Engine Version:</span>
+              {selectedEngine.versions.map((ver) => (
+                <button
+                  key={ver}
+                  onClick={() => setSelectedVersion(ver)}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-all ${
+                    selectedVersion === ver
+                      ? 'bg-brand-blue text-white border-brand-sky shadow-md'
+                      : 'bg-bg-main text-slate-400 border-accent-darkBorder hover:bg-accent-darkHover hover:text-white'
+                  }`}
                 >
-                  {CATALOG_ITEMS.map((item) => (
-                    <option key={item.id} value={item.engine_type}>
-                      {item.name} ({item.badge})
-                    </option>
-                  ))}
-                </select>
+                  v{ver}
+                </button>
+              ))}
+            </div>
+          </div>
 
-                {/* AUTOMATIC HELM CHART MAPPING DISPLAY */}
-                <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-brand-sky font-mono bg-brand-blue/10 px-2.5 py-1 rounded-lg border border-brand-sky/20">
-                  <PackageCheck className="w-3.5 h-3.5 shrink-0 text-brand-sky" />
-                  <span className="truncate">
-                    Chart: <strong>{ENGINE_HELM_CHARTS[selectedEngine.engine_type] || `bitnami/${selectedEngine.engine_type}`}</strong>
-                  </span>
-                </div>
-              </div>
-
-              {/* FIELD 3: Cluster Selection (Cascading Dependent Selects) */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                    Cloud Provider / Environment
-                  </label>
-                  <select
-                    value={selectedProvider}
-                    onChange={(e) => handleProviderChange(e.target.value)}
-                    className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky font-semibold"
-                  >
-                    <option value="">-- Select Cloud Provider --</option>
-                    <option value="aws">Amazon Web Services (AWS)</option>
-                    <option value="gcp">Google Cloud Platform (GCP)</option>
-                    <option value="azure">Microsoft Azure</option>
-                    <option value="digitalocean">DigitalOcean</option>
-                    <option value="onprem">On-Premise</option>
-                  </select>
-                </div>
-
-                {/* Target Cluster (Activated only after provider selected) */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Target Kubernetes Cluster
-                  </label>
-                  <select
-                    disabled={!selectedProvider}
-                    value={selectedCluster}
-                    onChange={(e) => setSelectedCluster(e.target.value)}
-                    className={`w-full text-sm rounded-xl px-4 py-2.5 focus:outline-none transition-all font-semibold border ${
-                      !selectedProvider
-                        ? 'bg-bg-main/50 text-slate-600 border-accent-darkBorder/40 cursor-not-allowed'
-                        : 'bg-bg-main border-accent-darkBorder text-white focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky'
-                    }`}
-                  >
-                    <option value="">
-                      {!selectedProvider ? '⚠️ First select a Cloud Provider' : '-- Select Target Cluster --'}
-                    </option>
-                    {availableClusters.map((cls) => (
-                      <option key={cls.id} value={cls.name}>
-                        {cls.name} ({cls.region})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* FIELD 1: Database Name (Release name) */}
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                Database Instance Name (Release name)
+              </label>
+              <input
+                type="text"
+                required
+                value={dbName}
+                onChange={(e) => setDbName(e.target.value)}
+                placeholder="e.g., my-app-db"
+                className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky font-semibold"
+              />
+              <span className="text-[11px] text-slate-400 mt-1.5 block leading-relaxed">
+                Unique identifier for this deployment release on the target cluster.
+              </span>
             </div>
 
-            {/* DATABASE SECURITY & CREDENTIALS CARD */}
-            <div className="p-5 bg-bg-main border border-accent-darkBorder rounded-2xl space-y-4 shadow-md mt-6">
-              <div className="flex items-center justify-between border-b border-accent-darkBorder/60 pb-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
-                  <Key className="w-4 h-4 text-brand-sky" /> Database Security & Credentials Setup
-                </span>
-                <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Automatically injected during DB initialization
-                </span>
-              </div>
+            {/* FIELD 2: Cloud Provider / Environment */}
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                Cloud Provider / Environment
+              </label>
+              <select
+                value={selectedProvider}
+                onChange={(e) => handleProviderChange(e.target.value)}
+                className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky font-semibold"
+              >
+                <option value="">-- Select Cloud Provider --</option>
+                <option value="aws">Amazon Web Services (AWS)</option>
+                <option value="gcp">Google Cloud Platform (GCP)</option>
+                <option value="azure">Microsoft Azure</option>
+                <option value="digitalocean">DigitalOcean</option>
+                <option value="onprem">On-Premise</option>
+              </select>
+            </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                {/* Password Mode Toggle Buttons */}
-                <div className="lg:col-span-5 space-y-2">
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    Password Generation Mode <span className="text-rose-400">*</span>
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPasswordMode('auto');
-                        if (!dbPassword) {
-                          setDbPassword(generateRandomPassword());
-                        }
-                      }}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
-                        passwordMode === 'auto'
-                          ? 'bg-brand-blue/20 text-brand-sky border-brand-sky ring-1 ring-brand-sky/30'
-                          : 'bg-bg-card text-slate-400 border-accent-darkBorder hover:bg-accent-darkHover'
-                      }`}
-                    >
-                      <Wand2 className="w-3.5 h-3.5" /> Auto-Generated
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPasswordMode('custom');
-                        setDbPassword('');
-                      }}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
-                        passwordMode === 'custom'
-                          ? 'bg-brand-blue/20 text-brand-sky border-brand-sky ring-1 ring-brand-sky/30'
-                          : 'bg-bg-card text-slate-400 border-accent-darkBorder hover:bg-accent-darkHover'
-                      }`}
-                    >
-                      <Lock className="w-3.5 h-3.5" /> Custom Password
-                    </button>
-                  </div>
-                </div>
-
-                {/* Password Input & Generation Controls */}
-                <div className="lg:col-span-7 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider">
-                      Database Admin Password <span className="text-rose-400">*</span>
-                    </label>
-                    {passwordMode === 'auto' && (
-                      <button
-                        type="button"
-                        onClick={() => setDbPassword(generateRandomPassword())}
-                        className="text-[11px] text-brand-sky font-semibold hover:underline flex items-center gap-1"
-                      >
-                        <RefreshCw className="w-3 h-3" /> Re-generate Random
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="relative flex items-center">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      value={dbPassword}
-                      onChange={(e) => setDbPassword(e.target.value)}
-                      placeholder="Enter database admin password..."
-                      className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs font-mono rounded-xl pl-9 pr-10 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky font-semibold selection:bg-brand-sky/50 selection:text-white"
-                    />
-                    <Key className="w-4 h-4 text-slate-500 absolute left-3" />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 text-slate-400 hover:text-white focus:outline-none"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  
-                  {!dbPassword && (
-                    <span className="text-[10px] text-rose-400 font-semibold block pt-1">
-                      ⚠️ Password is required before deploying database
-                    </span>
-                  )}
-                </div>
-              </div>
+            {/* FIELD 3: Target Kubernetes Cluster */}
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                Target Kubernetes Cluster
+              </label>
+              <select
+                disabled={!selectedProvider}
+                value={selectedCluster}
+                onChange={(e) => setSelectedCluster(e.target.value)}
+                className={`w-full text-sm rounded-xl px-4 py-2.5 focus:outline-none transition-all font-semibold border ${
+                  !selectedProvider
+                    ? 'bg-bg-main/50 text-slate-600 border-accent-darkBorder/40 cursor-not-allowed'
+                    : 'bg-bg-main border-accent-darkBorder text-white focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky'
+                }`}
+              >
+                <option value="">
+                  {!selectedProvider ? '⚠️ First select a Cloud Provider' : '-- Select Target Cluster --'}
+                </option>
+                {availableClusters.map((cls) => (
+                  <option key={cls.id} value={cls.name}>
+                    {cls.name} ({cls.region})
+                  </option>
+                ))}
+              </select>
             </div>
 
           </div>
-        )}
 
+          {/* DATABASE SECURITY & CREDENTIALS CARD */}
+          <div className="p-5 bg-bg-main border border-accent-darkBorder rounded-2xl space-y-4 shadow-md mt-6">
+            <div className="flex items-center justify-between border-b border-accent-darkBorder/60 pb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
+                <Key className="w-4 h-4 text-brand-sky" /> Database Security & Credentials Setup
+              </span>
+              <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Automatically injected during DB initialization
+              </span>
+            </div>
 
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+              {/* Password Mode Toggle Buttons */}
+              <div className="lg:col-span-5 space-y-2">
+                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Password Generation Mode <span className="text-rose-400">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPasswordMode('auto');
+                      if (!dbPassword) {
+                        setDbPassword(generateRandomPassword());
+                      }
+                    }}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                      passwordMode === 'auto'
+                        ? 'bg-brand-blue/20 text-brand-sky border-brand-sky ring-1 ring-brand-sky/30'
+                        : 'bg-bg-card text-slate-400 border-accent-darkBorder hover:bg-accent-darkHover'
+                    }`}
+                  >
+                    <Wand2 className="w-3.5 h-3.5" /> Auto-Generated
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPasswordMode('custom');
+                      setDbPassword('');
+                    }}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                      passwordMode === 'custom'
+                        ? 'bg-brand-blue/20 text-brand-sky border-brand-sky ring-1 ring-brand-sky/30'
+                        : 'bg-bg-card text-slate-400 border-accent-darkBorder hover:bg-accent-darkHover'
+                    }`}
+                  >
+                    <Lock className="w-3.5 h-3.5" /> Custom Password
+                  </button>
+                </div>
+              </div>
+
+              {/* Password Input & Generation Controls */}
+              <div className="lg:col-span-7 space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                    Database Admin Password <span className="text-rose-400">*</span>
+                  </label>
+                  {passwordMode === 'auto' && (
+                    <button
+                      type="button"
+                      onClick={() => setDbPassword(generateRandomPassword())}
+                      className="text-[11px] text-brand-sky font-semibold hover:underline flex items-center gap-1"
+                    >
+                      <RefreshCw className="w-3 h-3" /> Re-generate Random
+                    </button>
+                  )}
+                </div>
+
+                <div className="relative flex items-center">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={dbPassword}
+                    onChange={(e) => setDbPassword(e.target.value)}
+                    placeholder="Enter database admin password..."
+                    className="w-full bg-bg-card border border-accent-darkBorder text-white text-xs font-mono rounded-xl pl-9 pr-10 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky font-semibold selection:bg-brand-sky/50 selection:text-white"
+                  />
+                  <Key className="w-4 h-4 text-slate-500 absolute left-3" />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 text-slate-400 hover:text-white focus:outline-none"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                
+                {!dbPassword && (
+                  <span className="text-[10px] text-rose-400 font-semibold block pt-1">
+                    ⚠️ Password is required before deploying database
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+        </div>
 
         {/* ======================================================== */}
-        {/* MODE 2: HELM CHART YAML EDITOR */}
+        {/* MODE 1: HELM CHART YAML EDITOR */}
         {/* ======================================================== */}
         {installMode === 'helm' && (
           <div className="space-y-5 pt-4 border-t border-accent-darkBorder">
@@ -825,7 +1050,6 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
                   </select>
                 </div>
 
-
                 {/* ADD CUSTOM FILE BUTTON & SAVE / UPGRADE ACTIONS */}
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <button 
@@ -867,19 +1091,6 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
                   ? "Terminal is empty. Click 'Install Chart' above to pull and inspect Helm chart configuration files..."
                   : "Type or edit YAML configuration values here..."
               }
-              onKeyDown={(e) => {
-                const target = e.currentTarget;
-                if (e.key === ' ' && target.selectionStart !== null && target.selectionEnd !== null && target.selectionStart !== target.selectionEnd) {
-                  e.preventDefault();
-                  const start = target.selectionStart;
-                  const end = target.selectionEnd;
-                  const newVal = yamlContent.substring(0, start) + yamlContent.substring(end);
-                  setYamlContent(newVal);
-                  setTimeout(() => {
-                    target.setSelectionRange(start, start);
-                  }, 0);
-                }
-              }}
               rows={12}
               className="w-full bg-brand-dark text-sky-300 font-mono text-xs p-4 rounded-xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-sky leading-relaxed selection:bg-brand-sky/50 selection:text-white font-semibold placeholder:text-slate-600 placeholder:italic"
             ></textarea>
@@ -887,17 +1098,17 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
         )}
 
         {/* ======================================================== */}
-        {/* MODE 3: KUBERNETES CUSTOM RESOURCE (OPERATOR SERVICE CRD) */}
+        {/* MODE 2: KUBERNETES CUSTOM RESOURCE (OPERATOR SERVICE CRD) */}
         {/* ======================================================== */}
         {installMode === 'crd' && (
           <div className="space-y-6 pt-4 border-t border-accent-darkBorder">
             <div className="flex items-center justify-between border-b border-accent-darkBorder pb-3">
               <div>
                 <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <Boxes className="w-4 h-4 text-brand-sky" /> 3. Kubernetes Custom Resource Deployment (Operator Service)
+                  <Boxes className="w-4 h-4 text-purple-400" /> 2. Kubernetes Custom Resource Deployment (Operator Service)
                 </h4>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Paste your ready Custom Resource manifest (Operator CRD, CloudNativePG, KubeDB, Altinity, etc.) to deploy directly via operator-service
+                  Standardized Custom Resource definition for {selectedPackage.name} applied directly via operator-service
                 </p>
               </div>
               <span className="text-xs font-mono text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-lg border border-emerald-500/30 font-semibold">
@@ -905,230 +1116,111 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
               </span>
             </div>
 
-            {/* RESOURCE NAME, NAMESPACE & CASCADING CLUSTER SELECTION */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Resource Name & Target Namespace */}
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                    Resource Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={dbName}
-                    onChange={(e) => setDbName(e.target.value)}
-                    placeholder="e.g., my-custom-operator-cr"
-                    className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky font-semibold"
-                  />
-                  <span className="text-[11px] text-slate-500 mt-1 block">Custom Resource metadata.name</span>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                    Target Namespace
-                  </label>
-                  <input
-                    type="text"
-                    value={crdNamespace}
-                    onChange={(e) => setCrdNamespace(e.target.value)}
-                    placeholder="default (specified in manifest)"
-                    className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky font-semibold"
-                  />
-                  <span className="text-[11px] text-slate-500 mt-1 block">Kubernetes namespace (default specified in manifest)</span>
-                </div>
-              </div>
-
-              {/* Cloud Provider & Target Cluster (Cascading Dependent Selects) */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                    Cloud Provider / Environment
-                  </label>
-                  <select
-                    value={selectedProvider}
-                    onChange={(e) => handleProviderChange(e.target.value)}
-                    className="w-full bg-bg-main border border-accent-darkBorder text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky font-semibold"
-                  >
-                    <option value="">-- Select Cloud Provider --</option>
-                    <option value="aws">Amazon Web Services (AWS)</option>
-                    <option value="gcp">Google Cloud Platform (GCP)</option>
-                    <option value="azure">Microsoft Azure</option>
-                    <option value="digitalocean">DigitalOcean</option>
-                    <option value="onprem">On-Premise</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Target Kubernetes Cluster
-                  </label>
-                  <select
-                    disabled={!selectedProvider}
-                    value={selectedCluster}
-                    onChange={(e) => setSelectedCluster(e.target.value)}
-                    className={`w-full text-sm rounded-xl px-4 py-2.5 focus:outline-none transition-all font-semibold border ${
-                      !selectedProvider
-                        ? 'bg-bg-main/50 text-slate-600 border-accent-darkBorder/40 cursor-not-allowed'
-                        : 'bg-bg-main border-accent-darkBorder text-white focus:ring-2 focus:ring-brand-sky/40 focus:border-brand-sky'
-                    }`}
-                  >
-                    <option value="">
-                      {!selectedProvider ? '⚠️ First select a Cloud Provider' : '-- Select Target Cluster --'}
-                    </option>
-                    {availableClusters.map((cls) => (
-                      <option key={cls.id} value={cls.name}>
-                        {cls.name} ({cls.region})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* INTERACTIVE YAML MANIFEST TERMINAL */}
+            {/* CRD Manifest Editor */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                  <FileCode2 className="w-4 h-4 text-brand-sky" /> Interactive Manifest Terminal (YAML)
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
+                  Custom Resource Manifest (YAML)
                 </label>
-                <span className="text-[11px] text-slate-400 font-mono">
-                  Schema: <strong className="text-brand-sky">kubectl apply -f</strong>
-                </span>
-              </div>
-
-              <div className="relative bg-brand-dark border border-slate-800 rounded-2xl p-4 shadow-inner">
-                <textarea
-                  value={crdManifestContent}
-                  onChange={(e) => setCrdManifestContent(e.target.value)}
-                  onKeyDown={(e) => {
-                    const target = e.currentTarget;
-                    if (e.key === ' ' && target.selectionStart !== null && target.selectionEnd !== null && target.selectionStart !== target.selectionEnd) {
-                      e.preventDefault();
-                      const start = target.selectionStart;
-                      const end = target.selectionEnd;
-                      const newVal = crdManifestContent.substring(0, start) + crdManifestContent.substring(end);
-                      setCrdManifestContent(newVal);
-                      setTimeout(() => {
-                        target.setSelectionRange(start, start);
-                      }, 0);
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedPackage.default_crd_manifest) {
+                      setCrdManifestContent(selectedPackage.default_crd_manifest);
                     }
                   }}
-                  rows={12}
-                  placeholder="Paste your Kubernetes Custom Resource YAML manifest here..."
-                  className="w-full bg-transparent text-emerald-300 font-mono text-xs focus:outline-none leading-relaxed resize-y selection:bg-brand-sky/50 selection:text-white"
-                ></textarea>
+                  className="text-xs text-brand-sky font-semibold hover:underline flex items-center gap-1"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Reset Default Operator CRD
+                </button>
               </div>
+              <textarea
+                value={crdManifestContent}
+                onChange={(e) => setCrdManifestContent(e.target.value)}
+                placeholder="Paste your Kubernetes Operator Custom Resource YAML manifest here..."
+                rows={14}
+                className="w-full bg-brand-dark text-purple-200 font-mono text-xs p-4 rounded-xl border border-purple-900/40 focus:outline-none focus:ring-2 focus:ring-purple-500 leading-relaxed font-semibold selection:bg-purple-500/40 selection:text-white placeholder:text-slate-600"
+              ></textarea>
             </div>
           </div>
         )}
 
-        {/* Deployment Error Alert Banner */}
+        {/* Deploy Error Message Banner */}
         {deployErrorMsg && (
-          <div className="p-4 bg-rose-950/90 border border-rose-500/50 text-rose-200 text-xs font-mono rounded-xl flex items-start justify-between gap-3 shadow-xl animate-fadeIn">
-            <div className="flex items-start gap-2.5">
-              <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-              <div>
-                <strong className="block text-rose-300 font-bold mb-0.5">Deployment Failure:</strong>
-                <span className="leading-relaxed">{deployErrorMsg}</span>
-              </div>
+          <div className="p-4 bg-rose-950/80 border border-rose-500/40 rounded-xl text-rose-300 text-xs flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+            <div>
+              <span className="font-bold block">Deployment Failure</span>
+              <span>{deployErrorMsg}</span>
             </div>
-            <button onClick={() => setDeployErrorMsg(null)} className="text-rose-400 hover:text-white transition-colors">
-              <X className="w-4 h-4" />
-            </button>
           </div>
         )}
 
-        {/* Deploy Action Bar */}
-        <div className="pt-4 border-t border-accent-darkBorder flex items-center justify-between">
-          <div className="text-xs text-slate-400 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>
-              {installMode === 'crd'
-                ? `CRD manifest targeted for operator-service on ${selectedCluster || 'cluster'}`
-                : `Deployment payload validated for cluster ${selectedCluster || 'target'}`}
-            </span>
-          </div>
-
+        {/* PROVISION DATABASE SUBMIT BUTTON */}
+        <div className="pt-6 border-t border-accent-darkBorder flex items-center justify-end gap-4">
           <button
+            type="button"
             onClick={handleDeploy}
-            disabled={isDeploying}
-            className="bg-brand-blue hover:bg-brand-blue/90 text-white font-bold text-sm px-8 py-3 rounded-xl shadow-lg shadow-brand-blue/30 flex items-center gap-2 transition-all"
+            disabled={isDeploying || !dbName || !dbPassword}
+            className={`px-6 py-3 rounded-xl font-bold text-sm shadow-xl flex items-center gap-2 transition-all cursor-pointer ${
+              isDeploying || !dbName || !dbPassword
+                ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                : 'bg-gradient-to-r from-brand-blue to-purple-600 hover:from-brand-blue/90 hover:to-purple-500 text-white shadow-brand-blue/30 active:scale-[0.98]'
+            }`}
           >
             {isDeploying ? (
-              <span>Deploying {installMode === 'crd' ? 'Operator Service' : 'Helm Deployer'}...</span>
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" /> Provisioning Database...
+              </>
             ) : (
               <>
-                <Play className="w-4 h-4 fill-white" />
-                <span>Deploy {installMode === 'crd' ? 'Operator CRD' : 'Helm Chart'}</span>
+                <Play className="w-4 h-4 fill-white" /> Provision Database Instance
               </>
             )}
           </button>
         </div>
+
       </div>
 
-      {/* ======================================================== */}
-      {/* 📄 ADD CUSTOM YAML FILE MODAL OVERLAY */}
-      {/* ======================================================== */}
+      {/* MODAL: ADD CUSTOM FILE */}
       {showAddCustomFileModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-bg-card border border-accent-darkBorder rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5 relative">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-accent-darkBorder pb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-brand-blue/20 border border-brand-sky/30 flex items-center justify-center">
-                  <FilePlus className="w-5 h-5 text-brand-sky" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">Add Custom YAML File</h3>
-                  <p className="text-[11px] text-slate-400">Create a new empty YAML configuration file</p>
-                </div>
-              </div>
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <FilePlus className="w-4 h-4 text-brand-sky" /> Add Custom Configuration File
+              </h4>
               <button
                 onClick={() => setShowAddCustomFileModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-bg-main transition-all"
+                className="text-slate-400 hover:text-white"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
-
-            <div className="space-y-3">
-              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-                YAML File Name
-              </label>
-              <div className="relative">
-                <FileText className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  autoFocus
-                  value={newCustomFileName}
-                  onChange={(e) => setNewCustomFileName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreateCustomFile();
-                  }}
-                  placeholder="e.g. my-custom-values.yaml"
-                  className="w-full bg-bg-main border border-accent-darkBorder rounded-xl pl-9 pr-4 py-2.5 text-xs font-mono font-bold text-white placeholder-slate-500 focus:outline-none focus:border-brand-sky transition-all"
-                />
-              </div>
-              <p className="text-[11px] text-slate-400">
-                A blank code terminal editor will open immediately for this file once created.
-              </p>
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-300 uppercase">File Name (.yaml)</label>
+              <input
+                type="text"
+                value={newCustomFileName}
+                onChange={(e) => setNewCustomFileName(e.target.value)}
+                placeholder="e.g., custom-replicas.yaml"
+                className="w-full bg-bg-main border border-accent-darkBorder text-white text-xs font-mono rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-sky"
+              />
             </div>
-
-            <div className="flex items-center justify-end gap-3 border-t border-accent-darkBorder pt-4">
+            <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setShowAddCustomFileModal(false)}
-                className="text-xs font-semibold px-4 py-2.5 rounded-xl border border-accent-darkBorder text-slate-400 hover:bg-accent-darkHover transition-all"
+                className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleCreateCustomFile}
-                className="bg-brand-blue hover:bg-brand-blue/90 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-lg shadow-brand-blue/30 flex items-center gap-1.5 transition-all"
+                className="px-4 py-2 bg-brand-blue hover:bg-brand-blue/90 text-white rounded-xl text-xs font-bold shadow-md"
               >
-                <FilePlus className="w-4 h-4" />
-                <span>Create & Open Editor</span>
+                Create File
               </button>
             </div>
           </div>
