@@ -24,7 +24,8 @@ import {
   ExternalLink,
   Activity,
   FilePlus,
-  FileText
+  FileText,
+  FolderOpen
 } from 'lucide-react';
 
 interface DatabaseManagementCatalogPageProps {
@@ -266,7 +267,7 @@ metrics:
     await new Promise((res) => setTimeout(res, 1500));
     setTopScaleStatus('Running');
     setTopScaleNotification(
-      `✓ Day-2 Scaling successfully executed for ${selectedInstance?.name}! New specs: ${topCpu} Cores CPU, ${topRam} GB RAM, ${topDisk} GB PVC Storage.`
+      `✓ Scaling successfully executed for ${selectedInstance?.name}! New specs: ${topCpu} Cores CPU, ${topRam} GB RAM, ${topDisk} GB PVC Storage.`
     );
     setTimeout(() => setTopScaleNotification(null), 5000);
   };
@@ -481,7 +482,7 @@ metrics:
             </div>
             <div>
               <h3 className="font-extrabold text-white text-base flex items-center gap-2">
-                📈 Day-2 Live Scaling & Resource Allocation
+                📈 Live Scaling & Resource Allocation
                 <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-brand-blue/20 text-brand-sky border border-brand-blue/30">
                   PATCH /api/v1/databases/{'{id}'}/scale
                 </span>
@@ -711,7 +712,7 @@ metrics:
             <span>
               {topScaleStatus === 'Scaling'
                 ? 'Scaling StatefulSet...'
-                : '📈 Apply Day-2 Scale (PATCH /api/v1/databases/scale)'}
+                : '📈 Apply Scale (PATCH /api/v1/databases/scale)'}
             </span>
           </button>
         </div>
@@ -739,6 +740,17 @@ metrics:
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => {
+                setYamlConfigNotification(`[Chart File]: Selected chart file '${activeYamlFileName}' is open in editor.`);
+                setTimeout(() => setYamlConfigNotification(null), 4000);
+              }}
+              className="px-3.5 py-2 rounded-xl bg-bg-main hover:bg-slate-800 text-slate-300 hover:text-white border border-accent-darkBorder text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+            >
+              <FolderOpen className="w-4 h-4 text-brand-sky" />
+              <span>Open Chart File</span>
+            </button>
+
             <button
               onClick={() => setShowMgmtAddCustomFileModal(true)}
               className="px-3.5 py-2 rounded-xl bg-brand-blue hover:bg-brand-blue/90 text-white font-bold border border-brand-sky/40 text-xs shadow-md transition-all flex items-center gap-1.5"
@@ -1019,7 +1031,7 @@ metrics:
             <div className="flex items-center justify-between border-b border-accent-darkBorder pb-4">
               <div>
                 <h3 className="text-lg font-extrabold text-white flex items-center gap-2">
-                  <Sliders className="w-5 h-5 text-brand-sky" /> Day-2 Operations & Controls: {activeDay2Instance.name}
+                  <Sliders className="w-5 h-5 text-brand-sky" /> Operations & Controls: {activeDay2Instance.name}
                   <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
                     instanceStatus === 'Running' 
                       ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/40' 
@@ -1051,7 +1063,7 @@ metrics:
             <div className="p-5 bg-bg-main border border-accent-darkBorder rounded-2xl space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-brand-sky flex items-center gap-2">
-                  <Cpu className="w-4 h-4" /> 4. 📈 Day-2 Resource Scaling (PATCH /api/v1/databases/{activeDay2Instance.id || 1}/scale)
+                  <Cpu className="w-4 h-4" /> 4. 📈 Resource Scaling (PATCH /api/v1/databases/{activeDay2Instance.id || 1}/scale)
                 </h4>
                 <span className="text-[10px] text-slate-400 bg-bg-card px-2 py-0.5 rounded border border-accent-darkBorder">
                   Rolling Update (No Downtime)
