@@ -673,10 +673,38 @@ export const DocsPage: React.FC = () => {
                     {/* 4 Dynamic Provider Buttons */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {[
-                        { key: 'aws' as const, label: 'AWS EKS', icon: '🟧', desc: 'IAM Policy & Access Entry', color: 'hover:border-amber-500/80 hover:bg-amber-950/20 text-amber-400' },
-                        { key: 'gcp' as const, label: 'GCP GKE', icon: '🟥', desc: 'Service Account JSON', color: 'hover:border-rose-500/80 hover:bg-rose-950/20 text-rose-400' },
-                        { key: 'azure' as const, label: 'Azure AKS', icon: '🟦', desc: 'Service Principal & AD', color: 'hover:border-sky-500/80 hover:bg-sky-950/20 text-sky-400' },
-                        { key: 'digitalocean' as const, label: 'DigitalOcean', icon: '🔵', desc: 'API Personal Token', color: 'hover:border-blue-500/80 hover:bg-blue-950/20 text-blue-400' },
+                        { 
+                          key: 'aws' as const, 
+                          label: 'AWS EKS', 
+                          tag: 'AWS',
+                          tagClass: 'text-amber-400 bg-amber-500/15 border-amber-500/30',
+                          desc: 'IAM Policy & Access Entry', 
+                          color: 'hover:border-amber-500/80 hover:bg-amber-950/20 text-amber-400' 
+                        },
+                        { 
+                          key: 'gcp' as const, 
+                          label: 'GCP GKE', 
+                          tag: 'GCP',
+                          tagClass: 'bg-gradient-to-r from-rose-400 via-white to-sky-400 bg-clip-text text-transparent bg-slate-900 border-slate-700 font-black',
+                          desc: 'Service Account JSON', 
+                          color: 'hover:border-rose-500/80 hover:bg-rose-950/20 text-rose-400' 
+                        },
+                        { 
+                          key: 'azure' as const, 
+                          label: 'Azure AKS', 
+                          tag: 'Azure',
+                          tagClass: 'text-sky-400 bg-sky-500/15 border-sky-500/30',
+                          desc: 'Service Principal & AD', 
+                          color: 'hover:border-sky-500/80 hover:bg-sky-950/20 text-sky-400' 
+                        },
+                        { 
+                          key: 'digitalocean' as const, 
+                          label: 'DigitalOcean', 
+                          tag: 'DigitalOcean',
+                          tagClass: 'text-blue-400 bg-blue-500/15 border-blue-500/30',
+                          desc: 'API Personal Token', 
+                          color: 'hover:border-blue-500/80 hover:bg-blue-950/20 text-blue-400' 
+                        },
                       ].map((prov) => (
                         <button
                           key={prov.key}
@@ -685,7 +713,9 @@ export const DocsPage: React.FC = () => {
                           className={`p-3.5 rounded-xl border bg-slate-900/90 border-slate-800 ${prov.color} transition-all text-left group flex flex-col justify-between space-y-2 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]`}
                         >
                           <div className="flex items-center justify-between w-full">
-                            <span className="text-base">{prov.icon}</span>
+                            <span className={`text-[11px] font-mono font-extrabold px-2 py-0.5 rounded-lg border ${prov.tagClass}`}>
+                              {prov.tag}
+                            </span>
                             <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 group-hover:text-white">
                               Doc ↗
                             </span>
@@ -822,8 +852,19 @@ export const DocsPage: React.FC = () => {
             {/* Modal Header */}
             <div className="flex items-start justify-between gap-4 border-b border-accent-darkBorder pb-5">
               <div className="flex items-center gap-3.5">
-                <div className={`p-3 rounded-2xl bg-slate-900 border ${activeProviderDoc.borderStyle} text-2xl shadow-inner`}>
-                  {selectedProviderKey === 'aws' ? '🟧' : selectedProviderKey === 'gcp' ? '🟥' : selectedProviderKey === 'azure' ? '🟦' : '🔵'}
+                <div className={`px-3 py-2 rounded-2xl bg-slate-900 border ${activeProviderDoc.borderStyle} shadow-inner flex items-center justify-center min-w-[56px]`}>
+                  {selectedProviderKey === 'aws' && (
+                    <span className="text-sm font-black font-mono text-amber-400">AWS</span>
+                  )}
+                  {selectedProviderKey === 'gcp' && (
+                    <span className="text-sm font-black font-mono bg-gradient-to-r from-rose-400 via-white to-sky-400 bg-clip-text text-transparent">GCP</span>
+                  )}
+                  {selectedProviderKey === 'azure' && (
+                    <span className="text-sm font-black font-mono text-sky-400">Azure</span>
+                  )}
+                  {selectedProviderKey === 'digitalocean' && (
+                    <span className="text-sm font-black font-mono text-blue-400">DigitalOcean</span>
+                  )}
                 </div>
                 <div>
                   <div className="flex items-center gap-2.5 flex-wrap">
