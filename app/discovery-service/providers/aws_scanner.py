@@ -37,7 +37,7 @@ def generate_eks_token(cluster_name: str, access_key: str, secret_key: str, regi
 
     # convert string to base64 for valid token in request header
     base64_url = base64.urlsafe_b64encode(signed_url.encode('utf-8')).decode('utf-8').rstrip('=')
-    return f"k8s-aws-v1.{base64_url}"
+    return f"k8s-aws-v1.{base64_url}" # token
 
 
 class AWSClusterScanner(BaseClusterScanner):
@@ -131,21 +131,40 @@ class AWSClusterScanner(BaseClusterScanner):
                 principal_arn = f"arn:aws:iam::{account}:role/{role_name}"
 
         async with session.client("eks") as eks_client:
+            # 1. Verify and ensure EKS Authentication Mode is set to API or API_AND_CONFIG_MAP
             try:
                 cluster_desc = await eks_client.describe_cluster(name=cluster_name)
-                auth_mode = cluster_desc.get("cluster", {}).get("accessConfig", {}).get("authenticationMode")
-                if auth_mode == "CONFIG_MAP":
+                access_cfg = cluster_desc.get("cluster", {}).get("accessConfig") or {}
+                auth_mode = access_cfg.get("authenticationMode")
+
+                if auth_mode not in ["API", "API_AND_CONFIG_MAP"]:
                     try:
                         await eks_client.update_cluster_config(
                             name=cluster_name,
                             accessConfig={"authenticationMode": "API_AND_CONFIG_MAP"}
                         )
-                    except Exception:
-                        pass
-            except Exception:
-                pass
+                        # Poll for authentication mode transition (up to 30 seconds)
+                        import asyncio
+                        for _ in range(15):
+                            await asyncio.sleep(2)
+                            poll_desc = await eks_client.describe_cluster(name=cluster_name)
+                            current_mode = (poll_desc.get("cluster", {}).get("accessConfig") or {}).get("authenticationMode")
+                            if current_mode in ["API", "API_AND_CONFIG_MAP"]:
+                                break
+                    except Exception as upd_err:
+                        upd_err_msg = str(upd_err)
+                        if "AccessDenied" in upd_err_msg or "not authorized" in upd_err_msg.lower():
+                            raise RuntimeError(
+                                f"EKS cluster '{cluster_name}' authentication mode is currently '{auth_mode or 'CONFIG_MAP'}'. "
+                                f"Automatic update to 'API_AND_CONFIG_MAP' failed: IAM user lacks 'eks:UpdateClusterConfig' permission. "
+                                f"Please update the authentication mode in AWS EKS Console or via: "
+                                f"'aws eks update-cluster-config --name {cluster_name} --access-config authenticationMode=API_AND_CONFIG_MAP'"
+                            )
+            except Exception as desc_err:
+                if "EKS cluster" in str(desc_err):
+                    raise desc_err
 
-            # create access entry for IAM user in target cluster
+            # 2. Create access entry for IAM user in target cluster
             try:
                 await eks_client.create_access_entry(
                     clusterName=cluster_name,
@@ -155,6 +174,12 @@ class AWSClusterScanner(BaseClusterScanner):
             except Exception as e:
                 err_msg = str(e)
                 if "ResourceInUseException" not in err_msg and "already exists" not in err_msg.lower() and "already in use" not in err_msg.lower():
+                    if "authentication mode must be set to" in err_msg:
+                        raise RuntimeError(
+                            f"Failed to create EKS Access Entry: EKS cluster '{cluster_name}' is not in API_AND_CONFIG_MAP mode. "
+                            f"Please run in AWS CLI: 'aws eks update-cluster-config --name {cluster_name} --region {target_region} --access-config authenticationMode=API_AND_CONFIG_MAP' "
+                            f"and retry in a few seconds."
+                        )
                     raise RuntimeError(f"Failed to create EKS Access Entry: {err_msg}")
 
             # associate access policy for iam user
