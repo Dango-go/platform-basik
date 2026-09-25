@@ -20,7 +20,7 @@ class CRDRunner:
         body: Dict[str, Any],
     ) -> Dict[str, Any]:
  
-        dynamic_client = DynamicClient(api_client) # for crds (CoreV1Api for base resources)
+        dynamic_client = await DynamicClient(api_client) # for crds (CoreV1Api for base resources)
 
         api_version = f"{group}/{version}" if group else version
 
