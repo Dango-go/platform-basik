@@ -6,7 +6,7 @@ class CRDBuilder:
     @staticmethod
     def parse_yaml(content: str) -> Dict[str, Any]:
         try:
-            return yaml.safe_load(content)
+            return yaml.safe_load(content) # in python structures
         except yaml.YAMLError as e:
             raise ValueError(f"Failed to parse YAML content from UI editor: {e}")
 
@@ -16,11 +16,13 @@ class CRDBuilder:
         api_version = manifest.get("apiVersion", "")
         kind = manifest.get("kind", "")
 
+        # For crd manifests "/" is present
         if "/" in api_version:
             group, version = api_version.split("/", 1)
         else:
             group, version = "", api_version
 
+ 
         plural_url = f"{kind.lower()}s"   
 
         return group, version, kind, plural_url

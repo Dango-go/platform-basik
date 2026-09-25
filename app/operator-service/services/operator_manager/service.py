@@ -31,7 +31,7 @@ class ServiceYAMLManager:
         else:
             manifest = content
 
-        group, version, kind, plural = self.builder.extract_gvk(manifest)
+        group, version, kind, plural = self.builder.extract_gvk(manifest) # create prular kind 
 
         api_net_client = K8sClientFactory.create_client(
             api_server_url=api_server_url,
