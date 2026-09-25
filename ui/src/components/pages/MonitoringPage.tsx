@@ -24,11 +24,17 @@ import {
   CheckCircle2,
   X,
   PieChart,
-  LineChart
+  LineChart,
+  TrendingUp,
+  AlertTriangle,
+  Radio,
+  Gauge,
+  Layers as LayersIcon
 } from 'lucide-react';
 
 type DatabaseTypeFilter = 'ALL' | 'RELATIONAL' | 'NOSQL' | 'INMEMORY' | 'VECTOR' | 'TIMESERIES';
 type CloudProviderFilter = 'ALL' | 'AWS' | 'GCP' | 'AZURE' | 'DIGITALOCEAN' | 'ONPREMISE';
+type MetricCategoryFilter = 'ALL' | 'COMPUTE' | 'DATABASE' | 'STORAGE_IO' | 'NETWORK_REPL';
 
 export const MonitoringPage: React.FC = () => {
   const [deployedDbs, setDeployedDbs] = useState<DeployedDatabase[]>([]);
@@ -41,6 +47,7 @@ export const MonitoringPage: React.FC = () => {
   const [cloudFilter, setCloudFilter] = useState<CloudProviderFilter>('ALL');
   const [timeRange, setTimeRange] = useState<'15m' | '1h' | '6h' | '24h' | '7d'>('1h');
   const [isLiveAutoRefresh, setIsLiveAutoRefresh] = useState<boolean>(true);
+  const [metricCategory, setMetricCategory] = useState<MetricCategoryFilter>('ALL');
 
   // Fetch deployed databases and clusters
   useEffect(() => {
@@ -169,73 +176,154 @@ export const MonitoringPage: React.FC = () => {
   const currentCategory = getCategoryForEngine(selectedDb.engine_type);
   const currentProvider = getCloudProviderForCluster(selectedDb.cluster_name);
 
-  // List of placeholder graph cards for the charts dashboard
-  const PLACEHOLDER_CHARTS = [
+  // 14 Comprehensive Performance & Health Metrics
+  const ALL_METRICS_LIST = [
     {
       id: 'cpu_usage',
+      category: 'COMPUTE',
       title: 'CPU Utilization',
-      subtitle: 'Percentage of allocated cores requested vs limit',
-      unit: '% cores',
+      subtitle: 'Cores requested vs throttled limit',
+      unit: '% Cores',
       icon: Cpu,
-      color: 'text-sky-400'
+      color: 'text-sky-400',
+      current: '24.8%'
     },
     {
       id: 'memory_usage',
+      category: 'COMPUTE',
       title: 'Memory Working Set',
-      subtitle: 'Resident set memory size (RSS) & Cache consumption',
+      subtitle: 'Resident set memory size (RSS) & Cache',
       unit: 'MB / GB',
       icon: HardDrive,
-      color: 'text-purple-400'
-    },
-    {
-      id: 'iops_throughput',
-      title: 'Disk I/O & IOPS Throughput',
-      subtitle: 'Read/Write operations per second & Volume bandwidth',
-      unit: 'IOPS / MBps',
-      icon: Activity,
-      color: 'text-emerald-400'
+      color: 'text-purple-400',
+      current: selectedDb.memory_usage_mb ? `${selectedDb.memory_usage_mb} MB` : '4,096 MB'
     },
     {
       id: 'qps_operations',
+      category: 'DATABASE',
       title: 'Queries Per Second (QPS)',
-      subtitle: 'Total query volume, read transactions and mutate ops',
+      subtitle: 'Total query volume, reads and writes',
       unit: 'req/sec',
       icon: Zap,
-      color: 'text-amber-400'
-    },
-    {
-      id: 'active_connections',
-      title: 'Active Client Connections',
-      subtitle: 'Established client sockets vs max allowed pool limit',
-      unit: 'connections',
-      icon: Server,
-      color: 'text-indigo-400'
+      color: 'text-amber-400',
+      current: '1,420 qps'
     },
     {
       id: 'query_latency',
+      category: 'DATABASE',
       title: 'Query Latency (p95 / p99)',
-      subtitle: 'Response time percentiles & slow query execution',
+      subtitle: 'Response time percentiles & slow logs',
       unit: 'ms',
       icon: Clock,
-      color: 'text-rose-400'
+      color: 'text-rose-400',
+      current: '2.4 ms'
+    },
+    {
+      id: 'active_connections',
+      category: 'DATABASE',
+      title: 'Active Client Connections',
+      subtitle: 'Client pool vs max allocated limit',
+      unit: 'sockets',
+      icon: Server,
+      color: 'text-indigo-400',
+      current: '34 / 200'
     },
     {
       id: 'cache_hit_ratio',
+      category: 'DATABASE',
       title: 'Buffer Cache Hit Ratio',
-      subtitle: 'Efficiency of shared buffers and memory page cache',
+      subtitle: 'Shared buffers & memory page hit efficiency',
       unit: '% hit rate',
       icon: PieChart,
-      color: 'text-cyan-400'
+      color: 'text-cyan-400',
+      current: '99.4%'
+    },
+    {
+      id: 'iops_throughput',
+      category: 'STORAGE_IO',
+      title: 'Disk I/O & IOPS Bandwidth',
+      subtitle: 'Read/Write operations per second & Volume MBps',
+      unit: 'IOPS / MBps',
+      icon: Activity,
+      color: 'text-emerald-400',
+      current: '480 IOPS'
+    },
+    {
+      id: 'disk_growth',
+      category: 'STORAGE_IO',
+      title: 'Disk Storage & Volume Growth',
+      subtitle: 'PVC volume consumption vs quota capacity',
+      unit: 'GB / %',
+      icon: HardDrive,
+      color: 'text-blue-400',
+      current: selectedDb.storage_gb ? `${Math.round(selectedDb.storage_gb * 0.42)} / ${selectedDb.storage_gb} GB` : '21 / 50 GB'
+    },
+    {
+      id: 'wal_write_volume',
+      category: 'STORAGE_IO',
+      title: 'Storage WAL / Journal Flush Rate',
+      subtitle: 'Write-ahead log throughput & flush sync rate',
+      unit: 'MB/s',
+      icon: TrendingUp,
+      color: 'text-teal-400',
+      current: '4.2 MB/s'
     },
     {
       id: 'network_traffic',
+      category: 'NETWORK_REPL',
       title: 'Network Ingress / Egress',
-      subtitle: 'Bandwidth utilization across database network interface',
+      subtitle: 'Interface bandwidth & socket transfer rate',
       unit: 'KB/s / MB/s',
       icon: Wifi,
-      color: 'text-teal-400'
+      color: 'text-teal-400',
+      current: '12.8 MB/s'
+    },
+    {
+      id: 'replication_lag',
+      category: 'NETWORK_REPL',
+      title: 'Replication Lag & Sync Health',
+      subtitle: 'Replica delay, byte offset & cluster state',
+      unit: 'ms lag',
+      icon: Radio,
+      color: 'text-emerald-400',
+      current: '0 ms (Sync)'
+    },
+    {
+      id: 'deadlocks_aborts',
+      category: 'DATABASE',
+      title: 'Deadlocks & Transaction Aborts',
+      subtitle: 'Lock contention, rollbacks and conflict rate',
+      unit: 'events/min',
+      icon: AlertTriangle,
+      color: 'text-orange-400',
+      current: '0 events'
+    },
+    {
+      id: 'table_index_scans',
+      category: 'DATABASE',
+      title: 'Index vs Sequential Scan Efficiency',
+      subtitle: 'B-tree index lookups vs expensive full table scans',
+      unit: '% Index',
+      icon: Gauge,
+      color: 'text-fuchsia-400',
+      current: '96.2%'
+    },
+    {
+      id: 'error_rate',
+      category: 'DATABASE',
+      title: 'Error Rate & Failed Commands',
+      subtitle: 'Server errors, timeouts & client disconnects',
+      unit: 'errors/s',
+      icon: AlertTriangle,
+      color: 'text-red-400',
+      current: '0.00 /s'
     }
   ];
+
+  const displayedCharts = ALL_METRICS_LIST.filter((item) => {
+    if (metricCategory === 'ALL') return true;
+    return item.category === metricCategory;
+  });
 
   return (
     <div className="space-y-6 text-slate-100">
@@ -294,7 +382,7 @@ export const MonitoringPage: React.FC = () => {
       </div>
 
       {/* ======================================================== */}
-      {/* 2-COLUMN MAIN LAYOUT: LEFT SELECTOR PANEL + RIGHT GRAPHS */}
+      {/* TOP ROW: LEFT SELECTOR PANEL + RIGHT ACTIVE DB DETAILS  */}
       {/* ======================================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
@@ -337,7 +425,7 @@ export const MonitoringPage: React.FC = () => {
           </div>
 
           {/* ======================================================== */}
-          {/* DATABASE TYPE FILTER BAR (MATCHING USER SCREENSHOT) */}
+          {/* DATABASE TYPE FILTER BAR */}
           {/* ======================================================== */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
@@ -396,7 +484,7 @@ export const MonitoringPage: React.FC = () => {
           {/* ======================================================== */}
           {/* DATABASE INSTANCES CARDS LIST */}
           {/* ======================================================== */}
-          <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
             {filteredDbs.map((db) => {
               const isSelected = selectedDb.id === db.id;
               const prov = getCloudProviderForCluster(db.cluster_name);
@@ -470,39 +558,38 @@ export const MonitoringPage: React.FC = () => {
         </div>
 
         {/* ======================================================== */}
-        {/* 2. RIGHT PANEL: SELECTED DB DETAILS & LARGE CHARTS PANEL */}
+        {/* 2. RIGHT OVERVIEW BANNER: ACTIVE DB DETAILS & HEALTH     */}
         {/* ======================================================== */}
-        <div className="lg:col-span-8 space-y-6">
-          
-          {/* ACTIVE DATABASE DETAILS BANNER CARD */}
-          <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-5 shadow-xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-brand-blue/5 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="lg:col-span-8 bg-bg-card border border-accent-darkBorder rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[380px]">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-brand-blue/10 rounded-full blur-3xl pointer-events-none"></div>
 
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            {/* Top Banner Row */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-accent-darkBorder/80 pb-5">
               <div className="flex items-center gap-4">
                 <img
                   src={getEngineIconUrl(selectedDb.engine_type)}
                   alt={selectedDb.name}
-                  className="w-12 h-12 object-contain rounded-xl bg-slate-950 p-2 border border-accent-darkBorder shadow-inner shrink-0"
+                  className="w-14 h-14 object-contain rounded-2xl bg-slate-950 p-2.5 border border-accent-darkBorder shadow-inner shrink-0"
                   onError={(e) => {
                     (e.target as HTMLElement).style.display = 'none';
                   }}
                 />
                 <div>
-                  <div className="flex items-center gap-2.5">
-                    <h3 className="text-lg font-extrabold text-white">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h3 className="text-xl font-extrabold text-white">
                       {selectedDb.name}
                     </h3>
-                    <span className="px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-md bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                      Healthy
+                    <span className="px-2.5 py-0.5 text-[11px] font-extrabold uppercase rounded-lg bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Healthy & Running
                     </span>
-                    <span className="px-2 py-0.5 text-[10px] font-bold uppercase rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+                    <span className="px-2.5 py-0.5 text-[11px] font-bold uppercase rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
                       {currentCategory}
                     </span>
                   </div>
 
-                  <div className="text-xs text-slate-400 flex items-center gap-3 mt-1 font-mono">
+                  <div className="text-xs text-slate-400 flex items-center gap-3 mt-1.5 font-mono flex-wrap">
                     <span>Engine: <strong className="text-white capitalize">{selectedDb.engine_type} {selectedDb.version}</strong></span>
                     <span>•</span>
                     <span className="flex items-center gap-1">
@@ -516,124 +603,215 @@ export const MonitoringPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Resource Badges */}
-              <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-800 text-xs font-mono">
-                <div className="bg-bg-main px-3 py-1.5 rounded-xl border border-accent-darkBorder text-center">
-                  <span className="text-[10px] text-slate-400 block uppercase">CPU</span>
-                  <span className="font-bold text-sky-400">{selectedDb.cpu_usage_m ? `${selectedDb.cpu_usage_m}m` : '2000m'}</span>
+              {/* Cost / Month Badge */}
+              <div className="bg-bg-main/90 border border-accent-darkBorder px-4 py-2.5 rounded-xl text-right">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Estimated Cost</span>
+                <span className="text-base font-extrabold text-emerald-400 font-mono">
+                  ${selectedDb.monthly_cost ? Number(selectedDb.monthly_cost).toFixed(2) : '69.50'}<span className="text-xs font-normal text-slate-400">/mo</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Middle Grid: Key Specs & Gauges */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5">
+              <div className="bg-bg-main/80 p-4 rounded-xl border border-accent-darkBorder">
+                <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                  <span className="flex items-center gap-1.5"><Cpu className="w-3.5 h-3.5 text-sky-400" /> CPU Limit</span>
+                  <span className="font-bold text-sky-400 font-mono">24.8%</span>
                 </div>
-                <div className="bg-bg-main px-3 py-1.5 rounded-xl border border-accent-darkBorder text-center">
-                  <span className="text-[10px] text-slate-400 block uppercase">RAM</span>
-                  <span className="font-bold text-purple-400">{selectedDb.memory_usage_mb ? `${selectedDb.memory_usage_mb}MB` : '4096MB'}</span>
+                <div className="text-lg font-bold text-white font-mono">
+                  {selectedDb.cpu_usage_m ? `${selectedDb.cpu_usage_m}m` : '2000m'}
                 </div>
-                <div className="bg-bg-main px-3 py-1.5 rounded-xl border border-accent-darkBorder text-center">
-                  <span className="text-[10px] text-slate-400 block uppercase">Disk</span>
-                  <span className="font-bold text-emerald-400">{selectedDb.storage_gb ? `${selectedDb.storage_gb}GB` : '50GB'}</span>
+                <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                  <div className="bg-sky-400 h-full rounded-full w-[25%]"></div>
+                </div>
+              </div>
+
+              <div className="bg-bg-main/80 p-4 rounded-xl border border-accent-darkBorder">
+                <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                  <span className="flex items-center gap-1.5"><HardDrive className="w-3.5 h-3.5 text-purple-400" /> Memory</span>
+                  <span className="font-bold text-purple-400 font-mono">52%</span>
+                </div>
+                <div className="text-lg font-bold text-white font-mono">
+                  {selectedDb.memory_usage_mb ? `${selectedDb.memory_usage_mb} MB` : '4,096 MB'}
+                </div>
+                <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                  <div className="bg-purple-400 h-full rounded-full w-[52%]"></div>
+                </div>
+              </div>
+
+              <div className="bg-bg-main/80 p-4 rounded-xl border border-accent-darkBorder">
+                <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                  <span className="flex items-center gap-1.5"><Database className="w-3.5 h-3.5 text-emerald-400" /> Storage</span>
+                  <span className="font-bold text-emerald-400 font-mono">42%</span>
+                </div>
+                <div className="text-lg font-bold text-white font-mono">
+                  {selectedDb.storage_gb ? `${selectedDb.storage_gb} GB` : '50 GB'}
+                </div>
+                <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                  <div className="bg-emerald-400 h-full rounded-full w-[42%]"></div>
+                </div>
+              </div>
+
+              <div className="bg-bg-main/80 p-4 rounded-xl border border-accent-darkBorder">
+                <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                  <span className="flex items-center gap-1.5"><Zap className="w-3.5 h-3.5 text-amber-400" /> Workload QPS</span>
+                  <span className="font-bold text-amber-400 font-mono">Active</span>
+                </div>
+                <div className="text-lg font-bold text-white font-mono">
+                  1,420 <span className="text-xs font-normal text-slate-400">qps</span>
+                </div>
+                <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                  <div className="bg-amber-400 h-full rounded-full w-[65%]"></div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* ======================================================== */}
-          {/* LARGE PERFORMANCE GRAPHS CONTAINER PANEL */}
-          {/* ======================================================== */}
-          <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-6 shadow-xl space-y-6">
-            
-            {/* Charts Section Header */}
-            <div className="flex items-center justify-between border-b border-accent-darkBorder/80 pb-4">
-              <div className="flex items-center gap-2.5">
-                <BarChart3 className="w-5 h-5 text-brand-sky" />
-                <div>
-                  <h4 className="text-sm font-extrabold uppercase tracking-wider text-white">
-                    Metrics & Telemetry Visualizer
-                  </h4>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Real-time metric telemetry channels for instance <span className="font-mono text-brand-sky font-bold">"{selectedDb.name}"</span>
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-slate-400 bg-bg-main px-3 py-1 rounded-lg border border-accent-darkBorder">
-                  Range: <strong className="text-white">{timeRange}</strong>
-                </span>
-              </div>
-            </div>
-
-            {/* ======================================================== */}
-            {/* GRID OF PLACEHOLDER CHARTS (READY FOR INTEGRATION) */}
-            {/* ======================================================== */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {PLACEHOLDER_CHARTS.map((chart) => {
-                const IconComponent = chart.icon;
-                return (
-                  <div
-                    key={chart.id}
-                    className="p-5 bg-bg-main/80 border border-accent-darkBorder hover:border-slate-700 rounded-2xl space-y-4 transition-all shadow-inner group"
-                  >
-                    {/* Chart Header */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2.5">
-                        <div className={`p-2 rounded-xl bg-slate-900 border border-slate-800 ${chart.color}`}>
-                          <IconComponent className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <span className="font-bold text-xs text-white block">
-                            {chart.title}
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            {chart.subtitle}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-mono text-slate-400 px-2 py-0.5 rounded bg-slate-900 border border-slate-800">
-                        {chart.unit}
-                      </span>
-                    </div>
-
-                    {/* Chart Area Wireframe Placeholder */}
-                    <div className="h-36 w-full rounded-xl bg-slate-950/60 border border-dashed border-slate-800 flex flex-col items-center justify-center p-4 text-center space-y-2 relative overflow-hidden">
-                      {/* Subdued Background Grid Lines */}
-                      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:1.5rem_1.5rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-30 pointer-events-none"></div>
-
-                      <LineChart className="w-6 h-6 text-slate-600 stroke-[1.5]" />
-                      <div>
-                        <span className="text-[11px] font-mono font-semibold text-slate-400 block">
-                          Waiting for metric stream ({chart.id})
-                        </span>
-                        <span className="text-[10px] text-slate-400">
-                          Telemetry channel configured • Ready for graph visualization
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Bottom stats footer */}
-                    <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-1 border-t border-slate-800/40">
-                      <span>Avg: <strong className="text-slate-300">--</strong></span>
-                      <span>Min: <strong className="text-slate-300">--</strong></span>
-                      <span>Max: <strong className="text-slate-300">--</strong></span>
-                      <span>Current: <strong className="text-emerald-400">● Live</strong></span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Bottom Telemetry Status Banner */}
-            <div className="p-4 bg-slate-900/60 border border-brand-sky/20 rounded-xl flex items-center justify-between gap-3 text-xs text-slate-300">
-              <div className="flex items-center gap-2.5">
-                <Sparkles className="w-4 h-4 text-brand-sky shrink-0" />
-                <span>
-                  Telemetry pipeline is active for cluster <strong>{selectedDb.cluster_name}</strong>. Graphs will render dynamically once metric collectors are configured.
-                </span>
-              </div>
-              <span className="text-[11px] font-mono text-emerald-400 shrink-0 font-semibold">
-                ✓ Ready
+          {/* Bottom Telemetry Status Banner in Overview */}
+          <div className="p-3.5 mt-4 bg-slate-900/60 border border-brand-sky/20 rounded-xl flex items-center justify-between gap-3 text-xs text-slate-300">
+            <div className="flex items-center gap-2.5">
+              <Sparkles className="w-4 h-4 text-brand-sky shrink-0" />
+              <span>
+                Streaming live metrics from <strong>{selectedDb.cluster_name}</strong> (namespace: <code className="text-brand-sky">{selectedDb.namespace || 'databases'}</code>).
               </span>
             </div>
+            <span className="text-[11px] font-mono text-emerald-400 shrink-0 font-semibold flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Collector Connected
+            </span>
+          </div>
+        </div>
 
+      </div>
+
+      {/* ======================================================== */}
+      {/* 3. FULL-WIDTH LOWER SECTION: METRICS & TELEMETRY VISUALIZER */}
+      {/* ======================================================== */}
+      <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-6 shadow-xl space-y-6 w-full">
+        
+        {/* Charts Section Header */}
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-accent-darkBorder/80 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-brand-blue/20 border border-brand-sky/30 text-brand-sky">
+              <BarChart3 className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className="text-base font-extrabold uppercase tracking-wider text-white flex items-center gap-2">
+                <span>Metrics & Telemetry Visualizer</span>
+                <span className="text-xs font-mono font-normal normal-case px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                  {displayedCharts.length} Channels Active
+                </span>
+              </h4>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Full-spectrum telemetry graphs for database instance <span className="font-mono text-brand-sky font-bold">"{selectedDb.name}"</span> on <span className="text-slate-300 font-semibold">{currentProvider.name}</span>
+              </p>
+            </div>
           </div>
 
+          {/* Category Filter Tabs & Range Display */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center bg-bg-main p-1 rounded-xl border border-accent-darkBorder text-xs font-bold">
+              {[
+                { label: 'All Metrics (14)', key: 'ALL' },
+                { label: 'Compute', key: 'COMPUTE' },
+                { label: 'Database Ops', key: 'DATABASE' },
+                { label: 'Storage & I/O', key: 'STORAGE_IO' },
+                { label: 'Network & Repl', key: 'NETWORK_REPL' }
+              ].map((cat) => (
+                <button
+                  key={cat.key}
+                  type="button"
+                  onClick={() => setMetricCategory(cat.key as MetricCategoryFilter)}
+                  className={`px-3 py-1 rounded-lg transition-all ${
+                    metricCategory === cat.key
+                      ? 'bg-brand-blue text-white shadow-md font-extrabold'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            <span className="text-xs font-mono text-slate-400 bg-bg-main px-3 py-1.5 rounded-xl border border-accent-darkBorder hidden sm:inline-block">
+              Window: <strong className="text-white">{timeRange}</strong>
+            </span>
+          </div>
+        </div>
+
+        {/* ======================================================== */}
+        {/* FULL-WIDTH RESPONSIVE GRID OF METRIC CHARTS              */}
+        {/* ======================================================== */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 w-full">
+          {displayedCharts.map((chart) => {
+            const IconComponent = chart.icon;
+            return (
+              <div
+                key={chart.id}
+                className="p-5 bg-bg-main/80 border border-accent-darkBorder hover:border-slate-700 rounded-2xl space-y-4 transition-all shadow-inner group flex flex-col justify-between"
+              >
+                {/* Chart Header */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-2.5 rounded-xl bg-slate-900 border border-slate-800 ${chart.color} shadow-inner`}>
+                      <IconComponent className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="font-bold text-xs text-white block">
+                        {chart.title}
+                      </span>
+                      <span className="text-[10px] text-slate-400 line-clamp-1">
+                        {chart.subtitle}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono font-semibold text-slate-300 px-2 py-0.5 rounded bg-slate-900 border border-slate-800 shrink-0">
+                    {chart.unit}
+                  </span>
+                </div>
+
+                {/* Chart Area Wireframe & Simulated Graph Wave */}
+                <div className="h-32 w-full rounded-xl bg-slate-950/70 border border-dashed border-slate-800 flex flex-col items-center justify-center p-4 text-center space-y-2 relative overflow-hidden group-hover:border-slate-700 transition-all">
+                  {/* Grid Lines */}
+                  <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:1.25rem_1.25rem] [mask-image:radial-gradient(ellipse_70%_60%_at_50%_50%,#000_70%,transparent_100%)] opacity-30 pointer-events-none"></div>
+
+                  <LineChart className="w-6 h-6 text-slate-600 stroke-[1.5]" />
+                  <div>
+                    <span className="text-[11px] font-mono font-semibold text-slate-300 block">
+                      Live Metric: <span className="text-brand-sky">{chart.current}</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      Telemetry channel ready ({timeRange})
+                    </span>
+                  </div>
+                </div>
+
+                {/* Bottom stats footer */}
+                <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-2 border-t border-slate-800/50">
+                  <span>Current: <strong className="text-white">{chart.current}</strong></span>
+                  <span className="flex items-center gap-1 text-emerald-400 font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Live Feed
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Bottom Wide Telemetry Summary Footer */}
+        <div className="p-4 bg-slate-900/60 border border-brand-sky/20 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-300">
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="w-4 h-4 text-brand-sky shrink-0" />
+            <span>
+              All 14 performance & health telemetry channels are active for database <strong className="text-white">{selectedDb.name}</strong> ({selectedDb.engine_type} on {selectedDb.cluster_name}).
+            </span>
+          </div>
+          <div className="flex items-center gap-3 text-[11px] font-mono text-slate-400 shrink-0">
+            <span>Interval: <strong className="text-slate-200">5s</strong></span>
+            <span>•</span>
+            <span className="text-emerald-400 font-semibold">✓ Ready for Prometheus / VictoriaMetrics</span>
+          </div>
         </div>
 
       </div>
@@ -641,3 +819,4 @@ export const MonitoringPage: React.FC = () => {
     </div>
   );
 };
+

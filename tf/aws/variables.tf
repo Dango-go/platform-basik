@@ -27,3 +27,9 @@ variable "ssh_public_key_path" {
   default     = "~/.ssh/aws/development/id_rsa.pub"
   description = "Path to public SSH key"
 }
+
+variable "cluster_name" {
+  type        = string
+  default     = "test-eks"
+  description = "Name of the EKS cluster"
+}
