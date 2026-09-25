@@ -3,6 +3,7 @@ import { CATALOG_ITEMS, K8S_CLUSTERS as MOCK_CLUSTERS } from '../../services/moc
 import { DATABASE_CHARTS_CATALOG, DatabaseChartOption } from '../../services/chartCatalog';
 import { apiClient } from '../../services/apiClient';
 import { K8sCluster } from '../../types';
+import { YamlCodeEditor } from '../common/YamlCodeEditor';
 import { 
   PlusCircle, 
   Settings, 
@@ -924,17 +925,16 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
               </div>
             </div>
 
-            <textarea
+            <YamlCodeEditor
               value={yamlContent}
-              onChange={(e) => setYamlContent(e.target.value)}
+              onChange={setYamlContent}
               placeholder={
                 !isChartLoaded
                   ? "Terminal is empty. Click 'Install Chart' above to pull and inspect Helm chart configuration files..."
                   : "Type or edit YAML configuration values here..."
               }
-              rows={12}
-              className="w-full bg-brand-dark text-sky-300 font-mono text-xs p-4 rounded-xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-sky leading-relaxed selection:bg-brand-sky/50 selection:text-white font-semibold placeholder:text-slate-600 placeholder:italic"
-            ></textarea>
+              minHeight="280px"
+            />
           </div>
         )}
 
@@ -1043,13 +1043,12 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
               <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
                 Custom Resource Manifest (YAML)
               </label>
-              <textarea
+              <YamlCodeEditor
                 value={crdManifestContent}
-                onChange={(e) => setCrdManifestContent(e.target.value)}
+                onChange={setCrdManifestContent}
                 placeholder="apiVersion: postgresql.cnpg.io/v1\nkind: Cluster..."
-                rows={14}
-                className="w-full bg-brand-dark text-emerald-400 font-mono text-xs p-4 rounded-xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-sky leading-relaxed font-semibold selection:bg-brand-sky/50 selection:text-white"
-              ></textarea>
+                minHeight="320px"
+              />
             </div>
           </div>
         )}

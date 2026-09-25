@@ -309,8 +309,14 @@ interface ProviderIAMDoc {
   actionAuthorizeAccessEntry?: {
     title: string;
     flow: string[];
+    note?: string;
     methodsTitle?: string;
     methods: { name: string; desc: string }[];
+  };
+  actionGenerateToken?: {
+    title: string;
+    flow: string[];
+    note?: string;
   };
 }
 
@@ -354,6 +360,7 @@ const PROVIDER_IAM_DOCS: Record<string, ProviderIAMDoc> = {
         '8. Creates an Access Entry (create_access_entry) for the IAM user corresponding to these credentials.',
         '9. Grants AmazonEKSClusterAdminPolicy permissions (associate_access_policy) to this IAM User on the target cluster.'
       ],
+      note: 'If clicked again using the same (already used) credentials, the operation is idempotent and nothing will change.',
       methodsTitle: 'Methods from session',
       methods: [
         {
@@ -373,6 +380,21 @@ const PROVIDER_IAM_DOCS: Record<string, ProviderIAMDoc> = {
           desc: 'Grants and binds cluster admin access permissions.'
         }
       ]
+    },
+    actionGenerateToken: {
+      title: 'Action Generate Token (For kubeconfig)',
+      flow: [
+        '1. POST request with cluster name, alias, api_server_url, and ca_cert_data.',
+        '2. Retrieving credentials by this alias.',
+        '3. Selecting the provider scanner.',
+        '4. Provider function creates a temporary STS token using the AWS server URL address and IAM user secret key.',
+        '5. Then this temporary token is inserted into the Bearer Authorization of the request. When creating the ServiceAccount, the temporary token is inserted into the request headers.',
+        '6. As a result, REST-API requests are sent to create a ServiceAccount and a ClusterRoleBinding whose subjects field specifies the ServiceAccount name.',
+        '7. A TokenRequest is sent to the endpoint cluster_url/api/v1/namespaces/namespace_name/serviceaccounts/serviceaccount_name/token.',
+        '8. Kubernetes creates the token using a combination of Service Account name, namespace, SA uid, and token lifetime duration from the request; it inserts all these data into a JSON and signs the JSON with its private key.',
+        '9. As a result, a cryptographic token is created.'
+      ],
+      note: 'When generating the token again, Kubernetes will issue a new token which will be updated in the cluster and in the database.'
     },
     tips: 'For production environments, ensure the authenticationMode of your EKS cluster is set to API_AND_CONFIG_MAP.'
   },
@@ -1013,6 +1035,41 @@ export const DocsPage: React.FC = () => {
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {activeProviderDoc.actionAuthorizeAccessEntry.note && (
+                  <div className="p-3 rounded-xl bg-slate-900/90 border border-amber-500/20 text-xs text-amber-200/90 font-sans flex items-start gap-2">
+                    <Info className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                    <span>{activeProviderDoc.actionAuthorizeAccessEntry.note}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Action Generate Token Sub-Block */}
+            {activeProviderDoc.actionGenerateToken && (
+              <div className="space-y-3 pt-3 border-t border-accent-darkBorder">
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-400 block flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-amber-400" />
+                  {activeProviderDoc.actionGenerateToken.title}
+                </span>
+
+                <div className="space-y-2">
+                  {activeProviderDoc.actionGenerateToken.flow.map((step, idx) => (
+                    <div key={idx} className="p-3 rounded-xl bg-bg-main/80 border border-slate-800 text-xs text-slate-200 flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5 font-mono">
+                        {idx + 1}
+                      </span>
+                      <span className="leading-relaxed font-mono text-[11px] text-slate-300">{step.replace(/^\d+\.\s*/, '')}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {activeProviderDoc.actionGenerateToken.note && (
+                  <div className="p-3 rounded-xl bg-slate-900/90 border border-amber-500/20 text-xs text-amber-200/90 font-sans flex items-start gap-2">
+                    <Info className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                    <span>{activeProviderDoc.actionGenerateToken.note}</span>
                   </div>
                 )}
               </div>
