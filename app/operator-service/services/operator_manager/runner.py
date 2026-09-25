@@ -20,16 +20,16 @@ class CRDRunner:
         body: Dict[str, Any],
     ) -> Dict[str, Any]:
  
-        init_api = DynamicClient(api_client)
+        dynamic_client = DynamicClient(api_client) # for crds (CoreV1Api for base resources)
 
         api_version = f"{group}/{version}" if group else version
 
-        resource_api =await init_api.resources.get(api_version=api_version, kind=kind, plural=plural)
+        resourcer_api = await dynamic_client.resources.get(api_version=api_version, kind=kind, plural=plural)
 
         try:
             logger.info("Creating CRD object %s/%s in namespace %s", group, name, namespace)
             # CREATE
-            result = await resource_api.create(
+            result = await resourcer_api.create(
                 body=body,
                 namespace=namespace,
             )
@@ -39,7 +39,7 @@ class CRDRunner:
 
                 logger.info("CRD object %s already exists. Patching...", name)
                 # PATCH
-                result = await resource_api.patch(
+                result = await resourcer_api.patch(
                     namespace=namespace,
                     name=name,
                     body=body,
