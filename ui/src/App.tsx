@@ -4,9 +4,10 @@ import { MainLayout } from './components/layout/MainLayout';
 import { DatabasesCatalogPage } from './components/pages/DatabasesCatalogPage';
 import { CreateDatabaseWizardPage } from './components/pages/CreateDatabaseWizardPage';
 import { StoreAndBackupsPage } from './components/pages/StoreAndBackupsPage';
-import { FinancePage } from './components/pages/FinancePage';
+import { CostPage } from './components/pages/CostPage';
 import { MonitoringPage } from './components/pages/MonitoringPage';
 import { CloudPage } from './components/pages/CloudPage';
+import { DocsPage } from './components/pages/DocsPage';
 import { QuotasPage } from './components/pages/QuotasPage';
 import { NotificationsPage } from './components/pages/NotificationsPage';
 
@@ -71,11 +72,13 @@ export const App: React.FC = () => {
 
       {activeTab === 'notifications' && <NotificationsPage />}
 
-      {activeTab === 'finance' && <FinancePage />}
+      {(activeTab === 'cost' || activeTab === 'finance') && <CostPage />}
 
       {activeTab === 'monitoring' && <MonitoringPage />}
 
       {activeTab === 'cloud' && <CloudPage />}
+
+      {activeTab === 'docs' && <DocsPage />}
     </MainLayout>
   );
 };

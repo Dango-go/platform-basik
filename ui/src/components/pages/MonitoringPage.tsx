@@ -740,59 +740,108 @@ export const MonitoringPage: React.FC = () => {
         </div>
 
         {/* ======================================================== */}
-        {/* FULL-WIDTH RESPONSIVE GRID OF METRIC CHARTS              */}
+        {/* 2-COLUMN WIDE RESPONSIVE GRID OF METRIC CHARTS           */}
         {/* ======================================================== */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
           {displayedCharts.map((chart) => {
             const IconComponent = chart.icon;
             return (
               <div
                 key={chart.id}
-                className="p-5 bg-bg-main/80 border border-accent-darkBorder hover:border-slate-700 rounded-2xl space-y-4 transition-all shadow-inner group flex flex-col justify-between"
+                className="p-6 bg-bg-main/90 border border-accent-darkBorder hover:border-brand-sky/40 rounded-2xl space-y-4 transition-all shadow-xl group flex flex-col justify-between"
               >
                 {/* Chart Header */}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
                     <div className={`p-2.5 rounded-xl bg-slate-900 border border-slate-800 ${chart.color} shadow-inner`}>
-                      <IconComponent className="w-4 h-4" />
+                      <IconComponent className="w-5 h-5" />
                     </div>
                     <div>
-                      <span className="font-bold text-xs text-white block">
+                      <span className="font-extrabold text-sm text-white block">
                         {chart.title}
                       </span>
-                      <span className="text-[10px] text-slate-400 line-clamp-1">
+                      <span className="text-xs text-slate-400">
                         {chart.subtitle}
                       </span>
                     </div>
                   </div>
-                  <span className="text-[10px] font-mono font-semibold text-slate-300 px-2 py-0.5 rounded bg-slate-900 border border-slate-800 shrink-0">
-                    {chart.unit}
-                  </span>
-                </div>
-
-                {/* Chart Area Wireframe & Simulated Graph Wave */}
-                <div className="h-32 w-full rounded-xl bg-slate-950/70 border border-dashed border-slate-800 flex flex-col items-center justify-center p-4 text-center space-y-2 relative overflow-hidden group-hover:border-slate-700 transition-all">
-                  {/* Grid Lines */}
-                  <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:1.25rem_1.25rem] [mask-image:radial-gradient(ellipse_70%_60%_at_50%_50%,#000_70%,transparent_100%)] opacity-30 pointer-events-none"></div>
-
-                  <LineChart className="w-6 h-6 text-slate-600 stroke-[1.5]" />
-                  <div>
-                    <span className="text-[11px] font-mono font-semibold text-slate-300 block">
-                      Live Metric: <span className="text-brand-sky">{chart.current}</span>
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      Telemetry channel ready ({timeRange})
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-bold text-slate-200 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 shrink-0 shadow-sm">
+                      {chart.unit}
                     </span>
                   </div>
                 </div>
 
-                {/* Bottom stats footer */}
-                <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-2 border-t border-slate-800/50">
-                  <span>Current: <strong className="text-white">{chart.current}</strong></span>
-                  <span className="flex items-center gap-1 text-emerald-400 font-semibold">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    Live Feed
-                  </span>
+                {/* Expanded Chart Area Wireframe & Simulated Waveform */}
+                <div className="h-48 w-full rounded-xl bg-slate-950/80 border border-slate-800 flex flex-col justify-between p-4 text-center relative overflow-hidden group-hover:border-slate-700 transition-all shadow-inner">
+                  {/* Grid Lines Background */}
+                  <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:2rem_2rem] [mask-image:radial-gradient(ellipse_80%_70%_at_50%_50%,#000_70%,transparent_100%)] opacity-30 pointer-events-none"></div>
+
+                  {/* Top chart bar with live value */}
+                  <div className="relative z-10 flex items-center justify-between text-xs font-mono">
+                    <span className="text-slate-400 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Prometheus Stream
+                    </span>
+                    <span className="text-sm font-bold text-white bg-slate-900/90 px-3 py-1 rounded-lg border border-slate-800">
+                      Live: <span className="text-brand-sky font-extrabold">{chart.current}</span>
+                    </span>
+                  </div>
+
+                  {/* SVG Wave Placeholder representing dynamic live graph */}
+                  <div className="relative z-10 my-auto flex flex-col items-center justify-center py-2">
+                    <div className="w-full h-16 relative flex items-center justify-center">
+                      <svg className="w-full h-full text-brand-sky/40 overflow-visible" preserveAspectRatio="none" viewBox="0 0 400 60">
+                        <defs>
+                          <linearGradient id={`grad-${chart.id}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.25" />
+                            <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.0" />
+                          </linearGradient>
+                        </defs>
+                        <path
+                          d="M 0,35 Q 50,15 100,28 T 200,18 T 300,32 T 400,20 L 400,60 L 0,60 Z"
+                          fill={`url(#grad-${chart.id})`}
+                        />
+                        <path
+                          d="M 0,35 Q 50,15 100,28 T 200,18 T 300,32 T 400,20"
+                          fill="none"
+                          stroke="#38bdf8"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </div>
+                    <span className="text-[11px] font-mono text-slate-400 mt-1">
+                      PromQL: <code className="text-slate-300 font-semibold">{chart.id}&#123;pod="{selectedDb.name}-0"&#125;</code>
+                    </span>
+                  </div>
+
+                  {/* Time range axis markers */}
+                  <div className="relative z-10 flex items-center justify-between text-[10px] font-mono text-slate-500 border-t border-slate-900 pt-1.5">
+                    <span>-{timeRange}</span>
+                    <span>-{(timeRange === '7d' ? '3.5d' : timeRange === '24h' ? '12h' : timeRange === '6h' ? '3h' : timeRange === '1h' ? '30m' : '7.5m')}</span>
+                    <span className="text-emerald-400 font-semibold">Now (0s)</span>
+                  </div>
+                </div>
+
+                {/* Expanded Bottom stats footer */}
+                <div className="grid grid-cols-4 gap-2 text-xs font-mono text-slate-400 pt-3 border-t border-slate-800/60 text-center">
+                  <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-900">
+                    <span className="text-[10px] text-slate-500 block uppercase">Min</span>
+                    <strong className="text-slate-300">--</strong>
+                  </div>
+                  <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-900">
+                    <span className="text-[10px] text-slate-500 block uppercase">Avg</span>
+                    <strong className="text-slate-300">--</strong>
+                  </div>
+                  <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-900">
+                    <span className="text-[10px] text-slate-500 block uppercase">Max</span>
+                    <strong className="text-slate-300">--</strong>
+                  </div>
+                  <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-900">
+                    <span className="text-[10px] text-slate-500 block uppercase">Current</span>
+                    <strong className="text-emerald-400">{chart.current}</strong>
+                  </div>
                 </div>
               </div>
             );

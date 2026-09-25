@@ -23,9 +23,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     store_backups: 'Store and Backups Management',
     quotas: 'Resource Quotas & Governance',
     notifications: 'Notification Channels & Alert Rules',
-    finance: 'Finance & Budget Tracking',
+    cost: 'Cost Management & Spend Allocation',
+    finance: 'Cost Management & Spend Allocation',
     monitoring: 'Monitoring & Performance Metrics',
-    cloud: 'Cloud Credentials & K8s Clusters'
+    cloud: 'Cloud Credentials & K8s Clusters',
+    docs: 'Platform Documentation & Guides'
   };
 
   const currentTitle = customTitle || titles[activeTab] || 'Data Basik Console';

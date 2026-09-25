@@ -9,7 +9,8 @@ import {
   Layers,
   HardDrive,
   Gauge,
-  Bell
+  Bell,
+  BookOpen
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -25,9 +26,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLog
     { id: 'store_backups', label: 'Store and Backups', icon: HardDrive },
     { id: 'quotas', label: 'Resource Quotas', icon: Gauge },
     { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'finance', label: 'Finance', icon: DollarSign },
+    { id: 'cost', label: 'Cost', icon: DollarSign },
     { id: 'monitoring', label: 'Monitoring', icon: Activity },
     { id: 'cloud', label: 'Cloud', icon: Cloud },
+    { id: 'docs', label: 'Docs', icon: BookOpen },
   ];
 
   return (
