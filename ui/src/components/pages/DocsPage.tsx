@@ -306,6 +306,12 @@ interface ProviderIAMDoc {
   };
   setupSteps: string[];
   tips: string;
+  actionAuthorizeAccessEntry?: {
+    title: string;
+    flow: string[];
+    methodsTitle?: string;
+    methods: { name: string; desc: string }[];
+  };
 }
 
 const PROVIDER_IAM_DOCS: Record<string, ProviderIAMDoc> = {
@@ -335,6 +341,39 @@ const PROVIDER_IAM_DOCS: Record<string, ProviderIAMDoc> = {
       '3. In KubeDataFlow Cloud page, add AWS Credentials using your Access Key and Secret Key.',
       '4. Click "Authorize Access Entry" on your discovered cluster to grant in-cluster permissions.'
     ],
+    actionAuthorizeAccessEntry: {
+      title: 'Action Authorised Access Entry',
+      flow: [
+        '1. POST request to create / authorize access entry.',
+        '2. authorize_cluster_access(...) -> Locates cluster record in the database. Retrieves decrypted access keys by secret name.',
+        '3. Selects the required scanner (AWSClusterScanner) and delegates execution.',
+        '4. Initializes an aioboto3.Session populated with the corresponding credentials and target region name.',
+        '5. Discovers caller IAM ARN via STS client (sts_client.get_caller_identity()).',
+        '6. Fetches detailed cluster description from the EKS client (describe_cluster).',
+        '7. Extracts cluster.accessConfig.authenticationMode and updates it to API_AND_CONFIG_MAP if needed.',
+        '8. Creates an Access Entry (create_access_entry) for the IAM user corresponding to these credentials.',
+        '9. Grants AmazonEKSClusterAdminPolicy permissions (associate_access_policy) to this IAM User on the target cluster.'
+      ],
+      methodsTitle: 'Methods from session',
+      methods: [
+        {
+          name: 'sts_client.get_caller_identity()',
+          desc: 'Retrieves caller IAM ARN via STS client using active credentials.'
+        },
+        {
+          name: 'describe_cluster(name=cluster_name)',
+          desc: 'Fetches cluster configuration details and inspects authentication mode.'
+        },
+        {
+          name: 'create_access_entry(clusterName, principalArn)',
+          desc: 'Creates the Access Entry in the EKS cluster for the specified IAM principal.'
+        },
+        {
+          name: 'associate_access_policy(clusterName, principalArn, policyArn, accessScope)',
+          desc: 'Grants and binds cluster admin access permissions.'
+        }
+      ]
+    },
     tips: 'For production environments, ensure the authenticationMode of your EKS cluster is set to API_AND_CONFIG_MAP.'
   },
   gcp: {
@@ -900,6 +939,43 @@ export const DocsPage: React.FC = () => {
                 ))}
               </div>
             </div>
+
+            {/* Action Authorised Access Entry Sub-Block */}
+            {activeProviderDoc.actionAuthorizeAccessEntry && (
+              <div className="space-y-3 pt-1 border-t border-accent-darkBorder">
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-400 block flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-amber-400" />
+                  {activeProviderDoc.actionAuthorizeAccessEntry.title}
+                </span>
+
+                <div className="space-y-2">
+                  {activeProviderDoc.actionAuthorizeAccessEntry.flow.map((step, idx) => (
+                    <div key={idx} className="p-3 rounded-xl bg-bg-main/80 border border-slate-800 text-xs text-slate-200 flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5 font-mono">
+                        {idx + 1}
+                      </span>
+                      <span className="leading-relaxed font-mono text-[11px] text-slate-300">{step.replace(/^\d+\.\s*/, '')}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {activeProviderDoc.actionAuthorizeAccessEntry.methods && (
+                  <div className="mt-3 space-y-2">
+                    <span className="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">
+                      {activeProviderDoc.actionAuthorizeAccessEntry.methodsTitle || 'Methods from session'}:
+                    </span>
+                    <div className="grid grid-cols-1 gap-1.5">
+                      {activeProviderDoc.actionAuthorizeAccessEntry.methods.map((m, mIdx) => (
+                        <div key={mIdx} className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                          <code className="text-amber-300 font-mono text-[11px] font-semibold">{m.name}</code>
+                          <span className="text-slate-400 text-[11px]">{m.desc}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Tip Footer */}
             <div className="p-4 rounded-xl bg-brand-blue/10 border border-brand-sky/30 text-xs text-sky-200 flex items-start gap-2.5">

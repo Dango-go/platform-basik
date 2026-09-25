@@ -12,6 +12,7 @@ import {
   Bell,
   BookOpen
 } from 'lucide-react';
+import { KubeDataFlowLogo } from '../common/KubeDataFlowLogo';
 
 interface SidebarProps {
   activeTab: string;
@@ -37,11 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLog
       <div>
         {/* Header / Logo */}
         <div className="p-6 border-b border-accent-darkBorder flex items-center gap-3">
-          <img 
-            src="/logo.png" 
-            alt="KubeDataFlow" 
-            className="w-10 h-10 object-contain rounded-xl shadow-lg shadow-brand-sky/20 border border-brand-sky/30 bg-slate-950/60 p-1"
-          />
+          <KubeDataFlowLogo className="w-10 h-10" />
           <div>
             <h1 className="font-extrabold text-xl text-white tracking-tight leading-none">KubeDataFlow</h1>
           </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Layers, ArrowRight, Lock, Mail, ShieldCheck, UserPlus, LogIn, AlertCircle } from 'lucide-react';
 import { apiClient } from '../../services/apiClient';
+import { KubeDataFlowLogo } from '../common/KubeDataFlowLogo';
 
 interface LoginPageProps {
   onLoginSuccess: () => void;
@@ -63,11 +64,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       <div className="w-full max-w-md bg-bg-card rounded-3xl border border-accent-darkBorder p-8 shadow-2xl shadow-black relative z-10">
         {/* Header Branding */}
         <div className="text-center mb-6">
-          <img 
-            src="/logo.png" 
-            alt="KubeDataFlow" 
-            className="w-16 h-16 object-contain rounded-2xl mx-auto mb-4 shadow-xl shadow-brand-sky/20 border border-brand-sky/30 bg-slate-950/70 p-1.5"
-          />
+          <KubeDataFlowLogo className="w-16 h-16 mx-auto mb-4" />
           <h1 className="text-2xl font-extrabold text-white tracking-tight">
             {authMode === 'login' ? 'Sign In to KubeDataFlow' : 'Create an Account'}
           </h1>
