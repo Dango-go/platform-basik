@@ -37,9 +37,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLog
       <div>
         {/* Header / Logo */}
         <div className="p-6 border-b border-accent-darkBorder flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-blue via-brand-sky to-brand-cyan flex items-center justify-center text-white shadow-lg shadow-brand-blue/30">
-            <Layers className="w-6 h-6" />
-          </div>
+          <img 
+            src="/logo.png" 
+            alt="KubeDataFlow" 
+            className="w-10 h-10 object-contain rounded-xl shadow-lg shadow-brand-sky/20 border border-brand-sky/30 bg-slate-950/60 p-1"
+          />
           <div>
             <h1 className="font-extrabold text-xl text-white tracking-tight leading-none">KubeDataFlow</h1>
           </div>

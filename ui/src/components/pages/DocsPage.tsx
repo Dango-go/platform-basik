@@ -288,12 +288,148 @@ const DOC_TOPICS: DocTopic[] = [
   }
 ];
 
+// Provider-specific IAM Documentation details
+interface ProviderIAMDoc {
+  key: 'aws' | 'gcp' | 'azure' | 'digitalocean';
+  name: string;
+  fullName: string;
+  badge: string;
+  badgeStyle: string;
+  borderStyle: string;
+  accentColor: string;
+  summary: string;
+  requiredRoles: string[];
+  policySnippet: {
+    language: string;
+    title: string;
+    code: string;
+  };
+  setupSteps: string[];
+  tips: string;
+}
+
+const PROVIDER_IAM_DOCS: Record<string, ProviderIAMDoc> = {
+  aws: {
+    key: 'aws',
+    name: 'AWS',
+    fullName: 'Amazon Web Services (EKS)',
+    badge: 'IAM User & Access Entry',
+    badgeStyle: 'bg-amber-500/10 border-amber-500/30 text-amber-400',
+    borderStyle: 'border-amber-500/40 hover:border-amber-400',
+    accentColor: 'text-amber-400',
+    summary: 'IAM permissions required for cluster discovery, STS caller identity verification, and automated EKS Access Entries.',
+    requiredRoles: [
+      'eks:ListClusters, eks:DescribeCluster (Cluster Discovery)',
+      'sts:GetCallerIdentity (Bearer Token Generation)',
+      'eks:CreateAccessEntry, eks:AssociateAccessPolicy (K8s API Authorization)',
+      'AmazonEKSClusterAdminPolicy (In-Cluster Superuser Access)'
+    ],
+    policySnippet: {
+      language: 'json',
+      title: 'AWS IAM Policy (data-basik-eks-policy.json)',
+      code: `{\n  "Version": "2012-10-17",\n  "Statement": [\n    {\n      "Sid": "EKSClusterDiscovery",\n      "Effect": "Allow",\n      "Action": [\n        "eks:ListClusters",\n        "eks:DescribeCluster",\n        "eks:ListNodegroups",\n        "eks:DescribeNodegroup"\n      ],\n      "Resource": "*"\n    },\n    {\n      "Sid": "STSGetCallerIdentity",\n      "Effect": "Allow",\n      "Action": [\n        "sts:GetCallerIdentity"\n      ],\n      "Resource": "*"\n    },\n    {\n      "Sid": "EKSAccessEntryManagement",\n      "Effect": "Allow",\n      "Action": [\n        "eks:CreateAccessEntry",\n        "eks:DescribeAccessEntry",\n        "eks:ListAccessEntries",\n        "eks:AssociateAccessPolicy",\n        "eks:DisassociateAccessPolicy",\n        "eks:ListAssociatedAccessPolicies",\n        "eks:UpdateClusterConfig"\n      ],\n      "Resource": "*"\n    }\n  ]\n}`
+    },
+    setupSteps: [
+      '1. Create an IAM User in AWS IAM Console and attach the policy above.',
+      '2. Generate AWS Access Key ID and Secret Access Key.',
+      '3. In KubeDataFlow Cloud page, add AWS Credentials using your Access Key and Secret Key.',
+      '4. Click "Authorize Access Entry" on your discovered cluster to grant in-cluster permissions.'
+    ],
+    tips: 'For production environments, ensure the authenticationMode of your EKS cluster is set to API_AND_CONFIG_MAP.'
+  },
+  gcp: {
+    key: 'gcp',
+    name: 'GCP',
+    fullName: 'Google Cloud Platform (GKE)',
+    badge: 'Service Account Key',
+    badgeStyle: 'bg-rose-500/10 border-rose-500/30 text-rose-400',
+    borderStyle: 'border-rose-500/40 hover:border-rose-400',
+    accentColor: 'text-rose-400',
+    summary: 'Service Account permissions required for GKE cluster inspection, credential validation, and Workload Identity deployment.',
+    requiredRoles: [
+      'roles/container.developer (Kubernetes Engine Developer)',
+      'roles/container.viewer (GKE Cluster Inspection)',
+      'roles/iam.serviceAccountUser (Service Account Delegation)'
+    ],
+    policySnippet: {
+      language: 'bash',
+      title: 'GCP Service Account & Key Generation (gcloud CLI)',
+      code: `# 1. Create a dedicated Service Account\ngcloud iam service-accounts create kubedataflow-gke \\\n    --description="KubeDataFlow GKE Automation" \\\n    --display-name="kubedataflow-gke"\n\n# 2. Grant GKE Developer & Viewer roles\ngcloud projects add-iam-policy-binding YOUR_PROJECT_ID \\\n    --member="serviceAccount:kubedataflow-gke@YOUR_PROJECT_ID.iam.gserviceaccount.com" \\\n    --role="roles/container.developer"\n\n# 3. Export Service Account JSON Key\ngcloud iam service-accounts keys create gke-credentials.json \\\n    --iam-account=kubedataflow-gke@YOUR_PROJECT_ID.iam.gserviceaccount.com`
+    },
+    setupSteps: [
+      '1. Create a Service Account in GCP IAM with Kubernetes Engine Developer permissions.',
+      '2. Export the Service Account JSON Key file.',
+      '3. In KubeDataFlow Cloud page, paste the contents of gke-credentials.json into the GCP Credentials tab.',
+      '4. The discovery service will automatically list all GKE clusters in your GCP project.'
+    ],
+    tips: 'Ensure Google Kubernetes Engine API is enabled in your GCP project before importing credentials.'
+  },
+  azure: {
+    key: 'azure',
+    name: 'Azure',
+    fullName: 'Microsoft Azure (AKS)',
+    badge: 'Service Principal',
+    badgeStyle: 'bg-sky-500/10 border-sky-500/30 text-sky-400',
+    borderStyle: 'border-sky-500/40 hover:border-sky-400',
+    accentColor: 'text-sky-400',
+    summary: 'Azure App Registration & Service Principal roles required for AKS cluster management and token exchange.',
+    requiredRoles: [
+      'Azure Kubernetes Service Cluster User Role',
+      'Azure Kubernetes Service RBAC Cluster Admin',
+      'Reader (on Target Resource Group / Subscription)'
+    ],
+    policySnippet: {
+      language: 'bash',
+      title: 'Azure Service Principal Creation (Azure CLI)',
+      code: `# 1. Create Service Principal for AKS management\naz ad sp create-for-rbac \\\n    --name "kubedataflow-aks-sp" \\\n    --role "Azure Kubernetes Service RBAC Cluster Admin" \\\n    --scopes "/subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/YOUR_RG"\n\n# Output will contain:\n# {\n#   "appId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",\n#   "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",\n#   "tenant": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"\n# }`
+    },
+    setupSteps: [
+      '1. Run the az ad sp create-for-rbac command in Azure CLI.',
+      '2. Copy the appId (Client ID), password (Client Secret), and tenant (Tenant ID).',
+      '3. Add these credentials under the Azure tab in KubeDataFlow Cloud page.',
+      '4. KubeDataFlow will query Azure Resource Manager and discover your AKS clusters.'
+    ],
+    tips: 'If using Azure RBAC with Microsoft Entra ID (Azure AD), ensure the Service Principal is added as an AKS Cluster Admin.'
+  },
+  digitalocean: {
+    key: 'digitalocean',
+    name: 'DigitalOcean',
+    fullName: 'DigitalOcean Kubernetes (DOKS)',
+    badge: 'API Token',
+    badgeStyle: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
+    borderStyle: 'border-blue-500/40 hover:border-blue-400',
+    accentColor: 'text-blue-400',
+    summary: 'Personal Access Token permissions required for DOKS cluster listing, kubeconfig download, and node pool tracking.',
+    requiredRoles: [
+      'Read & Write Scope (Kubernetes Management)',
+      'DigitalOcean API Token (dop_v1_...)'
+    ],
+    policySnippet: {
+      language: 'bash',
+      title: 'DigitalOcean API Token Authentication (doctl / cURL)',
+      code: `# Test your Personal Access Token against DigitalOcean API\ncurl -X GET "https://api.digitalocean.com/v2/kubernetes/clusters" \\\n    -H "Authorization: Bearer dop_v1_your_token_here" \\\n    -H "Content-Type: application/json"`
+    },
+    setupSteps: [
+      '1. Navigate to DigitalOcean Control Panel -> API -> Personal Access Tokens.',
+      '2. Generate a new Token with "Read" and "Write" permissions.',
+      '3. In KubeDataFlow Cloud page, submit your DO API token.',
+      '4. DOKS clusters will be discovered automatically and populated with real-time health data.'
+    ],
+    tips: 'DigitalOcean API tokens expire based on your chosen expiration window; remember to refresh tokens when needed.'
+  }
+};
+
 export const DocsPage: React.FC = () => {
   const [selectedTopicId, setSelectedTopicId] = useState<string>('quickstart');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [copiedSnippetTitle, setCopiedSnippetTitle] = useState<string | null>(null);
 
+  // State for IAM Providers interactive modal / view
+  const [selectedProviderKey, setSelectedProviderKey] = useState<'aws' | 'gcp' | 'azure' | 'digitalocean'>('aws');
+  const [isProviderModalOpen, setIsProviderModalOpen] = useState<boolean>(false);
+
   const activeTopic = DOC_TOPICS.find((t) => t.id === selectedTopicId) || DOC_TOPICS[0];
+  const activeProviderDoc = PROVIDER_IAM_DOCS[selectedProviderKey];
 
   const handleCopyCode = (title: string, code: string) => {
     navigator.clipboard.writeText(code);
@@ -301,6 +437,11 @@ export const DocsPage: React.FC = () => {
     setTimeout(() => {
       setCopiedSnippetTitle(null);
     }, 2000);
+  };
+
+  const handleOpenProviderDoc = (key: 'aws' | 'gcp' | 'azure' | 'digitalocean') => {
+    setSelectedProviderKey(key);
+    setIsProviderModalOpen(true);
   };
 
   const filteredTopics = DOC_TOPICS.filter((t) => {
@@ -469,7 +610,7 @@ export const DocsPage: React.FC = () => {
           {/* Article Sections List */}
           <div className="space-y-8">
             {activeTopic.content.sections.map((section, idx) => (
-              <div key={idx} className="space-y-3.5">
+              <div key={idx} className="space-y-4">
                 <h4 className="text-base font-bold text-white flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-brand-sky"></span>
                   {section.heading}
@@ -478,6 +619,68 @@ export const DocsPage: React.FC = () => {
                 <p className="text-xs text-slate-300 leading-relaxed">
                   {section.description}
                 </p>
+
+                {/* SPECIAL ENHANCEMENT: 4 Provider Selector Buttons inside Section 2 of cloud-credentials */}
+                {activeTopic.id === 'cloud-credentials' && section.heading.includes('2. IAM Credentials & Users') && (
+                  <div className="p-5 bg-bg-main/90 border border-accent-darkBorder rounded-2xl space-y-4 shadow-inner">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                        <Cloud className="w-4 h-4 text-brand-sky" />
+                        Select Cloud Provider for IAM & Setup Guide
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400">Click to inspect docs</span>
+                    </div>
+
+                    {/* 4 Dynamic Provider Buttons */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        { key: 'aws' as const, label: 'AWS EKS', icon: '🟧', desc: 'IAM Policy & Access Entry', color: 'hover:border-amber-500/80 hover:bg-amber-950/20 text-amber-400' },
+                        { key: 'gcp' as const, label: 'GCP GKE', icon: '🟥', desc: 'Service Account JSON', color: 'hover:border-rose-500/80 hover:bg-rose-950/20 text-rose-400' },
+                        { key: 'azure' as const, label: 'Azure AKS', icon: '🟦', desc: 'Service Principal & AD', color: 'hover:border-sky-500/80 hover:bg-sky-950/20 text-sky-400' },
+                        { key: 'digitalocean' as const, label: 'DigitalOcean', icon: '🔵', desc: 'API Personal Token', color: 'hover:border-blue-500/80 hover:bg-blue-950/20 text-blue-400' },
+                      ].map((prov) => (
+                        <button
+                          key={prov.key}
+                          type="button"
+                          onClick={() => handleOpenProviderDoc(prov.key)}
+                          className={`p-3.5 rounded-xl border bg-slate-900/90 border-slate-800 ${prov.color} transition-all text-left group flex flex-col justify-between space-y-2 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-base">{prov.icon}</span>
+                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 group-hover:text-white">
+                              Doc ↗
+                            </span>
+                          </div>
+                          <div>
+                            <span className="font-bold text-xs text-white block group-hover:text-brand-sky transition-colors">
+                              {prov.label}
+                            </span>
+                            <span className="text-[10px] text-slate-400 block line-clamp-1">
+                              {prov.desc}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Inline Quick Preview for selected provider */}
+                    <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800/80 flex items-center justify-between gap-3 text-xs text-slate-300">
+                      <div className="flex items-center gap-2.5">
+                        <Sparkles className="w-4 h-4 text-brand-sky shrink-0" />
+                        <span>
+                          Click any button above to open the complete, dedicated IAM configuration & setup guide for that cloud provider.
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleOpenProviderDoc('aws')}
+                        className="px-3 py-1.5 rounded-lg bg-brand-blue/30 text-brand-sky border border-brand-sky/40 font-bold hover:bg-brand-blue/50 transition-all text-xs shrink-0 flex items-center gap-1"
+                      >
+                        <span>Open AWS Guide</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Bullets if any */}
                 {section.bullets && (
@@ -570,6 +773,156 @@ export const DocsPage: React.FC = () => {
 
       </div>
 
+      {/* ======================================================== */}
+      {/* DYNAMIC POPUP MODAL FOR CLOUD PROVIDER IAM DOCUMENTATION */}
+      {/* ======================================================== */}
+      {isProviderModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fadeIn">
+          <div className="bg-bg-card border border-accent-darkBorder rounded-3xl p-6 sm:p-8 max-w-3xl w-full shadow-2xl space-y-6 relative max-h-[90vh] overflow-y-auto">
+            
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-4 border-b border-accent-darkBorder pb-5">
+              <div className="flex items-center gap-3.5">
+                <div className={`p-3 rounded-2xl bg-slate-900 border ${activeProviderDoc.borderStyle} text-2xl shadow-inner`}>
+                  {selectedProviderKey === 'aws' ? '🟧' : selectedProviderKey === 'gcp' ? '🟥' : selectedProviderKey === 'azure' ? '🟦' : '🔵'}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h3 className="text-xl font-extrabold text-white">
+                      {activeProviderDoc.fullName}
+                    </h3>
+                    <span className={`text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-full border ${activeProviderDoc.badgeStyle}`}>
+                      {activeProviderDoc.badge}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {activeProviderDoc.summary}
+                  </p>
+                </div>
+              </div>
+
+              {/* Close Button */}
+              <button
+                onClick={() => setIsProviderModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Quick Provider Switcher inside modal */}
+            <div className="grid grid-cols-4 gap-2 bg-bg-main p-1.5 rounded-2xl border border-accent-darkBorder text-xs font-bold">
+              {[
+                { key: 'aws' as const, label: 'AWS' },
+                { key: 'gcp' as const, label: 'GCP' },
+                { key: 'azure' as const, label: 'Azure' },
+                { key: 'digitalocean' as const, label: 'DigitalOcean' }
+              ].map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => setSelectedProviderKey(p.key)}
+                  className={`py-2 rounded-xl transition-all ${
+                    selectedProviderKey === p.key
+                      ? 'bg-brand-blue text-white shadow-md font-extrabold'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Required Roles & Permissions */}
+            <div className="space-y-2.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 block">
+                Required Permissions & Roles
+              </span>
+              <div className="grid grid-cols-1 gap-2">
+                {activeProviderDoc.requiredRoles.map((role, rIdx) => (
+                  <div key={rIdx} className="p-2.5 rounded-xl bg-bg-main/80 border border-slate-800 text-xs font-mono text-slate-300 flex items-center gap-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>{role}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Code / Policy Snippet */}
+            <div className="space-y-2.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 block">
+                Policy & Setup Script
+              </span>
+              <div className="rounded-2xl overflow-hidden border border-accent-darkBorder bg-slate-950 shadow-xl">
+                <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 text-xs font-mono">
+                  <span className="text-slate-300 font-semibold flex items-center gap-2">
+                    <Code2 className="w-4 h-4 text-brand-sky" />
+                    {activeProviderDoc.policySnippet.title}
+                  </span>
+
+                  <button
+                    onClick={() => handleCopyCode(activeProviderDoc.policySnippet.title, activeProviderDoc.policySnippet.code)}
+                    className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded-lg hover:bg-slate-800 transition-colors"
+                  >
+                    {copiedSnippetTitle === activeProviderDoc.policySnippet.title ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-400 font-bold">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Policy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <pre className="p-4 text-xs font-mono text-emerald-300 overflow-x-auto leading-relaxed max-h-72">
+                  <code>{activeProviderDoc.policySnippet.code}</code>
+                </pre>
+              </div>
+            </div>
+
+            {/* Setup Walkthrough Steps */}
+            <div className="space-y-2.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 block">
+                Step-by-Step Instructions
+              </span>
+              <div className="space-y-2">
+                {activeProviderDoc.setupSteps.map((step, sIdx) => (
+                  <div key={sIdx} className="p-3 rounded-xl bg-bg-main/60 border border-slate-800 text-xs text-slate-300 flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-brand-blue/20 text-brand-sky border border-brand-sky/30 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                      {sIdx + 1}
+                    </span>
+                    <span className="leading-relaxed">{step.replace(/^\d+\.\s*/, '')}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Tip Footer */}
+            <div className="p-4 rounded-xl bg-brand-blue/10 border border-brand-sky/30 text-xs text-sky-200 flex items-start gap-2.5">
+              <Info className="w-4 h-4 text-brand-sky shrink-0 mt-0.5" />
+              <span>{activeProviderDoc.tips}</span>
+            </div>
+
+            {/* Modal Bottom Action Button */}
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setIsProviderModalOpen(false)}
+                className="px-5 py-2.5 rounded-xl bg-brand-blue hover:bg-brand-blue/80 text-white font-bold text-xs transition-all shadow-md"
+              >
+                Close Documentation
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
+
