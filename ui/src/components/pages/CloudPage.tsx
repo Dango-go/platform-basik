@@ -692,7 +692,6 @@ export const CloudPage: React.FC = () => {
                   </span>
                 </div>
                 <h4 className="font-bold text-white text-sm truncate">{cred.name}</h4>
-                <p className="text-[11px] text-slate-500">Added: {cred.created_at}</p>
               </div>
             ))}
           </div>
@@ -1434,7 +1433,7 @@ roleRef:
                   <span className="text-brand-sky">{selectedCredForKeys.name}</span>
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Provider: <span className="uppercase font-semibold text-slate-300">{selectedCredForKeys.provider}</span> • Created: {selectedCredForKeys.created_at}
+                  Provider: <span className="uppercase font-semibold text-slate-300">{selectedCredForKeys.provider}</span> • Status: <span className="text-emerald-400 font-semibold">Active</span>
                 </p>
               </div>
             </div>

@@ -67,7 +67,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             <Layers className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-extrabold text-white tracking-tight">
-            {authMode === 'login' ? 'Sign In to Data Basik' : 'Create an Account'}
+            {authMode === 'login' ? 'Sign In to KubeDataFlow' : 'Create an Account'}
           </h1>
           <p className="text-xs text-slate-400 mt-1">Enterprise Cloud Database Management Platform</p>
         </div>

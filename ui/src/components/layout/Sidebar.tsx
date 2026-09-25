@@ -41,7 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLog
             <Layers className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="font-extrabold text-xl text-white tracking-tight leading-none">Data Basik</h1>
+            <h1 className="font-extrabold text-xl text-white tracking-tight leading-none">KubeDataFlow</h1>
           </div>
         </div>
 

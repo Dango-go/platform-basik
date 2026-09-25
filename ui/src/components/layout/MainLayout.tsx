@@ -30,7 +30,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
     docs: 'Platform Documentation & Guides'
   };
 
-  const currentTitle = customTitle || titles[activeTab] || 'Data Basik Console';
+  const currentTitle = customTitle || titles[activeTab] || 'KubeDataFlow Console';
 
   return (
     <div className="flex min-h-screen bg-bg-main text-slate-100">

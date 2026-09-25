@@ -63,7 +63,7 @@ const DOC_TOPICS: DocTopic[] = [
     readTime: '4 min read',
     summary: 'How to retrieve database credentials and connect from Python, Node.js, Go, Java, and CLI.',
     content: {
-      overview: 'Once your database instance is provisioned in the cluster, Data Basik generates secure Kubernetes Secrets containing connection endpoints, usernames, and passwords. This guide shows how to authenticate and connect seamlessly.',
+      overview: 'Once your database instance is provisioned in the cluster, KubeDataFlow generates secure Kubernetes Secrets containing connection endpoints, usernames, and passwords. This guide shows how to authenticate and connect seamlessly.',
       sections: [
         {
           heading: '1. Retrieving Credentials & Connection URI',
@@ -116,7 +116,7 @@ const DOC_TOPICS: DocTopic[] = [
     readTime: '6 min read',
     summary: 'Architecture overview: Helm vs Kubernetes Operators, Bitnami, CloudNativePG, and ClickHouse.',
     content: {
-      overview: 'Data Basik provides a stateless orchestration plane that manages stateful database workloads in Kubernetes using battle-tested Helm charts and Cloud-Native Operators.',
+      overview: 'KubeDataFlow provides a stateless orchestration plane that manages stateful database workloads in Kubernetes using battle-tested Helm charts and Cloud-Native Operators.',
       sections: [
         {
           heading: '1. Stateless Microservices Control Plane',
@@ -190,7 +190,7 @@ const DOC_TOPICS: DocTopic[] = [
     readTime: '7 min read',
     summary: 'Comprehensive cheat sheet for all 14 telemetry channels and healthy thresholds.',
     content: {
-      overview: 'Data Basik integrates with Prometheus and VictoriaMetrics to provide 14 unified and engine-adaptive telemetry channels.',
+      overview: 'KubeDataFlow integrates with Prometheus and VictoriaMetrics to provide 14 unified and engine-adaptive telemetry channels.',
       sections: [
         {
           heading: '1. Compute & System Metrics',
@@ -231,7 +231,7 @@ const DOC_TOPICS: DocTopic[] = [
       sections: [
         {
           heading: '1. Backup Strategy Matrix',
-          description: 'Data Basik supports multiple levels of data backups:',
+          description: 'KubeDataFlow supports multiple levels of data backups:',
           bullets: [
             'CSI Volume Snapshots: Instant snapshot created at the block storage level (zero impact on query throughput).',
             'Scheduled Logical Dumps: Compressed pg_dump / redis RDB archives uploaded to S3, GCS, or MinIO buckets.',
@@ -271,8 +271,17 @@ const DOC_TOPICS: DocTopic[] = [
           ],
           callout: {
             type: 'info',
-            text: 'Data Basik encrypts all cluster kubeconfig secrets using AES-256 GCM before storing them in provider_db.'
+            text: 'KubeDataFlow encrypts all cluster kubeconfig secrets using AES-256 GCM before storing them in provider_db.'
           }
+        },
+        {
+          heading: '2. IAM Credentials & Users',
+          description: 'Required IAM roles, access policies, and permission guidelines for cloud provider service accounts and API access keys.',
+          bullets: [
+            'AWS IAM User / Role permissions for cluster discovery, STS token generation, and EKS access entries.',
+            'GCP Service Account roles for GKE cluster inspection and Workload Identity.',
+            'Azure App Registration Service Principals for AKS cluster management.'
+          ]
         }
       ]
     }
