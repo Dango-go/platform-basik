@@ -55,6 +55,20 @@ async def get_file(
     }
 
 
+# GET /api/v1/helm/files?release_name=my-postgres
+@router.get("/files")
+async def list_files(
+    release_name: str = Query(..., description="Release name"),
+    db: AsyncSession = Depends(db_session)
+):
+    service = HelmService(db_session=db)
+    files = await service.list_chart_files(release_name=release_name)
+    return {
+        "release_name": release_name,
+        "files": files
+    }
+
+
 # PUT /api/v1/helm/file
 @router.put("/file")
 async def save_chart_file(

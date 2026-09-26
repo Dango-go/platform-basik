@@ -67,4 +67,17 @@ class ChartManager:
         target_file.write_text(content, encoding="utf-8")
         return str(target_file)
 
+    # LIST ALL FILES IN RELEASE
+    async def list_chart_files(self, release_name: str) -> list:
+        release_dir = self.base_temp_dir / release_name
+        if not release_dir.exists():
+            return []
+
+        files = []
+        for path in release_dir.rglob("*"):
+            if path.is_file() and not path.name.startswith("."):
+                rel_path = str(path.relative_to(release_dir))
+                files.append(rel_path)
+        return sorted(files)
+
  

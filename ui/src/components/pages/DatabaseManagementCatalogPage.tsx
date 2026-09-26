@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DatabaseCatalogItem, DeployedDatabase, K8sCluster } from '../../types';
 import { INITIAL_DEPLOYED_DBS } from '../../services/mockData';
 import { apiClient } from '../../services/apiClient';
+import { YamlCodeEditor } from '../common/YamlCodeEditor';
 import { 
   ArrowLeft, 
   Terminal as TerminalIcon, 
@@ -27,6 +28,10 @@ import {
   FilePlus,
   FileText,
   FolderOpen,
+  FolderTree,
+  FileCode2,
+  RefreshCw,
+  Search,
   DollarSign,
   Cloud
 } from 'lucide-react';
@@ -247,6 +252,58 @@ metrics:
   ]);
   const [showMgmtAddCustomFileModal, setShowMgmtAddCustomFileModal] = useState<boolean>(false);
   const [mgmtNewCustomFileName, setMgmtNewCustomFileName] = useState<string>('my-custom-values.yaml');
+
+  // Open Chart File Dynamic Modal State
+  const [showOpenChartFileModal, setShowOpenChartFileModal] = useState<boolean>(false);
+  const [chartFilesList, setChartFilesList] = useState<string[]>([]);
+  const [chartFileSearchQuery, setChartFileSearchQuery] = useState<string>('');
+  const [isLoadingChartFiles, setIsLoadingChartFiles] = useState<boolean>(false);
+  const [isLoadingFileContent, setIsLoadingFileContent] = useState<boolean>(false);
+
+  const handleOpenChartFilesModal = async () => {
+    setShowOpenChartFileModal(true);
+    setChartFileSearchQuery('');
+    setIsLoadingChartFiles(true);
+    try {
+      const releaseName = selectedInstance?.name || item.name || 'my-db';
+      const files = await apiClient.getHelmFiles(releaseName);
+      setChartFilesList(files);
+    } catch (err) {
+      console.warn('Failed to load chart files:', err);
+      setChartFilesList([]);
+    } finally {
+      setIsLoadingChartFiles(false);
+    }
+  };
+
+  const handleSelectChartFile = async (filePath: string) => {
+    setIsLoadingFileContent(true);
+    try {
+      const releaseName = selectedInstance?.name || item.name || 'my-db';
+      const content = await apiClient.getHelmFile(releaseName, filePath);
+      
+      const fileName = filePath.split('/').pop() || filePath;
+      // Add or update in mgmtUserCustomFiles
+      setMgmtUserCustomFiles(prev => {
+        const exists = prev.find(f => f.name === fileName);
+        if (exists) {
+          return prev.map(f => f.name === fileName ? { ...f, content } : f);
+        }
+        return [...prev, { name: fileName, content }];
+      });
+      
+      setActiveYamlFileName(fileName);
+      setCustomValuesYaml(content);
+      setShowOpenChartFileModal(false);
+      setYamlConfigNotification(`[Chart File]: Loaded '${filePath}' into editor.`);
+      setTimeout(() => setYamlConfigNotification(null), 4000);
+    } catch (err: any) {
+      setYamlConfigNotification(`[Error]: Could not load '${filePath}': ${err.message}`);
+      setTimeout(() => setYamlConfigNotification(null), 5000);
+    } finally {
+      setIsLoadingFileContent(false);
+    }
+  };
 
   const handleCreateMgmtCustomFile = () => {
     let cleanName = mgmtNewCustomFileName.trim();
@@ -829,10 +886,7 @@ metrics:
 
           <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={() => {
-                setYamlConfigNotification(`[Chart File]: Selected chart file '${activeYamlFileName}' is open in editor.`);
-                setTimeout(() => setYamlConfigNotification(null), 4000);
-              }}
+              onClick={handleOpenChartFilesModal}
               className="px-3.5 py-2 rounded-xl bg-bg-main hover:bg-slate-800 text-slate-300 hover:text-white border border-accent-darkBorder text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
             >
               <FolderOpen className="w-4 h-4 text-brand-sky" />
@@ -893,53 +947,48 @@ metrics:
           </div>
         )}
 
-        {/* CODE TERMINAL EDITOR WINDOW WITH DYNAMIC FILE TABS */}
-        <div className="relative bg-[#0d1117] border border-slate-800 rounded-xl overflow-hidden shadow-2xl font-mono text-xs text-slate-200">
-          <div className="bg-[#161b22] px-4 py-2.5 border-b border-slate-800 flex items-center justify-between text-slate-400 text-xs overflow-x-auto">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 mr-2">
-                <span className="w-3 h-3 rounded-full bg-red-500/80 inline-block"></span>
-                <span className="w-3 h-3 rounded-full bg-amber-500/80 inline-block"></span>
-                <span className="w-3 h-3 rounded-full bg-emerald-500/80 inline-block"></span>
-              </div>
-
-              {/* DYNAMIC YAML FILE TABS */}
-              <div className="flex items-center gap-1">
-                {mgmtUserCustomFiles.map((file) => {
-                  const isActive = file.name === activeYamlFileName;
-                  return (
-                    <button
-                      key={file.name}
-                      onClick={() => {
-                        setActiveYamlFileName(file.name);
-                        setCustomValuesYaml(file.content);
-                      }}
-                      className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 ${
-                        isActive
-                          ? 'bg-brand-blue/30 text-white border border-brand-sky/40 shadow-sm'
-                          : 'bg-bg-main text-slate-400 hover:text-slate-200 border border-slate-800'
-                      }`}
-                    >
-                      <FileText className="w-3.5 h-3.5 text-brand-sky" />
-                      <span>{file.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
+        {/* CODE TERMINAL EDITOR WINDOW WITH SYNTAX HIGHLIGHTING & DYNAMIC FILE TABS */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1">
+            {/* Dynamic File Tabs */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {mgmtUserCustomFiles.map((file) => {
+                const isActive = file.name === activeYamlFileName;
+                return (
+                  <button
+                    key={file.name}
+                    onClick={() => {
+                      setActiveYamlFileName(file.name);
+                      setCustomValuesYaml(file.content);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 border ${
+                      isActive
+                        ? 'bg-brand-blue/20 text-white border-brand-sky/50 shadow-md shadow-brand-blue/10'
+                        : 'bg-bg-main text-slate-400 hover:text-slate-200 border-accent-darkBorder hover:bg-slate-800'
+                    }`}
+                  >
+                    <FileText className={`w-3.5 h-3.5 ${isActive ? 'text-brand-sky' : 'text-slate-500'}`} />
+                    <span>{file.name}</span>
+                    {isActive && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-brand-sky animate-pulse"></span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
-            <span className="text-[11px] text-slate-500 font-mono hidden sm:inline-block">YAML Editor • Hot-Reload Supported</span>
+
+            <span className="text-[11px] text-slate-400 font-mono hidden sm:inline-flex items-center gap-1.5 bg-bg-main px-2.5 py-1 rounded-lg border border-accent-darkBorder">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+              Live YAML Editor • Ready
+            </span>
           </div>
 
-          <div className="p-4 bg-[#0d1117]">
-            <textarea
-              value={customValuesYaml}
-              onChange={(e) => setCustomValuesYaml(e.target.value)}
-              rows={16}
-              spellCheck={false}
-              className="w-full bg-transparent text-slate-200 font-mono text-xs leading-relaxed focus:outline-none resize-y selection:bg-brand-blue selection:text-white"
-              style={{ tabSize: 2 }}
-            />
-          </div>
+          <YamlCodeEditor
+            value={customValuesYaml}
+            onChange={(newVal) => setCustomValuesYaml(newVal)}
+            minHeight="340px"
+            placeholder="# Type or edit YAML configuration values here..."
+          />
         </div>
       </section>
 
@@ -1360,6 +1409,129 @@ metrics:
                 <span>Create & Open Editor</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 📂 OPEN CHART FILE MODAL (DYNAMIC DISCOVERY) */}
+      {/* ======================================================== */}
+      {showOpenChartFileModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-bg-card border border-accent-darkBorder rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5 relative">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-accent-darkBorder pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-brand-blue/20 border border-brand-sky/30 flex items-center justify-center">
+                  <FolderOpen className="w-5 h-5 text-brand-sky" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    Open Helm Chart File
+                    <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-brand-blue/20 text-brand-sky border border-brand-sky/30">
+                      {selectedInstance?.name || item.name}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">Select any unpacked file from this release to view and edit</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowOpenChartFileModal(false)}
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-bg-main transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search Filter */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={chartFileSearchQuery}
+                onChange={(e) => setChartFileSearchQuery(e.target.value)}
+                placeholder="Search chart files (e.g. values.yaml, templates/deployment.yaml)..."
+                className="w-full bg-bg-main border border-accent-darkBorder rounded-xl pl-9 pr-4 py-2.5 text-xs font-mono font-semibold text-white placeholder-slate-500 focus:outline-none focus:border-brand-sky transition-all"
+              />
+            </div>
+
+            {/* File List / Loading / Empty State */}
+            <div className="bg-bg-main border border-accent-darkBorder rounded-xl p-2 max-h-72 overflow-y-auto space-y-1 font-mono text-xs">
+              {isLoadingChartFiles ? (
+                <div className="p-8 text-center space-y-2 text-slate-400">
+                  <RefreshCw className="w-6 h-6 text-brand-sky animate-spin mx-auto" />
+                  <p className="text-xs">Fetching unpacked chart files from helm deployer...</p>
+                </div>
+              ) : chartFilesList.length === 0 ? (
+                <div className="p-8 text-center space-y-2 text-slate-400">
+                  <FolderTree className="w-8 h-8 text-slate-600 mx-auto" />
+                  <p className="text-xs font-semibold text-slate-300">No unpacked chart files found for this release</p>
+                  <p className="text-[11px] text-slate-500">Files are unpacked in <code className="text-slate-400">/tmp/helm_charts/{selectedInstance?.name || item.name}</code> during chart install/upgrade.</p>
+                </div>
+              ) : (
+                (() => {
+                  const filtered = chartFilesList.filter(f => 
+                    !chartFileSearchQuery || f.toLowerCase().includes(chartFileSearchQuery.toLowerCase())
+                  );
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="p-6 text-center text-slate-500 text-xs">
+                        No files matching "{chartFileSearchQuery}"
+                      </div>
+                    );
+                  }
+
+                  return filtered.map((filePath) => {
+                    const isValues = filePath.endsWith('values.yaml') || filePath.endsWith('values.schema.json');
+                    const isTemplate = filePath.startsWith('templates/');
+                    const isChartYaml = filePath === 'Chart.yaml';
+
+                    return (
+                      <button
+                        key={filePath}
+                        onClick={() => handleSelectChartFile(filePath)}
+                        disabled={isLoadingFileContent}
+                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-brand-blue/20 text-slate-300 hover:text-white flex items-center justify-between group transition-all border border-transparent hover:border-brand-sky/30"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          {isValues ? (
+                            <FileCode2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                          ) : isTemplate ? (
+                            <FileText className="w-4 h-4 text-brand-sky shrink-0" />
+                          ) : isChartYaml ? (
+                            <Layers className="w-4 h-4 text-amber-400 shrink-0" />
+                          ) : (
+                            <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                          )}
+                          <span className="font-semibold text-xs group-hover:text-brand-sky transition-colors">{filePath}</span>
+                        </div>
+
+                        <span className="text-[10px] text-slate-500 group-hover:text-slate-300 transition-colors uppercase font-bold">
+                          {isLoadingFileContent ? 'Loading...' : 'Open →'}
+                        </span>
+                      </button>
+                    );
+                  })
+                })()
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between border-t border-accent-darkBorder pt-3 text-xs text-slate-400">
+              <span className="text-[11px]">
+                {chartFilesList.length} files discovered in release package
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowOpenChartFileModal(false)}
+                className="text-xs font-semibold px-4 py-2 rounded-xl border border-accent-darkBorder text-slate-400 hover:bg-accent-darkHover transition-all"
+              >
+                Close
+              </button>
+            </div>
+
           </div>
         </div>
       )}

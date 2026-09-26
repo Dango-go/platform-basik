@@ -57,17 +57,19 @@ class ServiceYAMLManager:
             ssl_ca_cert=ca_cert_data
         )
 
-
-        return await self.runner.apply(
-            api_client=api_net_client,
-            kind=kind,
-            group=group,
-            version=version,
-            namespace=namespace,
-            plural=plural,
-            name=name,
-            body=manifest,
-        )
+        try:
+            return await self.runner.apply(
+                api_client=api_net_client,
+                kind=kind,
+                group=group,
+                version=version,
+                namespace=namespace,
+                plural=plural,
+                name=name,
+                body=manifest,
+            )
+        finally:
+            await api_net_client.close()
 
     async def get_resource_status(
         self,
@@ -90,15 +92,18 @@ class ServiceYAMLManager:
             ssl_ca_cert=ca_cert_data
         )
 
-        return await self.runner.get(
-            api_client=api_net_client,
-            group=group,
-            version=version,
-            namespace=namespace,
-            kind=kind,
-            plural=plural,
-            name=name,
-        )
+        try:
+            return await self.runner.get(
+                api_client=api_net_client,
+                group=group,
+                version=version,
+                namespace=namespace,
+                kind=kind,
+                plural=plural,
+                name=name,
+            )
+        finally:
+            await api_net_client.close()
 
     async def delete_manifest(
         self,
@@ -121,12 +126,15 @@ class ServiceYAMLManager:
             ssl_ca_cert=ca_cert_data
         )
 
-        return await self.runner.delete(
-            api_client=api_net_client,
-            group=group,
-            version=version,
-            namespace=namespace,
-            kind=kind,
-            plural=plural,
-            name=name,
-        )
+        try:
+            return await self.runner.delete(
+                api_client=api_net_client,
+                group=group,
+                version=version,
+                namespace=namespace,
+                kind=kind,
+                plural=plural,
+                name=name,
+            )
+        finally:
+            await api_net_client.close()

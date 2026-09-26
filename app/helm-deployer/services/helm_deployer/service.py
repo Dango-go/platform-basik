@@ -47,6 +47,11 @@ class HelmService:
         self.validator.validate_release_name(release_name)
         return await self.chart_manager.read_chart_file(release_name=release_name, file_path=file_path)
 
+    """list all chart files"""
+    async def list_chart_files(self, release_name: str) -> list:
+        self.validator.validate_release_name(release_name)
+        return await self.chart_manager.list_chart_files(release_name=release_name)
+
 
 
     #SAVE FILE

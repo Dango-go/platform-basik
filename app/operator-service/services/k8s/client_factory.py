@@ -17,18 +17,29 @@ class K8sClientFactory:
         verify_ssl: bool = False,
         ssl_ca_cert: Optional[str] = None,
     ) -> client.ApiClient:
+        clean_token = (auth_token or "").strip()
+        if clean_token.lower().startswith("bearer "):
+            clean_token = clean_token[7:].strip()
+
         configuration = client.Configuration()
-        configuration.host = api_server_url
-        configuration.api_key = {"authorization": f"Bearer {auth_token}"}
-        configuration.api_key_prefix = {}
+        configuration.host = api_server_url.rstrip("/")
+        # In kubernetes_asyncio, Configuration.auth_settings() specifically checks 'BearerToken'
+        configuration.api_key = {
+            "BearerToken": clean_token,
+            "authorization": clean_token,
+        }
+        configuration.api_key_prefix = {
+            "BearerToken": "Bearer",
+            "authorization": "Bearer",
+        }
         configuration.verify_ssl = verify_ssl
         if ssl_ca_cert and verify_ssl:
             if os.path.exists(ssl_ca_cert):
                 configuration.ssl_ca_cert = ssl_ca_cert
             else:
                 try:
-                    ca_cert_data = ssl_ca_cert
-                    if not ca_cert_data.startwith("-----BEGIN"):
+                    ca_data = ssl_ca_cert
+                    if not ca_data.startswith("-----BEGIN"):
                         try:
                             ca_data = base64.b64decode(ssl_ca_cert).decode("utf-8")
                         except Exception as e:
@@ -42,7 +53,6 @@ class K8sClientFactory:
                     configuration.ssl_ca_cert = tmp_ca.name
                 except Exception as e:
                     logger.warning("Failed to parse ca_cert data into temp file: %s", e)
-
                     configuration.verify_ssl = False
                         
         return client.ApiClient(configuration=configuration)

@@ -339,6 +339,20 @@ class ApiClient {
     return await res.json();
   }
 
+  async getHelmFiles(releaseName: string): Promise<string[]> {
+    const token = localStorage.getItem('access_token');
+    const res = await fetch(`/api/v1/helm/files?release_name=${encodeURIComponent(releaseName)}`, {
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    });
+    if (!res.ok) {
+      return [];
+    }
+    const data = await res.json().catch(() => ({ files: [] }));
+    return data.files || [];
+  }
+
   async getHelmFile(releaseName: string, filePath: string): Promise<string> {
     const token = localStorage.getItem('access_token');
     const res = await fetch(`/api/v1/helm/file?release_name=${encodeURIComponent(releaseName)}&file_path=${encodeURIComponent(filePath)}`, {
