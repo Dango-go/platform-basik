@@ -3,16 +3,13 @@ from typing import Optional, Any, Dict
 
 
 class ApplyRequest(BaseModel):
-    api_server_url: str = Field(..., description="Kubernetes API Server URL e.g. https://192.168.1.50:6443")
-    auth_token: str = Field(..., description="Authentication bearer token for target cluster")
     resource_name: str = Field(..., description="Name of the K8s resource")
     target_namespace: str = Field("default", description="Target Kubernetes namespace")
     content: str = Field(..., description="YAML manifest object dictionary or string")
-    ca_cert_data: Optional[str] = Field(None, description="Optional SSL CA certificate data")
+    cluster_name: str = Field(..., description="Name of the target cluster")
 
 
 class DeleteRequest(BaseModel):
-    api_server_url: str = Field(..., description="Kubernetes API Server URL")
     auth_token: str = Field(..., description="Authentication token for target cluster")
     group: str = Field(..., description="Group of the CRD resource")
     version: str = Field(..., description="Version of the CRD resource")

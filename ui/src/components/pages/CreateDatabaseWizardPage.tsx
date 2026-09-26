@@ -391,6 +391,7 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
 
       if (installMode === 'crd') {
         await apiClient.applyOperatorManifest({
+          cluster_name: targetClusterName,
           resource_name: dbName,
           target_namespace: crdNamespace.includes('default') ? 'databases' : crdNamespace,
           content: crdManifestContent

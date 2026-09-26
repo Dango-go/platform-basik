@@ -412,7 +412,7 @@ class ApiClient {
     return await res.json();
   }
 
-  async applyOperatorManifest(payload: { resource_name: string; target_namespace?: string; content: string }): Promise<any> {
+  async applyOperatorManifest(payload: { resource_name: string; target_namespace?: string; content: string; cluster_name: string }): Promise<any> {
     const token = localStorage.getItem('access_token');
     const res = await fetch('/api/v1/operator/apply', {
       method: 'POST',
@@ -421,12 +421,10 @@ class ApiClient {
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
       },
       body: JSON.stringify({
-        api_server_url: 'https://kubernetes.default.svc',
-        auth_token: '',
+        cluster_name: payload.cluster_name,
         resource_name: payload.resource_name,
         target_namespace: payload.target_namespace || 'databases',
-        content: payload.content,
-        ca_cert_data: ''
+        content: payload.content
       })
     });
     if (!res.ok) {
