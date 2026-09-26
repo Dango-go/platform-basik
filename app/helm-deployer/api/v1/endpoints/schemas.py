@@ -69,3 +69,13 @@ class CreateCustomFileRequest(BaseModel):
     content: str = Field(..., description="Raw YAML content for the custom file")
 
 
+class UninstallRequest(BaseModel):
+    cluster_name: str
+    release_name: str
+    api_server_url: Optional[str] = None
+    ca_cert_data: Optional[str] = None
+    token: Optional[str] = None
+    user_name: str = "cluster-admin"
+    namespace: str = "default"
+
+

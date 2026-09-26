@@ -41,7 +41,8 @@ class ApiClient {
             storage_gb: item.disk || 20,
             monthly_cost: item.monthly_cost || 0,
             created_at: typeof item.created_at === 'string' ? item.created_at.substring(0, 16) : new Date().toISOString().substring(0, 16),
-            values_yaml: item.values_yaml || ''
+            values_yaml: item.values_yaml || '',
+            deployment_type: item.deployment_type || (item.values_yaml?.includes('apiVersion:') ? 'crd' : 'helm')
           }));
 
           const merged = [...backendDbs];
@@ -422,6 +423,31 @@ class ApiClient {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || `Helm apply failed (${res.status})`);
+    }
+    return await res.json();
+  }
+
+  async uninstallHelmRelease(payload: {
+    cluster_name: string;
+    release_name: string;
+    namespace?: string;
+  }): Promise<any> {
+    const token = localStorage.getItem('access_token');
+    const res = await fetch('/api/v1/helm/uninstall', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        cluster_name: payload.cluster_name,
+        release_name: payload.release_name,
+        namespace: payload.namespace || 'databases'
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Helm uninstall failed (${res.status})`);
     }
     return await res.json();
   }

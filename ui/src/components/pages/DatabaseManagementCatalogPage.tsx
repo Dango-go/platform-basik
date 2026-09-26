@@ -33,7 +33,8 @@ import {
   RefreshCw,
   Search,
   DollarSign,
-  Cloud
+  Cloud,
+  Trash2
 } from 'lucide-react';
 
 interface DatabaseManagementCatalogPageProps {
@@ -244,6 +245,7 @@ metrics:
   const [customValuesYaml, setCustomValuesYaml] = useState<string>(defaultYamlContent);
   const [yamlConfigStatus, setYamlConfigStatus] = useState<'idle' | 'applying' | 'success' | 'error'>('idle');
   const [yamlConfigNotification, setYamlConfigNotification] = useState<string | null>(null);
+  const [isUninstallingRelease, setIsUninstallingRelease] = useState<boolean>(false);
 
   // Custom File Management State
   const [activeYamlFileName, setActiveYamlFileName] = useState<string>('custom-values.yaml');
@@ -336,6 +338,34 @@ metrics:
       setYamlConfigStatus('idle');
       setYamlConfigNotification(null);
     }, 5000);
+  };
+
+  const handleUninstallRelease = async () => {
+    const releaseName = selectedInstance?.name || item.name || 'my-db';
+    const clusterName = selectedInstance?.cluster_name || 'test-eks';
+    const namespace = selectedInstance?.namespace || 'databases';
+
+    const confirmed = window.confirm(
+      `Are you sure you want to uninstall Helm release "${releaseName}" from cluster "${clusterName}" (namespace: ${namespace})?`
+    );
+    if (!confirmed) return;
+
+    try {
+      setIsUninstallingRelease(true);
+      setYamlConfigNotification(`[Helm Uninstall]: Uninstalling release "${releaseName}" on cluster "${clusterName}"...`);
+      await apiClient.uninstallHelmRelease({
+        cluster_name: clusterName,
+        release_name: releaseName,
+        namespace: namespace
+      });
+      setYamlConfigNotification(`✓ Release "${releaseName}" uninstalled successfully from cluster "${clusterName}"!`);
+      setTimeout(() => setYamlConfigNotification(null), 5000);
+    } catch (err: any) {
+      setYamlConfigNotification(`[Error]: Helm uninstall failed: ${err.message}`);
+      setTimeout(() => setYamlConfigNotification(null), 6000);
+    } finally {
+      setIsUninstallingRelease(false);
+    }
   };
 
   const handleTopApplyScale = async () => {
@@ -932,6 +962,21 @@ metrics:
               <Sliders className={`w-4 h-4 ${yamlConfigStatus === 'applying' ? 'animate-spin' : ''}`} />
               <span>
                 {yamlConfigStatus === 'applying' ? 'Upgrading...' : 'upgrade'}
+              </span>
+            </button>
+
+            <button
+              onClick={handleUninstallRelease}
+              disabled={isUninstallingRelease}
+              className={`px-4 py-2 rounded-xl font-extrabold text-xs shadow-lg transition-all flex items-center gap-1.5 border ${
+                isUninstallingRelease
+                  ? 'bg-rose-950/60 border-rose-500/40 text-rose-300 cursor-wait'
+                  : 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-rose-100 border-rose-500/40 hover:border-rose-500/60 shadow-rose-500/10'
+              }`}
+            >
+              <Trash2 className={`w-3.5 h-3.5 ${isUninstallingRelease ? 'animate-spin' : 'text-rose-400'}`} />
+              <span>
+                {isUninstallingRelease ? 'Uninstalling...' : 'uninstall release'}
               </span>
             </button>
           </div>

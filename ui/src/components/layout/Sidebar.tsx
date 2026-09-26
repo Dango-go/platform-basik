@@ -23,7 +23,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onLogout }) => {
   const menuItems = [
     { id: 'create', label: 'Create Database', icon: PlusCircle, highlight: true },
-    { id: 'databases', label: 'Databases', icon: Database },
+    { id: 'databases', label: 'Database Management', icon: Database },
     { id: 'store_backups', label: 'Store and Backups', icon: HardDrive },
     { id: 'quotas', label: 'Resource Quotas', icon: Gauge },
     { id: 'notifications', label: 'Notifications', icon: Bell },

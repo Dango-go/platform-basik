@@ -26,6 +26,7 @@ export interface DeployedDatabase {
   monthly_cost: number;
   created_at: string;
   values_yaml: string;
+  deployment_type?: 'crd' | 'helm' | string;
 }
 
 export interface CloudCredential {

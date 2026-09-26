@@ -39,7 +39,8 @@ import {
   ChevronDown,
   Layers,
   Zap,
-  Check
+  Check,
+  Bookmark
 } from 'lucide-react';
 
 interface CreateDatabaseWizardPageProps {
@@ -201,6 +202,7 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
     DEFAULT_CRD_MANIFESTS[selectedEngine.engine_type] || DEFAULT_CRD_MANIFESTS['postgresql']
   );
   const [crdNamespace, setCrdNamespace] = useState<string>('default (specified in manifest)');
+  const [showSavedChartsModal, setShowSavedChartsModal] = useState<boolean>(false);
 
   const [isDeploying, setIsDeploying] = useState(false);
   const [clustersList, setClustersList] = useState<K8sCluster[]>(MOCK_CLUSTERS);
@@ -420,7 +422,8 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
         memory_usage_mb: ramMb,
         storage_gb: storageGb,
         monthly_cost: (cpuM / 1000) * 15.0 + (ramMb / 1024) * 4.0 + storageGb * 0.15,
-        values_yaml: installMode === 'crd' ? crdManifestContent : yamlContent
+        values_yaml: installMode === 'crd' ? crdManifestContent : yamlContent,
+        deployment_type: installMode === 'crd' ? 'crd' : 'helm'
       });
 
       onSuccess();
@@ -435,52 +438,86 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 text-slate-100">
-      {/* Header Card */}
-      <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-6 shadow-xl space-y-6">
-        <div>
-          <h3 className="text-xl font-extrabold text-white flex items-center gap-2">
-            <PlusCircle className="w-6 h-6 text-brand-sky" />
-            Create New Database Instance
-          </h3>
-          <p className="text-xs text-slate-400 mt-1">
-            Select engine parameters and preferred installation mode (Helm values.yaml or K8s Operator CRD)
-          </p>
+      {/* Header Card with Gradient Glassmorphism */}
+      <div className="bg-gradient-to-br from-[#0e1726]/95 via-[#0b1120]/95 to-[#070d18]/95 border border-slate-800/80 rounded-2xl p-6 shadow-2xl backdrop-blur-xl space-y-6 relative overflow-hidden">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h3 className="text-xl font-extrabold text-white flex items-center gap-2">
+              <PlusCircle className="w-6 h-6 text-brand-sky" />
+              Create New Database Instance
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Select engine parameters and preferred installation mode (Helm values.yaml or K8s Operator CRD)
+            </p>
+          </div>
+
+          {/* Saved Charts Button */}
+          <button
+            type="button"
+            onClick={() => setShowSavedChartsModal(true)}
+            className="px-4 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 hover:border-brand-sky/50 text-xs font-bold transition-all shadow-md flex items-center gap-2 group cursor-pointer"
+          >
+            <Bookmark className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+            <span>Saved Charts</span>
+          </button>
         </div>
 
-        {/* TWO INSTALLATION MODE BUTTONS: Helm Chart vs Operator CRD */}
+        {/* TWO INSTALLATION MODE BUTTONS: Helm Chart (Blue) vs Operator CRD (Sky-Blue) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           
-          {/* MODE 1: YAML Editor (Helm Chart) */}
+          {/* MODE 1: YAML Editor (Helm Chart) - Deep Blue Theme */}
           <button
+            type="button"
             onClick={() => setInstallMode('helm')}
-            className={`p-4 rounded-xl border text-left transition-all flex items-start gap-3.5 ${
+            className={`p-4 rounded-xl border text-left transition-all flex items-start gap-3.5 group cursor-pointer ${
               installMode === 'helm'
-                ? 'bg-brand-blue/20 border-brand-sky ring-2 ring-brand-sky/30 text-white shadow-lg'
-                : 'bg-bg-main border-accent-darkBorder text-slate-400 hover:bg-accent-darkHover'
+                ? 'bg-blue-950/70 border-blue-500 ring-2 ring-blue-500/40 text-white shadow-lg shadow-blue-900/30 hover:bg-blue-900/80 hover:border-blue-400 hover:shadow-blue-500/20'
+                : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:bg-blue-950/50 hover:border-blue-500/60 hover:text-blue-100 hover:shadow-md'
             }`}
           >
-            <FileCode2 className={`w-6 h-6 mt-0.5 shrink-0 ${installMode === 'helm' ? 'text-brand-sky' : 'text-slate-500'}`} />
+            <div className={`p-2 rounded-lg transition-all ${
+              installMode === 'helm'
+                ? 'bg-blue-600/30 text-blue-300 group-hover:bg-blue-600/50 group-hover:text-white'
+                : 'bg-slate-800/60 text-slate-400 group-hover:bg-blue-600/30 group-hover:text-blue-300'
+            }`}>
+              <FileCode2 className="w-5 h-5 shrink-0" />
+            </div>
             <div>
-              <span className="font-bold text-sm block text-white">1. YAML Editor (Helm Chart)</span>
-              <span className="text-xs text-slate-400 leading-normal">
+              <span className={`font-bold text-sm block transition-colors ${
+                installMode === 'helm' ? 'text-white group-hover:text-blue-200' : 'text-slate-300 group-hover:text-blue-300'
+              }`}>
+                1. YAML Editor (Helm Chart)
+              </span>
+              <span className="text-xs text-slate-400 group-hover:text-slate-300 leading-normal block mt-0.5">
                 Direct editing of `values.yaml` and option to add custom configuration files.
               </span>
             </div>
           </button>
 
-          {/* MODE 2: K8s Custom Resource (Operator Service CRD) */}
+          {/* MODE 2: K8s Custom Resource (Operator Service CRD) - Sky Blue Theme */}
           <button
+            type="button"
             onClick={() => setInstallMode('crd')}
-            className={`p-4 rounded-xl border text-left transition-all flex items-start gap-3.5 ${
+            className={`p-4 rounded-xl border text-left transition-all flex items-start gap-3.5 group cursor-pointer ${
               installMode === 'crd'
-                ? 'bg-brand-blue/20 border-brand-sky ring-2 ring-brand-sky/30 text-white shadow-lg'
-                : 'bg-bg-main border-accent-darkBorder text-slate-400 hover:bg-accent-darkHover'
+                ? 'bg-sky-950/70 border-sky-400 ring-2 ring-sky-400/40 text-white shadow-lg shadow-sky-900/30 hover:bg-sky-900/80 hover:border-sky-300 hover:shadow-sky-500/20'
+                : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:bg-sky-950/50 hover:border-sky-400/60 hover:text-sky-100 hover:shadow-md'
             }`}
           >
-            <Boxes className={`w-6 h-6 mt-0.5 shrink-0 ${installMode === 'crd' ? 'text-brand-sky' : 'text-slate-500'}`} />
+            <div className={`p-2 rounded-lg transition-all ${
+              installMode === 'crd'
+                ? 'bg-sky-600/30 text-sky-300 group-hover:bg-sky-600/50 group-hover:text-white'
+                : 'bg-slate-800/60 text-slate-400 group-hover:bg-sky-600/30 group-hover:text-sky-300'
+            }`}>
+              <Boxes className="w-5 h-5 shrink-0" />
+            </div>
             <div>
-              <span className="font-bold text-sm block text-white">2. Custom Resource (CRD)</span>
-              <span className="text-xs text-slate-400 leading-normal">
+              <span className={`font-bold text-sm block transition-colors ${
+                installMode === 'crd' ? 'text-white group-hover:text-sky-200' : 'text-slate-300 group-hover:text-sky-300'
+              }`}>
+                2. Custom Resource (CRD)
+              </span>
+              <span className="text-xs text-slate-400 group-hover:text-slate-300 leading-normal block mt-0.5">
                 Kubernetes Operator CRD Manifest (CloudNativePG / KubeDB via operator-service).
               </span>
             </div>
@@ -1158,6 +1195,81 @@ export const CreateDatabaseWizardPage: React.FC<CreateDatabaseWizardPageProps> =
               >
                 <FilePlus className="w-3.5 h-3.5" />
                 <span>Create & Open Editor</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ======================================================== */}
+      {/* 🔖 SAVED CHARTS MODAL */}
+      {/* ======================================================== */}
+      {showSavedChartsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-bg-card border border-accent-darkBorder rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 relative">
+            <div className="flex items-center justify-between border-b border-accent-darkBorder pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
+                  <Bookmark className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Saved Chart Templates</h3>
+                  <p className="text-[11px] text-slate-400">Pre-configured database packages and saved configuration templates</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSavedChartsModal(false)}
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-bg-main transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+              {DATABASE_CHARTS_CATALOG.map((chart) => (
+                <div
+                  key={chart.chart_name}
+                  onClick={() => {
+                    setSelectedChartOption(chart);
+                    setShowSavedChartsModal(false);
+                  }}
+                  className="p-3.5 bg-bg-main border border-accent-darkBorder hover:border-brand-sky/60 rounded-xl flex items-center justify-between gap-3 cursor-pointer group transition-all"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <img
+                      src={chart.icon_url}
+                      alt={chart.name}
+                      className="w-7 h-7 object-contain rounded bg-slate-900 p-1 shrink-0"
+                      onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                    />
+                    <div className="truncate">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-white group-hover:text-brand-sky transition-colors truncate">
+                          {chart.name}
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-blue/20 text-brand-sky font-semibold border border-brand-sky/30 shrink-0">
+                          {chart.engine_type}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 font-mono truncate mt-0.5">
+                        {chart.chart_name} • v{chart.default_version}
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="text-xs font-bold text-slate-400 group-hover:text-brand-sky flex items-center gap-1 shrink-0 transition-colors">
+                    Load Chart →
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-end border-t border-accent-darkBorder pt-3">
+              <button
+                type="button"
+                onClick={() => setShowSavedChartsModal(false)}
+                className="text-xs font-semibold px-4 py-2 rounded-xl border border-accent-darkBorder text-slate-400 hover:bg-accent-darkHover transition-all"
+              >
+                Close
               </button>
             </div>
           </div>

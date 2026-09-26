@@ -46,6 +46,7 @@ class K8sClientFactory:
                             logger.error(f"Invalid base64 CA cert: {e}")
                             raise ValueError("Invalid base64 CA cert")
                     
+                    # Create, write and close the file
                     tmp_ca = tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".crt")
                     tmp_ca.write(ca_data)
                     tmp_ca.flush()

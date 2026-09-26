@@ -6,6 +6,7 @@ from api.v1.endpoints.schemas import (
     InstallRequest,
     FileSaveRequest,
     ApplyRequest,
+    UninstallRequest,
     ChartPullResponse,
     CreateCustomFileRequest,
 )
@@ -139,3 +140,29 @@ async def deploy_chart(
         "namespace": request.namespace,
         "output": applied
     }
+
+
+# POST /api/v1/helm/uninstall
+@router.post("/uninstall")
+async def uninstall_chart(
+    request: UninstallRequest,
+    db: AsyncSession = Depends(db_session)
+):
+    service = HelmService(db_session=db)
+    result = await service.rm_release(
+        cluster_name=request.cluster_name,
+        release_name=request.release_name,
+        ca_cert_data=request.ca_cert_data,
+        api_server_url=request.api_server_url,
+        token=request.token,
+        user_name=request.user_name,
+        namespace=request.namespace
+    )
+
+    return {
+        "status": "success",
+        "message": f"Release '{request.release_name}' uninstalled successfully",
+        "release_name": request.release_name,
+        "output": result
+    }
+

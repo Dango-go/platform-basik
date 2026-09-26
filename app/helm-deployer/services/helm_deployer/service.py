@@ -177,40 +177,51 @@ class HelmService:
         self,
         cluster_name: str,
         release_name: str,
-        ca_cert_data: str, 
-        api_server_url: str, 
-        token: str,
-        user_name: str,
+        ca_cert_data: Optional[str] = None, 
+        api_server_url: Optional[str] = None, 
+        token: Optional[str] = None,
+        user_name: str = "cluster-admin",
         namespace: str = "default",
     ):
-
         self.validator.validate_release_name(release_name)
         self.validator.validate_namespace(namespace)
 
+        if not token or not api_server_url:
+            DISCOVERY_SERVICE_URL = os.getenv("DISCOVERY_SERVICE_URL", "http://discovery-service:8001")
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                try:
+                    response = await client.get(f"{DISCOVERY_SERVICE_URL}/api/v1/discovery/cluster/{cluster_name}")
+                    if response.status_code == 200:
+                        cluster_data = response.json()
+                        cluster_name = cluster_name or cluster_data.get("cluster_name") or ""
+                        api_server_url = api_server_url or cluster_data.get("endpoint") or ""
+                        ca_cert_data = ca_cert_data or cluster_data.get("ca_cert") or ""
+                        token = token or cluster_data.get("token") or ""
+                except Exception as e:
+                    print(f"Failed to fetch cluster details from discovery: {e}")
+
         kubeconfig_path = await self.kubeconfig_builder.fast_creating(
-        cluster_name=cluster_name,
-        release_name=release_name,
-        ca_cert_data=ca_cert_data,
-        api_server_url=api_server_url,
-        token=token,
-        user_name=user_name,
-        namespace=namespace
-        ) #-> str
+            cluster_name=cluster_name,
+            release_name=release_name,
+            ca_cert_data=ca_cert_data or "",
+            api_server_url=api_server_url or "",
+            token=token or "",
+            user_name=user_name,
+            namespace=namespace
+        )
 
         try:
-            unistalled = await self.helm_runner.uninstall(
+            uninstalled = await self.helm_runner.uninstall(
                 release_name=release_name,
                 kubeconfig_path=str(kubeconfig_path),
                 namespace=namespace
             )
 
-            reliase_dir = self.chart_manager.base_temp_dir / release_name
+            release_dir = self.chart_manager.base_temp_dir / release_name
+            if release_dir.exists():
+                shutil.rmtree(release_dir, ignore_errors=True)
 
-            if reliase_dir.exists():
-                shutil.rmtree(reliase_dir, ignore_errors=True)
-
-            return unistalled
-
+            return uninstalled
         finally:
             if kubeconfig_path.exists():
                 try:

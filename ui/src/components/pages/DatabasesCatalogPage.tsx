@@ -24,6 +24,28 @@ interface DatabasesCatalogPageProps {
   onTitleChange?: (title: string | null) => void;
 }
 
+const isCrdResource = (db: DeployedDatabase): boolean => {
+  if (db.deployment_type === 'crd') return true;
+  if (db.deployment_type === 'helm') return false;
+  if (db.engine_type?.toLowerCase() === 'crd') return true;
+  if (db.values_yaml) {
+    const trimmed = db.values_yaml.trim();
+    if (trimmed.startsWith('apiVersion:') || trimmed.includes('\napiVersion:') || trimmed.includes('kind:') || trimmed.startsWith('kind:')) {
+      return true;
+    }
+  }
+  if (
+    db.name.startsWith('secret-') ||
+    db.name.startsWith('crd-') ||
+    db.name.startsWith('cm-') ||
+    db.name.startsWith('configmap-') ||
+    db.name.startsWith('operator-')
+  ) {
+    return true;
+  }
+  return false;
+};
+
 export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({ 
   onNavigateCreate,
   onNavigateTab,
@@ -400,7 +422,13 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({
                       className="hover:bg-accent-darkHover transition-colors cursor-pointer"
                     >
                       <td className="p-4 font-bold text-white flex items-center gap-2">
-                        <Database className="w-4 h-4 text-brand-sky" />
+                        {isCrdResource(db) ? (
+                          <span className="text-xs font-bold text-brand-sky font-mono uppercase tracking-wider">
+                            crd
+                          </span>
+                        ) : (
+                          <Database className="w-4 h-4 text-brand-sky" />
+                        )}
                         <span className="hover:underline text-brand-sky font-bold">{db.name}</span>
                       </td>
                       <td className="p-4 text-slate-300 capitalize">
