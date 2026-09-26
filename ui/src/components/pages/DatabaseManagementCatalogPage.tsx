@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DatabaseCatalogItem, DeployedDatabase, K8sCluster } from '../../types';
-import { INITIAL_DEPLOYED_DBS } from '../../services/mockData';
+import { INITIAL_DEPLOYED_DBS, getEngineMonogram } from '../../services/mockData';
 import { apiClient } from '../../services/apiClient';
 import { YamlCodeEditor } from '../common/YamlCodeEditor';
 import { 
@@ -567,9 +567,14 @@ metrics:
               <div className="h-10 w-px bg-slate-800 hidden sm:block"></div>
               
               <div className="flex items-center gap-3.5">
-                <div className="w-13 h-13 rounded-2xl bg-bg-main p-2.5 flex items-center justify-center border border-accent-darkBorder shadow-inner shrink-0">
-                  <img src={item.icon_url} alt={item.name} className="w-9 h-9 object-contain" />
-                </div>
+                {(() => {
+                  const mono = getEngineMonogram(selectedInstance?.engine_type || item.engine_type);
+                  return (
+                    <div className={`w-12 h-12 rounded-xl ${mono.bg} ${mono.border} border flex items-center justify-center font-mono font-black text-base tracking-wider ${mono.text} ${mono.glow} shadow-md shrink-0`}>
+                      {mono.code}
+                    </div>
+                  );
+                })()}
                 
                 <div className="space-y-1">
                   <div className="flex items-center gap-2.5 flex-wrap">

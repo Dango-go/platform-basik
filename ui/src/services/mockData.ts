@@ -225,3 +225,45 @@ export const METRICS_SAMPLE: DatabaseMetrics = {
   cache_hit_ratio: [98.2, 98.5, 97.9, 99.1, 98.8, 98.4, 99.0, 98.7, 98.9, 99.2, 98.6, 98.9],
   slow_queries_duration: [12, 8, 45, 120, 85, 30, 60, 95, 40, 15, 10, 5]
 };
+
+export interface EngineMonogram {
+  code: string;
+  bg: string;
+  text: string;
+  border: string;
+  glow: string;
+}
+
+export const getEngineMonogram = (engineType: string = ''): EngineMonogram => {
+  const normalized = (engineType || '').toLowerCase().trim();
+  const dict: Record<string, EngineMonogram> = {
+    postgresql: { code: 'PG', bg: 'bg-sky-500/10', text: 'text-sky-400', border: 'border-sky-500/30', glow: 'shadow-sky-500/10' },
+    postgres:   { code: 'PG', bg: 'bg-sky-500/10', text: 'text-sky-400', border: 'border-sky-500/30', glow: 'shadow-sky-500/10' },
+    mysql:      { code: 'MY', bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30', glow: 'shadow-amber-500/10' },
+    mariadb:    { code: 'MA', bg: 'bg-teal-500/10', text: 'text-teal-400', border: 'border-teal-500/30', glow: 'shadow-teal-500/10' },
+    cockroach:  { code: 'CR', bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30', glow: 'shadow-emerald-500/10' },
+    mongodb:    { code: 'MG', bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30', glow: 'shadow-emerald-500/10' },
+    mongo:      { code: 'MG', bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30', glow: 'shadow-emerald-500/10' },
+    cassandra:  { code: 'CS', bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/30', glow: 'shadow-blue-500/10' },
+    couchbase:  { code: 'CB', bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/30', glow: 'shadow-rose-500/10' },
+    scylladb:   { code: 'SC', bg: 'bg-cyan-500/10', text: 'text-cyan-400', border: 'border-cyan-500/30', glow: 'shadow-cyan-500/10' },
+    scylla:     { code: 'SC', bg: 'bg-cyan-500/10', text: 'text-cyan-400', border: 'border-cyan-500/30', glow: 'shadow-cyan-500/10' },
+    qdrant:     { code: 'QD', bg: 'bg-pink-500/10', text: 'text-pink-400', border: 'border-pink-500/30', glow: 'shadow-pink-500/10' },
+    milvus:     { code: 'MV', bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/30', glow: 'shadow-indigo-500/10' },
+    chroma:     { code: 'CH', bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/30', glow: 'shadow-purple-500/10' },
+    weaviate:   { code: 'WV', bg: 'bg-teal-500/10', text: 'text-teal-400', border: 'border-teal-500/30', glow: 'shadow-teal-500/10' },
+    redis:      { code: 'RD', bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/30', glow: 'shadow-red-500/10' },
+    keydb:      { code: 'KD', bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30', glow: 'shadow-amber-500/10' },
+    dragonfly:  { code: 'DF', bg: 'bg-fuchsia-500/10', text: 'text-fuchsia-400', border: 'border-fuchsia-500/30', glow: 'shadow-fuchsia-500/10' },
+    clickhouse: { code: 'CK', bg: 'bg-yellow-500/10', text: 'text-yellow-400', border: 'border-yellow-500/30', glow: 'shadow-yellow-500/10' },
+    influxdb:   { code: 'IF', bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/30', glow: 'shadow-purple-500/10' },
+    influx:     { code: 'IF', bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/30', glow: 'shadow-purple-500/10' },
+    timescaledb:{ code: 'TS', bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30', glow: 'shadow-amber-500/10' },
+    timescale:  { code: 'TS', bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30', glow: 'shadow-amber-500/10' },
+    questdb:    { code: 'QT', bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/30', glow: 'shadow-rose-500/10' },
+  };
+
+  if (dict[normalized]) return dict[normalized];
+  const code = normalized.slice(0, 2).toUpperCase() || 'DB';
+  return { code, bg: 'bg-sky-500/10', text: 'text-sky-400', border: 'border-sky-500/30', glow: 'shadow-sky-500/10' };
+};

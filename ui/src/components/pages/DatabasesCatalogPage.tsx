@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CATALOG_ITEMS, INITIAL_DEPLOYED_DBS } from '../../services/mockData';
+import { CATALOG_ITEMS, INITIAL_DEPLOYED_DBS, getEngineMonogram } from '../../services/mockData';
 import { DeployedDatabase, CategoryType } from '../../types';
 import { apiClient } from '../../services/apiClient';
 import { DatabaseManagementCatalogPage } from './DatabaseManagementCatalogPage';
@@ -179,8 +179,7 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({
               {/* 4 CARDS PER ROW SQUARE GRID */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 {items.map((item) => {
-                  const isUnderDev = !readyEngines.includes(item.engine_type);
-                  const isFailedImage = failedImages[item.id];
+                  const mono = getEngineMonogram(item.engine_type);
                   return (
                     <div
                       key={item.id}
@@ -190,17 +189,8 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({
 
                       <div>
                         <div className="flex items-center justify-between mb-3">
-                          <div className="w-12 h-12 rounded-xl bg-bg-main p-2 flex items-center justify-center group-hover:scale-105 transition-transform border border-accent-darkBorder">
-                            {isFailedImage ? (
-                              <Database className="w-7 h-7 text-brand-sky" />
-                            ) : (
-                              <img 
-                                src={item.icon_url} 
-                                alt={item.name} 
-                                onError={() => handleImageError(item.id)}
-                                className="w-8 h-8 object-contain" 
-                              />
-                            )}
+                          <div className={`w-11 h-11 rounded-xl ${mono.bg} ${mono.border} border flex items-center justify-center font-mono font-black text-sm tracking-wider ${mono.text} ${mono.glow} shadow-md group-hover:scale-105 group-hover:border-brand-sky/60 transition-all`}>
+                            {mono.code}
                           </div>
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-bg-main text-slate-300 border border-accent-darkBorder">
                             {item.badge}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { DatabaseCatalogItem, DeployedDatabase } from '../../types';
-import { INITIAL_DEPLOYED_DBS } from '../../services/mockData';
+import { INITIAL_DEPLOYED_DBS, getEngineMonogram } from '../../services/mockData';
 import { 
   ArrowLeft, 
   PlusCircle, 
@@ -130,9 +130,14 @@ export const DatabaseEngineOverviewPage: React.FC<DatabaseEngineOverviewPageProp
           </button>
           <div className="h-8 w-px bg-slate-800 hidden sm:block"></div>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-bg-main p-2 flex items-center justify-center border border-accent-darkBorder">
-              <img src={item.icon_url} alt={item.name} className="w-8 h-8 object-contain" />
-            </div>
+            {(() => {
+              const mono = getEngineMonogram(item.engine_type);
+              return (
+                <div className={`w-12 h-12 rounded-xl ${mono.bg} ${mono.border} border flex items-center justify-center font-mono font-black text-base tracking-wider ${mono.text} ${mono.glow} shadow-md`}>
+                  {mono.code}
+                </div>
+              );
+            })()}
             <div>
               <h3 className="text-xl font-extrabold text-white flex items-center gap-2">
                 {item.name} Engine Catalog
