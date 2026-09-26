@@ -20,11 +20,13 @@ import {
 
 interface DatabasesCatalogPageProps {
   onNavigateCreate: (engineType?: string) => void;
+  onNavigateTab?: (tab: string) => void;
   onTitleChange?: (title: string | null) => void;
 }
 
 export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({ 
   onNavigateCreate,
+  onNavigateTab,
   onTitleChange 
 }) => {
   const [selectedDb, setSelectedDb] = useState<DeployedDatabase | null>(null);
@@ -126,6 +128,7 @@ export const DatabasesCatalogPage: React.FC<DatabasesCatalogPageProps> = ({
         deployedDbs={deployedDbs}
         onBack={handleBackToCatalog}
         onNavigateCreate={onNavigateCreate}
+        onNavigateTab={onNavigateTab}
       />
     );
   }

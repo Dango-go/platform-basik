@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { DatabaseCatalogItem, DeployedDatabase } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { DatabaseCatalogItem, DeployedDatabase, K8sCluster } from '../../types';
 import { INITIAL_DEPLOYED_DBS } from '../../services/mockData';
+import { apiClient } from '../../services/apiClient';
 import { 
   ArrowLeft, 
   Terminal as TerminalIcon, 
@@ -25,7 +26,9 @@ import {
   Activity,
   FilePlus,
   FileText,
-  FolderOpen
+  FolderOpen,
+  DollarSign,
+  Cloud
 } from 'lucide-react';
 
 interface DatabaseManagementCatalogPageProps {
@@ -34,6 +37,7 @@ interface DatabaseManagementCatalogPageProps {
   deployedDbs?: DeployedDatabase[];
   onBack: () => void;
   onNavigateCreate: (engineType: string) => void;
+  onNavigateTab?: (tab: string) => void;
 }
 
 // Engine-specific plugins & extensions configuration dictionary
@@ -111,7 +115,8 @@ export const DatabaseManagementCatalogPage: React.FC<DatabaseManagementCatalogPa
   selectedDb,
   deployedDbs = [],
   onBack,
-  onNavigateCreate
+  onNavigateCreate,
+  onNavigateTab
 }) => {
   // Available instances
   const allInstances = deployedDbs.length > 0 ? deployedDbs : INITIAL_DEPLOYED_DBS;
@@ -134,6 +139,23 @@ export const DatabaseManagementCatalogPage: React.FC<DatabaseManagementCatalogPa
     monthly_cost: 69.50,
     created_at: new Date().toISOString()
   };
+
+  // Clusters state to match provider and region for the target cluster
+  const [clustersList, setClustersList] = useState<K8sCluster[]>([]);
+
+  useEffect(() => {
+    const loadClusters = async () => {
+      try {
+        const list = await apiClient.getClusters();
+        if (list && list.length > 0) {
+          setClustersList(list);
+        }
+      } catch (err) {
+        console.warn('Failed to load clusters for provider detection:', err);
+      }
+    };
+    loadClusters();
+  }, []);
 
   // Top-level Day-2 Live Scaling Panel state
   const [selectedScaleInstanceId, setSelectedScaleInstanceId] = useState<string>(
@@ -426,48 +448,114 @@ metrics:
   return (
     <div className="space-y-8 text-slate-100">
       
-      {/* Header with Back Button */}
-      <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            className="p-2.5 hover:bg-accent-darkHover rounded-xl text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 text-xs font-bold border border-accent-darkBorder"
-          >
-            <ArrowLeft className="w-4 h-4" /> Back to Catalog
-          </button>
-          <div className="h-8 w-px bg-slate-800 hidden sm:block"></div>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-bg-main p-2 flex items-center justify-center border border-accent-darkBorder">
-              <img src={item.icon_url} alt={item.name} className="w-8 h-8 object-contain" />
+      {/* Header with Back Button and Instance Details */}
+      {(() => {
+        const clusterObj = clustersList.find(
+          c => c.name === selectedInstance?.cluster_name || c.id === selectedInstance?.cluster_name
+        );
+        const providerName = clusterObj?.provider || (selectedInstance?.cluster_name?.includes('eks') ? 'AWS EKS' : selectedInstance?.cluster_name?.includes('gke') ? 'GCP GKE' : selectedInstance?.cluster_name?.includes('aks') ? 'Azure AKS' : selectedInstance?.cluster_name?.includes('do') ? 'DigitalOcean' : 'Kubernetes');
+        
+        let providerBadgeClass = 'bg-slate-800/80 text-slate-300 border-slate-700';
+        if (providerName.includes('AWS')) {
+          providerBadgeClass = 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+        } else if (providerName.includes('GCP')) {
+          providerBadgeClass = 'bg-sky-500/10 text-sky-400 border-sky-500/30';
+        } else if (providerName.includes('Azure')) {
+          providerBadgeClass = 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+        } else if (providerName.includes('DigitalOcean')) {
+          providerBadgeClass = 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30';
+        }
+
+        return (
+          <div className="bg-bg-card border border-accent-darkBorder rounded-2xl p-6 shadow-xl flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6">
+            {/* LEFT SECTION: Back Button, Engine Icon, Release Name, Cluster & Provider Badge */}
+            <div className="flex items-center gap-4 flex-wrap sm:flex-nowrap">
+              <button
+                onClick={onBack}
+                className="p-2.5 hover:bg-accent-darkHover rounded-xl text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 text-xs font-bold border border-accent-darkBorder shrink-0"
+              >
+                <ArrowLeft className="w-4 h-4" /> Back to Catalog
+              </button>
+              
+              <div className="h-10 w-px bg-slate-800 hidden sm:block"></div>
+              
+              <div className="flex items-center gap-3.5">
+                <div className="w-13 h-13 rounded-2xl bg-bg-main p-2.5 flex items-center justify-center border border-accent-darkBorder shadow-inner shrink-0">
+                  <img src={item.icon_url} alt={item.name} className="w-9 h-9 object-contain" />
+                </div>
+                
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span className="text-xl font-black text-white tracking-tight">
+                      {selectedInstance?.name || 'prod-postgres-main'}
+                    </span>
+                    
+                    <span className="text-[11px] font-mono font-black px-2.5 py-0.5 rounded-md bg-brand-blue/25 text-brand-sky border border-brand-sky/40 uppercase shadow-sm">
+                      {selectedInstance?.engine_type?.toUpperCase() || 'POSTGRESQL'}
+                    </span>
+                    
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-950/70 text-emerald-400 border border-emerald-500/30">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      {selectedInstance?.status || 'running'}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 text-xs font-mono text-slate-400 flex-wrap">
+                    <span className="text-slate-500">cluster:</span>
+                    <strong className="text-slate-200 font-bold bg-bg-main px-2 py-0.5 rounded border border-slate-800">
+                      {selectedInstance?.cluster_name || 'test-eks'}
+                    </strong>
+                    
+                    <span className="text-slate-600">•</span>
+                    
+                    <span className="text-slate-500">provider:</span>
+                    <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded border ${providerBadgeClass}`}>
+                      <Cloud className="w-3 h-3" />
+                      {providerName}
+                    </span>
+                    
+                    {clusterObj?.region && (
+                      <span className="text-[11px] text-slate-400 font-sans">
+                        ({clusterObj.region})
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <h3 className="text-lg font-extrabold text-white flex items-center gap-2">
-                <span className="text-slate-400 font-semibold">name:</span>
-                <span className="text-brand-sky">{selectedInstance?.name || 'prod-postgres-main'}</span>
-                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-brand-blue/20 text-brand-sky border border-brand-sky/30">
-                  {selectedInstance?.engine_type?.toUpperCase() || 'POSTGRESQL'}
-                </span>
-                <span className="text-slate-300 font-semibold">Management Database Console</span>
-              </h3>
-              <p className="text-xs font-mono text-slate-400 mt-0.5 flex items-center gap-1.5">
-                <span className="text-slate-400 font-semibold">cluster:</span>
-                <strong className="text-white font-bold">{selectedInstance?.cluster_name || 'lenovo-prod-k8s'}</strong>
-              </p>
+
+            {/* RIGHT SECTION: Action Buttons (Terminal, Monitoring, Cost) */}
+            <div className="flex items-center gap-2.5 w-full xl:w-auto justify-end flex-wrap sm:flex-nowrap">
+              {/* TERMINAL BUTTON */}
+              <button
+                onClick={() => setShowTerminalModal(true)}
+                className="bg-bg-main hover:bg-brand-blue/20 text-brand-sky hover:text-white font-bold text-xs px-4 py-2.5 rounded-xl border border-brand-sky/30 hover:border-brand-sky shadow-md flex items-center gap-2 transition-all"
+              >
+                <TerminalIcon className="w-4 h-4 text-brand-sky" />
+                <span>Terminal</span>
+              </button>
+
+              {/* MONITORING BUTTON */}
+              <button
+                onClick={() => onNavigateTab ? onNavigateTab('monitoring') : null}
+                className="bg-bg-main hover:bg-purple-500/20 text-purple-400 hover:text-white font-bold text-xs px-4 py-2.5 rounded-xl border border-purple-500/30 hover:border-purple-400 shadow-md flex items-center gap-2 transition-all"
+              >
+                <Activity className="w-4 h-4 text-purple-400" />
+                <span>Monitoring</span>
+              </button>
+
+              {/* COST BUTTON */}
+              <button
+                onClick={() => onNavigateTab ? onNavigateTab('cost') : null}
+                className="bg-bg-main hover:bg-emerald-500/20 text-emerald-400 hover:text-white font-bold text-xs px-4 py-2.5 rounded-xl border border-emerald-500/30 hover:border-emerald-400 shadow-md flex items-center gap-2 transition-all"
+              >
+                <DollarSign className="w-4 h-4 text-emerald-400" />
+                <span>Cost</span>
+              </button>
             </div>
           </div>
-        </div>
-
-        <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-          {/* QUICK WEBPOD TERMINAL BUTTON */}
-          <button
-            onClick={() => setShowTerminalModal(true)}
-            className="bg-bg-main hover:bg-brand-blue/20 text-brand-sky hover:text-white font-bold text-xs px-4 py-2.5 rounded-xl border border-accent-darkBorder hover:border-brand-sky shadow-md flex items-center gap-2 transition-all"
-          >
-            <TerminalIcon className="w-4 h-4 text-brand-sky" />
-            <span>⚡ Interactive Web Terminal</span>
-          </button>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* ======================================================== */}
       {/* 🚀 DAY-2 LIVE SCALING & RESOURCE ALLOCATION PANEL */}

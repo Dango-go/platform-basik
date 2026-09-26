@@ -18,7 +18,7 @@ class CRDRunner:
         name: str,
         body: Dict[str, Any],
     ) -> Dict[str, Any]:
-
+ 
         kube_client = client.CustomObjectsApi(api_client)
 
         try:

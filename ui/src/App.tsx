@@ -62,6 +62,7 @@ export const App: React.FC = () => {
       {activeTab === 'databases' && (
         <DatabasesCatalogPage
           onNavigateCreate={handleNavigateCreate}
+          onNavigateTab={handleTabChange}
           onTitleChange={(title) => setCustomHeaderTitle(title)}
         />
       )}

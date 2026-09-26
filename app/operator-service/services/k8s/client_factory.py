@@ -19,7 +19,8 @@ class K8sClientFactory:
     ) -> client.ApiClient:
         configuration = client.Configuration()
         configuration.host = api_server_url
-        configuration.api_key = {"authorization": f"Bearer {auth_token}"}
+        configuration.api_key = {"authorization": auth_token}
+        configuration.api_key_prefix = {"authorization": "Bearer"}
         configuration.verify_ssl = verify_ssl
         if ssl_ca_cert and verify_ssl:
             if os.path.exists(ssl_ca_cert):
