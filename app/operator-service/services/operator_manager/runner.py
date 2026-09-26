@@ -1,7 +1,6 @@
 import logging
 from typing import Dict, Any
 from kubernetes_asyncio.client.rest import ApiException
-from kubernetes_asyncio.dynamic import DynamicClient
 from kubernetes_asyncio import client
 
 logger = logging.getLogger(__name__)
@@ -19,32 +18,33 @@ class CRDRunner:
         name: str,
         body: Dict[str, Any],
     ) -> Dict[str, Any]:
- 
-        dynamic_client = await DynamicClient(api_client) # for crds (CoreV1Api for base resources)
 
-        api_version = f"{group}/{version}" if group else version
-
-        resourcer_api = await dynamic_client.resources.get(api_version=api_version, kind=kind, plural=plural)
+        kube_client = client.CustomObjectsApi(api_client)
 
         try:
             logger.info("Creating CRD object %s/%s in namespace %s", group, name, namespace)
             # CREATE
-            result = await resourcer_api.create(
-                body=body,
+            result = await kube_client.create_namespaced_custom_object(
+                group=group,
+                version=version,
                 namespace=namespace,
+                plural=plural,
+                body=body,
             )
             return result
         except ApiException as e:
-            if e.status == 409: # if existe -> patch
-
+            if e.status == 409:  # if exists -> patch
                 logger.info("CRD object %s already exists. Patching...", name)
                 # PATCH
-                result = await resourcer_api.patch(
+                result = await kube_client.patch_namespaced_custom_object(
+                    group=group,
+                    version=version,
                     namespace=namespace,
+                    plural=plural,
                     name=name,
                     body=body,
                 )
-                return result.to_dict() # -> dict
+                return result
             logger.error("ApiException during CRD apply: %s", e)
             raise e
 
@@ -58,13 +58,15 @@ class CRDRunner:
         plural: str,
         name: str,
     ) -> Dict[str, Any]:
-         
-        init_client = DynamicClient(api_client)
-        api_version = f"{group}/{version}" if group else version
- 
-        resource_api = await init_client.resources.get(api_version=api_version, kind=kind, plural=plural)
-        result = await resource_api.get(name=name, namespace=namespace)
-        return result.to_dict()
+        kube_client = client.CustomObjectsApi(api_client)
+        result = await kube_client.get_namespaced_custom_object(
+            group=group,
+            version=version,
+            namespace=namespace,
+            plural=plural,
+            name=name,
+        )
+        return result
 
     @staticmethod
     async def delete(
@@ -76,12 +78,11 @@ class CRDRunner:
         plural: str,
         name: str,
     ) -> Dict[str, Any]:
-        
-        init_client = DynamicClient(api_client)
-        api_version = f"{group}/{version}" if group else version
-        resource_api = await init_client.resources.get(api_version=api_version, kind=kind, plural=plural)
-
-        return await resource_api.delete(
-            name=name,
+        kube_client = client.CustomObjectsApi(api_client)
+        return await kube_client.delete_namespaced_custom_object(
+            group=group,
+            version=version,
             namespace=namespace,
+            plural=plural,
+            name=name,
         )
