@@ -57,7 +57,7 @@ class ServiceYAMLManager:
             ssl_ca_cert=ca_cert_data
         )
 
-    
+
         return await self.runner.apply(
             api_client=api_net_client,
             kind=kind,
