@@ -63,6 +63,12 @@ class Saving_cluster_token:
                 "apiVersion": "authentication.k8s.io/v1",
                 "kind": "TokenRequest",
                 "spec": {
+                    "audiences": [
+                        "https://kubernetes.default.svc",
+                        base_url,
+                        "https://kubernetes.default.svc.cluster.local",
+                        "sts.amazonaws.com"
+                    ],
                     "expirationSeconds": 315360000  # 10 years
                 }
             }
